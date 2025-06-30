@@ -1,0 +1,83 @@
+{
+  "name": "vibex",
+  "version": "1.0.0",
+  "description": "A powerful AI-powered CLI for code assistance, analysis, and development workflows",
+  "main": "dist/cli.js",
+  "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "start": "node dist/cli.js",
+    "test": "jest",
+    "lint": "eslint src --ext .ts",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build",
+    "postinstall": "node scripts/postinstall.js || true"
+  },
+  "bin": {
+    "vibex": "./dist/cli.js"
+  },
+  "files": [
+    "dist/**/*",
+    "README.md",
+    "LICENSE",
+    "scripts/postinstall.js"
+  ],
+  "keywords": [
+    "ai",
+    "cli",
+    "code",
+    "assistant",
+    "claude",
+    "development",
+    "tools",
+    "vibex",
+    "anthropic",
+    "coding-assistant",
+    "developer-tools"
+  ],
+  "author": "Vibex Team",
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.20.0",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "chalk": "^5.3.0",
+    "commander": "^11.1.0",
+    "ink": "^6.0.1",
+    "inquirer": "^9.2.12",
+    "node-fetch": "^3.3.2",
+    "ora": "^7.0.1",
+    "punycode": "^2.3.1",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "table": "^6.8.1",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/inquirer": "^9.0.7",
+    "@types/jest": "^29.5.8",
+    "@types/node": "^20.9.0",
+    "@types/node-fetch": "^2.6.9",
+    "@types/uuid": "^9.0.7",
+    "@typescript-eslint/eslint-plugin": "^6.12.0",
+    "@typescript-eslint/parser": "^6.12.0",
+    "eslint": "^8.54.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.1",
+    "tsup": "^8.0.1",
+    "typescript": "^5.3.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vibex-team/vibex.git"
+  },
+  "bugs": {
+    "url": "https://github.com/vibex-team/vibex/issues"
+  },
+  "homepage": "https://github.com/vibex-team/vibex#readme",
+  "preferGlobal": true
+}
