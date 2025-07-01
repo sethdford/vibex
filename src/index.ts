@@ -210,6 +210,19 @@ async function handleAIQuery(input: string, app: any): Promise<void> {
   try {
     app.terminal.info('Asking Claude...\n');
     
+    // Initialize conversation history if available
+    try {
+      const { conversationHistory } = await import('./utils/conversation-history.js');
+      await conversationHistory.initialize();
+      await conversationHistory.addMessage('user', input, { 
+        command: 'chat',
+        timestamp: new Date()
+      });
+    } catch (historyError) {
+      // Don't fail if history tracking fails
+      logger.warn('Failed to track conversation history:', historyError);
+    }
+    
     const aiClient = app.ai;
     if (!aiClient) {
       app.terminal.error('AI client not available. Please check your authentication.');
@@ -220,7 +233,14 @@ async function handleAIQuery(input: string, app: any): Promise<void> {
     const spinner = app.terminal.spinner('Processing...');
     
     try {
-      const result = await aiClient.query(input);
+      // Query the AI with the user's input
+      const result = await aiClient.query(input, {
+        maxTokens: 4096,
+        temperature: app.config.ai?.temperature || 0.7,
+        model: app.config.ai?.model || 'claude-3-5-sonnet-20240620',
+        system: app.config.ai?.systemPrompt || 'You are Claude, an AI assistant by Anthropic.'
+      });
+      
       spinner.succeed('Response received');
       
       // Extract and display response
@@ -228,6 +248,23 @@ async function handleAIQuery(input: string, app: any): Promise<void> {
         .filter((block: any) => block.type === 'text')
         .map((block: any) => block.text)
         .join('\n') || 'No response received';
+      
+      // Track response in conversation history
+      try {
+        const { conversationHistory } = await import('./utils/conversation-history.js');
+        await conversationHistory.addMessage('assistant', responseText, {
+          command: 'chat',
+          model: app.config.ai?.model || 'claude-3-5-sonnet-20240620',
+          timestamp: new Date(),
+          tokens: result.usage ? {
+            input: result.usage.input_tokens || 0,
+            output: result.usage.output_tokens || 0
+          } : undefined
+        });
+      } catch (historyError) {
+        // Don't fail if history tracking fails
+        logger.warn('Failed to track response in conversation history:', historyError);
+      }
       
       app.terminal.display(responseText);
       

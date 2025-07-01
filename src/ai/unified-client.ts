@@ -204,7 +204,59 @@ export class UnifiedClaudeClient extends EventEmitter {
   }
 
   private async handleToolUse(message: Message, originalMessages: MessageParam[]): Promise<MessageParam[]> {
-    return [];
+    // Create a new array with all original messages
+    const newMessages = [...originalMessages];
+    
+    // Add the assistant's message with tool use blocks
+    newMessages.push({
+      role: 'assistant',
+      content: message.content,
+    });
+    
+    // Extract all tool use blocks
+    const toolUseBlocks = message.content.filter(block => block.type === 'tool_use') as ToolUseBlock[];
+    
+    // Process each tool use block
+    for (const toolUseBlock of toolUseBlocks) {
+      const { name, input } = toolUseBlock;
+      logger.debug(`Executing tool: ${name} with input:`, input);
+      
+      let toolResult: any;
+      
+      try {
+        // Get the tool handler from the registry
+        const tool = toolRegistry.get(name);
+        if (!tool) {
+          throw new Error(`Tool not found: ${name}`);
+        }
+        
+        // Execute the tool with the provided input
+        toolResult = await tool.handler(input);
+        logger.debug(`Tool ${name} executed successfully`);
+        
+      } catch (error) {
+        logger.error(`Error executing tool ${name}:`, error);
+        toolResult = {
+          error: error instanceof Error ? error.message : String(error)
+        };
+      }
+      
+      // Add the tool result as a user message (tool output)
+      newMessages.push({
+        role: 'user',
+        content: [
+          {
+            type: 'tool_result',
+            tool_use_id: toolUseBlock.id,
+            content: typeof toolResult === 'string'
+              ? toolResult
+              : JSON.stringify(toolResult, null, 2)
+          }
+        ]
+      });
+    }
+    
+    return newMessages;
   }
   
   private createResult(

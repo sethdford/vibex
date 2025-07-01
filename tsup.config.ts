@@ -17,6 +17,7 @@ export default defineConfig({
     'chalk',
     'table',
     'terminal-link',
+    'open',
     
     // React/UI dependencies - only external react-devtools-core
     'react-devtools-core',
