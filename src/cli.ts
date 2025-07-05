@@ -8,7 +8,6 @@
  */
 
 import { Command } from 'commander';
-import { logger } from './utils/logger.js';
 import { version } from './version.js';
 import type { ContentBlock } from './index.js';
 import {
@@ -26,12 +25,33 @@ interface CLIOptions {
 }
 
 interface CodeAnalysisOptions {
-  verbose?: boolean;
-  format?: 'text' | 'json';
+  language?: string;
 }
 
 // Performance tracking
 const startTime = Date.now();
+
+// Lazy-loaded modules cache
+const lazyModules = {
+  logger: null as any,
+  config: null as any,
+  ai: null as any,
+  ui: null as any,
+  tools: null as any,
+  commands: null as any,
+  context: null as any
+};
+
+/**
+ * Lazy load logger only when needed
+ */
+async function getLogger() {
+  if (!lazyModules.logger) {
+    const { logger } = await import('./utils/logger.js');
+    lazyModules.logger = logger;
+  }
+  return lazyModules.logger;
+}
 
 /**
  * Main CLI application
@@ -54,6 +74,17 @@ async function main() {
     
     // Parse command line arguments early
     const args = process.argv;
+    
+    // Handle help and version BEFORE any heavy loading
+    if (args.includes('--help') || args.includes('-h')) {
+      program.outputHelp();
+      return;
+    }
+    
+    if (args.includes('--version') || args.includes('-V')) {
+      console.log(version);
+      return;
+    }
     
     // Add commands but don't register heavy systems yet
     program
@@ -93,17 +124,6 @@ async function main() {
         await reviewCode(file, options);
       });
     
-    // Handle help and version AFTER commands are registered
-    if (args.includes('--help') || args.includes('-h')) {
-      program.outputHelp();
-      return;
-    }
-    
-    if (args.includes('--version') || args.includes('-V')) {
-      console.log(version);
-      return;
-    }
-    
     // If no arguments provided, start interactive mode
     if (args.length === 2) {
       await initializeHeavySystems();
@@ -129,13 +149,14 @@ async function main() {
     await program.parseAsync(args);
     
     // Log performance only if we loaded the logger
-    const { logger } = await import('./utils/logger.js');
-    const duration = Date.now() - startTime;
-    logger.info(`CLI completed in ${duration}ms`);
+    if (lazyModules.logger) {
+      const duration = Date.now() - startTime;
+      lazyModules.logger.info(`CLI completed in ${duration}ms`);
+    }
     
   } catch (error) {
     const { formatErrorForDisplay } = await import('./errors/formatter.js');
-    const { logger } = await import('./utils/logger.js');
+    const logger = await getLogger();
     logger.error('CLI Error:', formatErrorForDisplay(error));
     process.exit(1);
   }
@@ -143,25 +164,29 @@ async function main() {
 
 /**
  * Initialize heavy systems that are not needed for simple commands
+ * This is only called when actually needed, reducing startup memory usage
  */
 async function initializeHeavySystems() {
-  const { logger } = await import('./utils/logger.js');
-  const { registerBuiltInTools } = await import('./tools/index.js');
-  const { registerCommands } = await import('./commands/register.js');
+  const logger = await getLogger();
   
-  // Import context system to ensure it's included in build
-  const { 
-    ContextSystem,
-    createContextSystem
-  } = await import('./context/index.js');
+  // Load tools system only when needed
+  if (!lazyModules.tools) {
+    const { registerBuiltInTools } = await import('./tools/index.js');
+    lazyModules.tools = { registerBuiltInTools };
+    registerBuiltInTools();
+    logger.info('Registered built-in tools');
+  }
   
-  logger.info('Registered built-in tools');
-  registerBuiltInTools();
+  // Load commands system only when needed  
+  if (!lazyModules.commands) {
+    const { registerCommands } = await import('./commands/register.js');
+    lazyModules.commands = { registerCommands };
+    registerCommands();
+    logger.info('Commands registered');
+  }
   
-  logger.info('Context system loaded');
-  
-  console.log('Module patching system initialized');
-  registerCommands();
+  // Note: Context system is loaded on-demand in startInteractiveMode
+  // to avoid loading heavy subdirectory discovery during simple operations
 }
 
 /**
@@ -177,16 +202,15 @@ async function startInteractiveMode(options: CLIOptions) {
     return;
   }
   
-  const { startUI } = await import('./ui/index.js');
-  const { loadConfig } = await import('./config/index.js');
-  const { initAI } = await import('./ai/index.js');
-  
-  // Load configuration
-  const config = await loadConfig();
+  // Lazy load configuration
+  if (!lazyModules.config) {
+    const { loadConfig } = await import('./config/index.js');
+    lazyModules.config = await loadConfig();
+  }
+  const config = lazyModules.config;
   
   // Apply CLI options to configuration
   if (options.fullContext !== undefined) {
-    // Set full context mode in configuration
     config.fullContext = options.fullContext;
   }
   if (options.model) {
@@ -196,23 +220,44 @@ async function startInteractiveMode(options: CLIOptions) {
     config.debug = options.debug;
   }
   
-  // Initialize AI client BEFORE starting UI
-  console.log('🤖 Initializing AI client...');
-  try {
-    await initAI(config);
-    console.log('✅ AI client initialized successfully');
-  } catch (error) {
-    const { logger } = await import('./utils/logger.js');
-    logger.error('Failed to initialize AI client:', error);
-    process.exit(1);
+  // Lazy load AI client
+  if (!lazyModules.ai) {
+    console.log('🤖 Initializing AI client...');
+    try {
+      const { initAI } = await import('./ai/index.js');
+      await initAI(config);
+      lazyModules.ai = true;
+      console.log('✅ AI client initialized successfully');
+    } catch (error) {
+      const logger = await getLogger();
+      logger.error('Failed to initialize AI client:', error);
+      process.exit(1);
+    }
   }
   
-  // Load default app configuration
-  const { defaults } = await import('./config/defaults.js');
+  // Lazy load UI system
+  if (!lazyModules.ui) {
+    const { startUI } = await import('./ui/index.js');
+    lazyModules.ui = { startUI };
+  }
   
-  // Start UI with default configuration and initial context
-  await startUI({
-    config: defaults,
+  // Load minimal default configuration instead of full defaults
+  const minimalDefaults = {
+    version: '0.2.29',
+    debug: config.debug || false,
+    fullContext: config.fullContext || false,
+    ai: config.ai,
+    terminal: {
+      theme: 'system' as const,
+      useColors: true,
+      showProgressIndicators: true,
+      codeHighlighting: true
+    }
+  };
+  
+  // Start UI with minimal configuration and initial context
+  await lazyModules.ui.startUI({
+    config: minimalDefaults,
     initialContext,
     startupWarnings: [],
     updateMessage: null,

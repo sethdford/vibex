@@ -298,6 +298,13 @@ export class GitAwareFileFilter extends EventEmitter {
       result.metadata.size = stats.size;
       result.metadata.modifiedTime = stats.mtime.getTime();
       
+      // Skip binary detection for directories
+      if (!stats.isFile()) {
+        result.include = false;
+        result.reason = 'Not a file (directory or other type)';
+        return result;
+      }
+      
       // Determine file type
       result.fileType = this.determineFileType(absolutePath, filename, extension);
       result.metadata.isContextFile = this.isContextFile(filename);
@@ -352,7 +359,7 @@ export class GitAwareFileFilter extends EventEmitter {
         return result;
       }
       
-      // Check binary file exclusion
+      // Check binary file exclusion (only for actual files)
       if (this.config.excludeBinaryFiles) {
         const isBinary = this.config.enableAdvancedBinaryDetection
           ? isBinaryFile(absolutePath)

@@ -390,9 +390,15 @@ const App = ({ config, initialContext, settings = {}, startupWarnings = [], upda
     initializeClaudeConfig();
   }, [config]);
 
-  // Automatic context loading on startup
+  // Automatic context loading on startup - made optional to prevent UI hanging
   useEffect(() => {
     const loadInitialContext = async () => {
+      // Skip context loading if not in full context mode to prevent startup hangs
+      if (!config.fullContext) {
+        logger.debug('Skipping automatic context loading (not in full context mode)');
+        return;
+      }
+      
       try {
         logger.info('🔍 Loading project context automatically...');
         
@@ -440,11 +446,22 @@ const App = ({ config, initialContext, settings = {}, startupWarnings = [], upda
       }
     };
     
-    // Load context after a brief delay to allow UI to initialize
-    const timeoutId = setTimeout(loadInitialContext, 500);
+    // Only load context if in full context mode, and with a longer delay to ensure UI is ready
+    if (config.fullContext) {
+      const timeoutId = setTimeout(loadInitialContext, 1500);
+      return () => clearTimeout(timeoutId);
+    }
     
-    return () => clearTimeout(timeoutId);
-  }, [addItem]);
+    // For normal mode, just add a welcome message
+    addItem(
+      {
+        type: MessageType.INFO,
+        text: `🚀 VibeX ready! Use --full-context flag for automatic project analysis, or /context load to load context manually.`,
+      },
+      Date.now(),
+    );
+    
+  }, [addItem, config.fullContext]);
 
   // Command processing
   const {

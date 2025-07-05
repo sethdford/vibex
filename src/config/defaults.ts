@@ -21,11 +21,43 @@ import type { AppConfigType } from './schema.js';
 import { CLAUDE_4_MODELS } from './schema.js';
 
 /**
- * Default configuration values
- * 
- * These defaults provide sensible starting values for all configuration options.
- * They are used when no user configuration is provided or when configuration
- * values are missing. The defaults emphasize security, performance, and usability.
+ * Lightweight defaults for CLI startup - reduces memory usage
+ * Full configuration is loaded on-demand when needed
+ */
+export const lightweightDefaults = {
+  version: '0.2.29',
+  debug: false,
+  fullContext: false,
+  
+  api: {
+    baseUrl: 'https://api.anthropic.com',
+    version: 'v1',
+    timeout: 60000,
+    key: process.env.ANTHROPIC_API_KEY || ''
+  },
+  
+  ai: {
+    model: CLAUDE_4_MODELS.CLAUDE_4_SONNET,
+    temperature: 0.5,
+    maxTokens: 4096,
+    maxHistoryLength: 20,
+    enableCaching: true,
+    enableTools: true,
+    performanceMode: 'balanced' as const
+  },
+  
+  terminal: {
+    theme: 'system' as const,
+    useColors: true,
+    showProgressIndicators: true,
+    codeHighlighting: true,
+    streamingSpeed: 40
+  }
+};
+
+/**
+ * Full default configuration - loaded on-demand
+ * Only use this when you need the complete configuration object
  */
 export const defaults: AppConfigType = {
   // Core system configuration

@@ -1,33 +1,69 @@
+# =============================================================================
 # Dependencies
+# =============================================================================
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
 
-# Build outputs
+# =============================================================================
+# Build Outputs & Artifacts
+# =============================================================================
 dist/
 build/
+out/
 *.tsbuildinfo
+*.d.ts.map
+*.js.map
 
 # Package files
 *.tgz
-package-lock.json
 
-# Environment variables
+# =============================================================================
+# Environment & Configuration
+# =============================================================================
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
-# IDE and editor files
+# =============================================================================
+# Security & Authentication
+# =============================================================================
+# API Keys and credentials
+*.key
+*.pem
+*.p12
+*.secret
+*-auth.json
+.claude-code-auth.json
+credentials.json
+auth-config.json
+
+# Environment files with API keys
+.env.*
+!.env.example
+!.env.template
+
+# =============================================================================
+# IDE and Editor Files
+# =============================================================================
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
-# OS generated files
+# =============================================================================
+# OS Generated Files
+# =============================================================================
 .DS_Store
 .DS_Store?
 ._*
@@ -36,62 +72,64 @@ package-lock.json
 ehthumbs.db
 Thumbs.db
 
-# Logs
+# =============================================================================
+# Logs & Runtime Data
+# =============================================================================
 logs/
 *.log
-
-# Runtime data
+dev-debug.log
 pids/
 *.pid
 *.seed
 *.pid.lock
 
-# Coverage directory used by tools like istanbul
+# =============================================================================
+# Testing & Coverage
+# =============================================================================
 coverage/
 *.lcov
-
-# nyc test coverage
 .nyc_output
-
-# Jest
 .jest/
-
-# ESLint cache
 .eslintcache
 
+# =============================================================================
+# Cache Directories
+# =============================================================================
+.npm
+.cache
+.parcel-cache
+.next
+.nuxt
+.vuepress/dist
+.fusebox/
+
+# =============================================================================
+# Application-Specific Directories
+# =============================================================================
+# AI and tool-related directories
+.vibex/
+.claude/
+.cursor/
+.taskmaster/
+
+# Temporary directories
+temp/
+tmp/
+
+# =============================================================================
+# Optional Files
+# =============================================================================
 # Optional npm cache directory
 .npm
 
 # Optional REPL history
 .node_repl_history
 
-# Output of 'npm pack'
-*.tgz
-
 # Yarn Integrity file
 .yarn-integrity
 
-# dotenv environment variables file
-.env
-
-# parcel-bundler cache (https://parceljs.org/)
-.cache
-.parcel-cache
-
-# next.js build output
-.next
-
-# nuxt.js build output
-.nuxt
-
-# vuepress build output
-.vuepress/dist
-
 # Serverless directories
 .serverless
-
-# FuseBox cache
-.fusebox/
 
 # DynamoDB Local files
 .dynamodb/
@@ -99,24 +137,23 @@ coverage/
 # TernJS port file
 .tern-port
 
-# Application-specific
-.vibex/
-temp/
-tmp/
+# =============================================================================
+# Backup Files
+# =============================================================================
+*.backup
+*.bak
+*.orig
 
-logs
-dev-debug.log
-# Dependency directories
-# Editor directories and files
-.idea
-.vscode
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-# OS specific
+# =============================================================================
+# Git Submodules (if any sensitive data)
+# =============================================================================
+# Uncomment if you want to exclude specific submodules
+# benchmarks/
 
-# Task files
-# tasks.json
-# tasks/ 
+# =============================================================================
+# Package Manager Lock Files (optional - uncomment if you want to exclude)
+# =============================================================================
+# Note: Generally you want to commit lock files, but uncomment if needed
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml 

@@ -146,7 +146,7 @@ const claudeOptimizedConfigSchema = z.object({
   features: advancedFeatureConfigSchema,
   model: z.string().default('claude-sonnet-4-20250514'),
   version: z.string().default('1.0.0'),
-  lastUpdated: z.date().default(() => new Date())
+  lastUpdated: z.coerce.date().default(() => new Date())
 }).default({});
 
 // Main application configuration schema
@@ -271,7 +271,7 @@ export const appConfigSchema = z.object({
       enableSuggestions: z.boolean().default(true)
     }).default({}),
     configVersion: z.string().default('1.0.0'),
-    lastModified: z.date().default(() => new Date())
+    lastModified: z.coerce.date().default(() => new Date())
   }).default({}),
   
   // Performance configuration
@@ -283,7 +283,7 @@ export const appConfigSchema = z.object({
   // Integration metadata
   integration: z.object({
     version: z.string().default('1.0.0'),
-    lastIntegrated: z.date().default(() => new Date()),
+    lastIntegrated: z.coerce.date().default(() => new Date()),
     activeOptimizations: z.array(z.string()).default([]),
     performanceMetrics: z.object({
       configLoadTime: z.number().default(0),

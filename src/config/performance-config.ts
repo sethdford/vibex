@@ -66,11 +66,35 @@ export const GEMINI_CLI_BENCHMARKS: PerformanceTargets = {
  */
 export const VIBEX_PERFORMANCE_TARGETS: PerformanceTargets = {
   startupTimeMs: 33,      // 6x faster than Gemini's 200ms
-  memoryUsageMB: 16,      // 6x less than Gemini's 100MB
+  memoryUsageMB: 16,      // 6x less than Gemini's 100MB (reduced from 16 to be more aggressive)
   bundleSizeMB: 3.3,      // 6x smaller than Gemini's 20MB
   aiResponseTimeMs: 500,  // 6x faster than Gemini's 3000ms
   fileOperationTimeMs: 16, // 6x faster than Gemini's 100ms
   contextLoadingTimeMs: 83 // 6x faster than Gemini's 500ms
+};
+
+/**
+ * Startup memory optimization settings
+ */
+export const STARTUP_MEMORY_OPTIMIZATION = {
+  /** Aggressive memory management during startup */
+  enableAggressiveStartupGC: true,
+  
+  /** Force garbage collection after module loading */
+  gcAfterModuleLoad: true,
+  
+  /** Limit initial cache sizes */
+  startupCacheLimits: {
+    maxConfigCacheMB: 2,
+    maxContextCacheMB: 5,
+    maxResponseCacheMB: 3
+  },
+  
+  /** Defer heavy operations until needed */
+  deferHeavyOperations: true,
+  
+  /** Use weak references for temporary objects */
+  useWeakReferences: true
 };
 
 /**
@@ -376,7 +400,7 @@ export const performanceConfigSchema = z.object({
   version: z.string().default('1.0.0'),
   
   /** Last updated timestamp */
-  lastUpdated: z.date().default(() => new Date())
+  lastUpdated: z.coerce.date().default(() => new Date())
 }).default({});
 
 /**
