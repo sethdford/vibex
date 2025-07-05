@@ -7,9 +7,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { useProgress } from '../contexts/ProgressContext';
-import { StatusType } from '../components/StatusIcon';
-import { ProgressStep } from '../components/DetailedProgressInfo';
+import { useProgress } from '../contexts/ProgressContext.js';
+import type { StatusType } from '../components/StatusIcon.js';
+import type { ProgressStep } from '../components/DetailedProgressInfo.js';
 
 /**
  * Progress bar options
@@ -62,9 +62,9 @@ interface ProgressBarOptions {
 }
 
 /**
- * Progress bar result
+ * Result interface for progress bar operations
  */
-interface ProgressBarResult {
+export interface ProgressBarResult {
   /**
    * Progress bar ID
    */
@@ -123,7 +123,7 @@ interface ProgressBarResult {
   /**
    * Get all progress data
    */
-  getProgressData: () => any;
+  getProgressData: () => Record<string, unknown>;
   
   /**
    * Get estimated time remaining (in seconds)
@@ -246,8 +246,9 @@ export function useProgressBar(
   }, [getProgress]);
   
   // Get all progress data
-  const getProgressData = useCallback(() => {
-    return getProgress(idRef.current);
+  const getProgressData = useCallback((): Record<string, unknown> => {
+    const progress = getProgress(idRef.current);
+    return (progress as unknown as Record<string, unknown>) || {};
   }, [getProgress]);
   
   // Get estimated time remaining

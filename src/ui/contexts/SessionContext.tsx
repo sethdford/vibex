@@ -6,7 +6,8 @@
  */
 
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import { HistoryItem, MessageType, SessionStats } from '../types';
+import type { HistoryItem, SessionStats } from '../types.js';
+import { MessageType } from '../types.js';
 
 /**
  * Interface for the session context value
@@ -52,7 +53,7 @@ const SessionContext = createContext<SessionContextValue | undefined>(undefined)
  * Default statistics for a new session
  */
 const defaultStats: SessionStats = {
-  totalTokens: 0,
+  startTime: Date.now(),
   messageCount: 0,
   currentResponse: {
     promptTokenCount: 0,
@@ -189,7 +190,8 @@ export const addSystemMessage = (
 ): void => {
   addItem({
     type: MessageType.SYSTEM,
-    text
+    text,
+    timestamp: Date.now()
   });
 };
 
@@ -202,7 +204,8 @@ export const addErrorMessage = (
 ): void => {
   addItem({
     type: MessageType.ERROR,
-    text
+    text,
+    timestamp: Date.now()
   });
 };
 
@@ -215,7 +218,8 @@ export const addInfoMessage = (
 ): void => {
   addItem({
     type: MessageType.INFO,
-    text
+    text,
+    timestamp: Date.now()
   });
 };
 
@@ -224,10 +228,8 @@ export const addInfoMessage = (
  */
 export const SessionStatsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   children 
-}) => {
-  return (
+}) => (
     <SessionProvider>
       {children}
     </SessionProvider>
   );
-};

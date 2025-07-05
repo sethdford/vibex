@@ -44,6 +44,11 @@ export enum MessageType {
   ASSISTANT = 'assistant',
   
   /**
+   * System message
+   */
+  SYSTEM = 'system',
+  
+  /**
    * Tool use request from the AI
    */
   TOOL_USE = 'tool_use',
@@ -70,6 +75,11 @@ export enum MessageType {
 }
 
 /**
+ * Tool input parameters type
+ */
+export type ToolInputParameters = Record<string, string | number | boolean | null | undefined>;
+
+/**
  * Tool use information
  */
 export interface ToolUse {
@@ -81,7 +91,7 @@ export interface ToolUse {
   /**
    * Tool input parameters
    */
-  input: any;
+  input: ToolInputParameters;
   
   /**
    * Tool ID

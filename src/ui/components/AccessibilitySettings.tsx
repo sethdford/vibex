@@ -7,9 +7,9 @@
 import React, { useState } from 'react';
 import { Box, Text } from 'ink';
 import SelectInput from 'ink-select-input';
-import { Colors } from '../colors';
-import { useSettings } from '../hooks/useSettings';
-import { AccessibleText, Heading } from './AccessibleText';
+import { Colors } from '../colors.js';
+import { useSettings } from '../hooks/useSettings.js';
+import { AccessibleText, Heading } from './AccessibleText.js';
 
 /**
  * Accessibility settings props
@@ -42,7 +42,7 @@ export const AccessibilitySettings: React.FC<AccessibilitySettingsProps> = ({
       key: 'accessibility.enabled',
       label: 'Enable Accessibility Mode',
       description: 'Optimize terminal output for screen readers and assistive technologies',
-      value: settings?.accessibility?.enabled ?? false,
+      value: settings?.['accessibility.enabled'] ?? false,
       options: [
         { label: 'Enabled', value: true },
         { label: 'Disabled', value: false },
@@ -52,7 +52,7 @@ export const AccessibilitySettings: React.FC<AccessibilitySettingsProps> = ({
       key: 'accessibility.disableLoadingPhrases',
       label: 'Disable Loading Phrases',
       description: 'Replace random loading phrases with simple static text for better screen reader experience',
-      value: settings?.accessibility?.disableLoadingPhrases ?? false,
+      value: settings?.['accessibility.disableLoadingPhrases'] ?? false,
       options: [
         { label: 'Enabled (no phrases)', value: true },
         { label: 'Disabled (show phrases)', value: false },
@@ -62,7 +62,7 @@ export const AccessibilitySettings: React.FC<AccessibilitySettingsProps> = ({
       key: 'terminal.useHighContrast',
       label: 'High Contrast Mode',
       description: 'Use high contrast colors for better visibility',
-      value: settings?.terminal?.useHighContrast ?? false,
+      value: settings?.['terminal.useHighContrast'] ?? false,
       options: [
         { label: 'Enabled', value: true },
         { label: 'Disabled', value: false },
@@ -72,7 +72,7 @@ export const AccessibilitySettings: React.FC<AccessibilitySettingsProps> = ({
       key: 'terminal.fontSizeAdjustment',
       label: 'Font Size Adjustment',
       description: 'Adjust relative font size (requires terminal support)',
-      value: settings?.terminal?.fontSizeAdjustment ?? 'normal',
+      value: settings?.['terminal.fontSizeAdjustment'] ?? 'normal',
       options: [
         { label: 'Smaller', value: 'small' },
         { label: 'Normal', value: 'normal' },
@@ -83,7 +83,7 @@ export const AccessibilitySettings: React.FC<AccessibilitySettingsProps> = ({
       key: 'terminal.reduceMotion',
       label: 'Reduce Motion',
       description: 'Minimize animations and motion effects',
-      value: settings?.terminal?.reduceMotion ?? false,
+      value: settings?.['terminal.reduceMotion'] ?? false,
       options: [
         { label: 'Enabled (reduced motion)', value: true },
         { label: 'Disabled (normal motion)', value: false },
@@ -93,7 +93,7 @@ export const AccessibilitySettings: React.FC<AccessibilitySettingsProps> = ({
       key: 'terminal.simplifyInterface',
       label: 'Simplify Interface',
       description: 'Use a simpler interface with fewer visual elements',
-      value: settings?.terminal?.simplifyInterface ?? false,
+      value: settings?.['terminal.simplifyInterface'] ?? false,
       options: [
         { label: 'Enabled (simplified)', value: true },
         { label: 'Disabled (normal)', value: false },
@@ -111,7 +111,7 @@ export const AccessibilitySettings: React.FC<AccessibilitySettingsProps> = ({
   };
   
   // Handle value selection
-  const handleSelectValue = ({ value }: { value: any }) => {
+  const handleSelectValue = ({ value }: { value: string | number | boolean }) => {
     if (currentOption) {
       saveSetting(currentOption.key, value);
     }

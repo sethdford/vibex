@@ -27,27 +27,97 @@ import { telemetry } from './telemetry/index.js';
 import { logger, LogLevel } from './utils/logger.js';
 import { formatErrorForDisplay } from './errors/formatter.js';
 import { mcpClient } from './tools/mcp-client.js';
+import { initSandbox } from './security/sandbox.js';
+import { handleShellInput, isShellCommand } from './commands/shell-command.js';
+import { handleAtCommand } from './commands/at-command-processor.js';
+import type { AppConfigType } from './config/schema.js';
+import type { PromptValue } from './terminal/prompt.js';
+import type { PromptOptions } from './terminal/types.js';
 
 /**
- * Application instance that holds references to all initialized subsystems
+ * Application configuration interface
+ */
+export interface AppConfig {
+  logger?: {
+    level?: string;
+  };
+  mcp?: {
+    servers?: Record<string, unknown>;
+  };
+  ai?: {
+    model?: string;
+    temperature?: number;
+    systemPrompt?: string;
+    [key: string]: unknown;
+  };
+  workspacePath?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Terminal interface for app operations
+ */
+export interface AppTerminal {
+  displayWelcome(): void;
+  warn(message: string): void;
+  info(message: string): void;
+  error(message: string): void;
+  prompt<T extends PromptValue>(options: PromptOptions): Promise<T>;
+  spinner(message: string): {
+    succeed(message: string): void;
+    fail(message: string): void;
+  };
+  display(message: string): void;
+}
+
+/**
+ * App interface
  */
 export interface AppInstance {
-  config: any;
-  terminal: any;
-  auth: any;
-  ai: any;
-  codebase: any;
-  commands: any;
-  fileOps: any;
-  execution: any;
-  errors?: any;
-  telemetry?: any;
+  config: AppConfig;
+  terminal: AppTerminal;
+  auth: unknown;
+  ai: {
+    query(input: string, options: {
+      maxTokens?: number;
+      temperature?: number;
+      model?: string;
+      system?: string;
+    }): Promise<{
+      message: {
+        content: string | Array<{
+          type: string;
+          text?: string;
+        }>;
+      };
+      usage?: {
+        input_tokens?: number;
+        output_tokens?: number;
+      };
+    }>;
+  } | null;
+  codebase: unknown;
+  commands?: unknown;
+  fileOps: unknown;
+  execution: unknown;
+  sandbox?: unknown;
+  errors?: unknown;
+  telemetry?: unknown;
+}
+
+/**
+ * Content block interface
+ */
+export interface ContentBlock {
+  type: string;
+  text?: string;
+  [key: string]: unknown;
 }
 
 /**
  * Main application initialization
  */
-export async function initialize(): Promise<any> {
+export async function initialize(): Promise<AppInstance> {
   try {
     // Load configuration
     const config = await loadConfig();
@@ -60,8 +130,9 @@ export async function initialize(): Promise<any> {
     await authManager.initialize();
     const ai = await initAI(config);
     const codebase = await initCodebaseAnalysis(config);
-    const fileOps = await initFileOperations(config);
-    const execution = await initExecutionEnvironment(config);
+    const sandbox = await initSandbox(config);
+    const fileOps = await initFileOperations(config, sandbox);
+    const execution = await initExecutionEnvironment(config, sandbox);
     registerCommands();
 
     return {
@@ -70,6 +141,7 @@ export async function initialize(): Promise<any> {
       auth: authManager,
       ai,
       codebase,
+      sandbox,
       fileOps,
       execution,
       telemetry
@@ -83,7 +155,7 @@ export async function initialize(): Promise<any> {
 /**
  * Start interactive session with enhanced CLI interface
  */
-export async function startInteractiveSession(app: any): Promise<void> {
+export async function startInteractiveSession(app: AppInstance): Promise<void> {
   try {
     logger.info('Starting interactive session');
     
@@ -131,7 +203,7 @@ export async function startInteractiveSession(app: any): Promise<void> {
 /**
  * Main interactive command loop
  */
-async function startInteractiveLoop(app: any): Promise<void> {
+async function startInteractiveLoop(app: AppInstance): Promise<void> {
   const { commandRegistry } = await import('./commands/index.js');
   
   // Check if we're in an interactive terminal
@@ -144,27 +216,50 @@ async function startInteractiveLoop(app: any): Promise<void> {
   while (true) {
     try {
       // Show prompt
-      const input = await app.terminal.prompt({
+      const input = await app.terminal.prompt<string>({
         type: 'input',
         name: 'command',
         message: '❯'
       });
       
-      if (!input.command || input.command.trim() === '') {
+      if (!input || input.trim() === '') {
         continue;
       }
       
-      const trimmedInput = input.command.trim();
+      const trimmedInput = input.trim();
       
       // Handle exit commands
       if (['exit', 'quit', 'q'].includes(trimmedInput.toLowerCase())) {
         break;
       }
       
+      // Handle shell commands (prefixed with !)
+      if (isShellCommand(trimmedInput)) {
+        await handleShellInput(trimmedInput);
+        continue;
+      }
+      
       // Handle slash commands
       if (trimmedInput.startsWith('/')) {
         await handleSlashCommand(trimmedInput, app);
         continue;
+      }
+      
+      // Handle @ commands for file context
+      if (trimmedInput.includes('@')) {
+        try {
+          const { processedQuery, shouldProceed } = await handleAtCommand(trimmedInput, app.config as AppConfigType);
+          
+          if (shouldProceed && processedQuery) {
+            // Use the processed input instead of original input
+            await handleAIQuery(processedQuery, app);
+            continue;
+          }
+          // If @ command handling failed, fall through to regular query
+        } catch (error) {
+          app.terminal.error(`Error processing @ commands: ${formatErrorForDisplay(error)}`);
+          continue;
+        }
       }
       
       // Handle AI queries
@@ -189,7 +284,7 @@ async function startInteractiveLoop(app: any): Promise<void> {
 /**
  * Handle slash commands
  */
-async function handleSlashCommand(input: string, app: any): Promise<void> {
+async function handleSlashCommand(input: string, app: AppInstance): Promise<void> {
   const { commandRegistry, executeCommand } = await import('./commands/index.js');
   
   const parts = input.slice(1).split(' ');
@@ -206,7 +301,7 @@ async function handleSlashCommand(input: string, app: any): Promise<void> {
 /**
  * Handle AI queries
  */
-async function handleAIQuery(input: string, app: any): Promise<void> {
+async function handleAIQuery(input: string, app: AppInstance): Promise<void> {
   try {
     app.terminal.info('Asking Claude...\n');
     
@@ -216,7 +311,8 @@ async function handleAIQuery(input: string, app: any): Promise<void> {
       await conversationHistory.initialize();
       await conversationHistory.addMessage('user', input, { 
         command: 'chat',
-        timestamp: new Date()
+        timestamp: new Date(),
+        model: app.config.ai?.model || 'claude-3-5-sonnet-20240620'
       });
     } catch (historyError) {
       // Don't fail if history tracking fails
@@ -244,10 +340,12 @@ async function handleAIQuery(input: string, app: any): Promise<void> {
       spinner.succeed('Response received');
       
       // Extract and display response
-      const responseText = result.message.content
-        .filter((block: any) => block.type === 'text')
-        .map((block: any) => block.text)
-        .join('\n') || 'No response received';
+      const responseText = Array.isArray(result.message.content)
+        ? result.message.content
+            .filter((block: ContentBlock) => block.type === 'text')
+            .map((block: ContentBlock) => block.text)
+            .join('\n') || 'No response received'
+        : result.message.content || 'No response received';
       
       // Track response in conversation history
       try {
@@ -286,7 +384,7 @@ async function handleAIQuery(input: string, app: any): Promise<void> {
 /**
  * Set up process handlers
  */
-export function setupProcessHandlers(app: any): void {
+export function setupProcessHandlers(app: AppInstance): void {
   process.on('SIGINT', () => {
     app.terminal.info('Caught interrupt signal. Exiting gracefully.');
     process.exit(0);

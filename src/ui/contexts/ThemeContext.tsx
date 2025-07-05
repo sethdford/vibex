@@ -1,30 +1,45 @@
 /**
  * Theme Context
  * 
- * This context manages theme selection and application for the UI.
- * It provides theme data and theme switching functionality to all components.
+ * Provides theme management functionality across the application.
+ * Supports light/dark themes and system preference detection.
  */
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { Theme, ThemeMode } from '../themes/theme';
-import { getTheme, getThemeMode, themes } from '../themes/theme-manager';
-import { Colors } from '../colors';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { themes } from '../themes/theme-manager.js';
+import type { Theme } from '../themes/theme.js';
 
 /**
- * Check if system prefers dark mode
+ * Theme mode types
+ */
+export type ThemeMode = 'light' | 'dark' | 'system';
+
+/**
+ * Check if system prefers dark mode (Node.js safe)
  */
 function systemPrefersDarkMode(): boolean {
-  try {
-    // For browser environments
-    if (typeof window !== 'undefined' && window.matchMedia) {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches;
-    }
-    
-    // For terminal environments, default to dark
-    return true;
-  } catch (error) {
+  // In Node.js environment, default to dark mode
+  if (typeof window === 'undefined' || !window.matchMedia) {
     return true;
   }
+  
+  try {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  } catch {
+    return true; // Default to dark mode if media queries fail
+  }
+}
+
+/**
+ * Get theme by name and system preference
+ */
+function getTheme(themeName: string, systemDarkMode: boolean): Theme {
+  if (themes[themeName]) {
+    return themes[themeName];
+  }
+  
+  // Fallback to default theme based on system preference
+  return systemDarkMode ? themes.default : themes['default-light'] || themes.default;
 }
 
 /**
@@ -70,6 +85,17 @@ interface ThemeContextValue {
    * Whether the current theme is dark
    */
   isDarkTheme: boolean;
+  
+  // Backward compatibility for components expecting different interface
+  /**
+   * Alias for toggleThemeMode (backward compatibility)
+   */
+  toggleTheme: () => void;
+  
+  /**
+   * Loading state (for compatibility)
+   */
+  isLoading: boolean;
 }
 
 /**
@@ -94,25 +120,28 @@ export const ThemeProvider: React.FC<{
   const [themeName, setThemeName] = useState<string>(initialTheme);
   const [systemDarkMode, setSystemDarkMode] = useState<boolean>(systemPrefersDarkMode());
   
-  // Watch for system theme changes
+  // Watch for system theme changes (browser only)
   useEffect(() => {
+    // Skip entirely in Node.js environment to prevent DOM errors
+    if (typeof window === 'undefined' || !window.matchMedia) {
+      return;
+    }
+    
     try {
-      if (typeof window !== 'undefined' && window.matchMedia) {
-        const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-        
-        const handleChange = (e: MediaQueryListEvent) => {
-          setSystemDarkMode(e.matches);
-        };
-        
-        // Modern browsers
-        darkModeMediaQuery.addEventListener('change', handleChange);
-        
-        return () => {
-          darkModeMediaQuery.removeEventListener('change', handleChange);
-        };
-      }
+      const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      
+      const handleChange = (e: MediaQueryListEvent) => {
+        setSystemDarkMode(e.matches);
+      };
+      
+      // Modern browsers
+      darkModeMediaQuery.addEventListener('change', handleChange);
+      
+      return () => {
+        darkModeMediaQuery.removeEventListener('change', handleChange);
+      };
     } catch (error) {
-      // Media queries not supported
+      // Media queries not supported - ignore silently
     }
   }, []);
   
@@ -124,12 +153,14 @@ export const ThemeProvider: React.FC<{
       setThemeName(name);
       setThemeMode('system'); // Using a specific theme name overrides mode
       
-      // Store theme preference in localStorage
-      try {
-        localStorage.setItem('claude-code-theme', name);
-        localStorage.setItem('claude-code-theme-mode', 'system');
-      } catch (error) {
-        // Local storage might not be available
+      // Store theme preference (browser only)
+      if (typeof localStorage !== 'undefined') {
+        try {
+          localStorage.setItem('claude-code-theme', name);
+          localStorage.setItem('claude-code-theme-mode', 'system');
+        } catch (error) {
+          // Local storage might not be available - ignore silently
+        }
       }
     }
   }, []);
@@ -148,16 +179,18 @@ export const ThemeProvider: React.FC<{
       setThemeName(mode === 'dark' ? 'default' : 'default-light');
     }
     
-    // Store theme preference
-    try {
-      localStorage.setItem('claude-code-theme-mode', mode);
-      localStorage.setItem('claude-code-theme', 
-        mode === 'dark' ? 'default' : 
-        mode === 'light' ? 'default-light' : 
-        systemDarkMode ? 'default' : 'default-light'
-      );
-    } catch (error) {
-      // Local storage might not be available
+    // Store theme preference (browser only)
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem('claude-code-theme-mode', mode);
+        localStorage.setItem('claude-code-theme', 
+          mode === 'dark' ? 'default' : 
+          mode === 'light' ? 'default-light' : 
+          systemDarkMode ? 'default' : 'default-light'
+        );
+      } catch (error) {
+        // Local storage might not be available - ignore silently
+      }
     }
   }, [systemDarkMode]);
   
@@ -175,9 +208,14 @@ export const ThemeProvider: React.FC<{
   }, [themeMode, systemDarkMode, setThemeModeHandler]);
   
   /**
-   * Load saved theme from localStorage on initial render
+   * Load saved theme from localStorage on initial render (browser only)
    */
   useEffect(() => {
+    // Skip entirely in Node.js environment to prevent errors
+    if (typeof localStorage === 'undefined') {
+      return;
+    }
+    
     try {
       const savedThemeMode = localStorage.getItem('claude-code-theme-mode') as ThemeMode;
       const savedThemeName = localStorage.getItem('claude-code-theme');
@@ -190,7 +228,7 @@ export const ThemeProvider: React.FC<{
         setThemeName(savedThemeName);
       }
     } catch (error) {
-      // Local storage might not be available
+      // Local storage might not be available - ignore silently
     }
   }, []);
   
@@ -206,7 +244,10 @@ export const ThemeProvider: React.FC<{
     setThemeByName,
     setThemeMode: setThemeModeHandler,
     toggleThemeMode,
-    isDarkTheme
+    isDarkTheme,
+    // Backward compatibility
+    toggleTheme: toggleThemeMode,
+    isLoading: false
   };
   
   return (

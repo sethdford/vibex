@@ -1,37 +1,47 @@
 /**
  * AI Module
  *
- * This module serves as the primary interface for all AI-related functionality,
- * providing a unified, high-level API for interacting with different AI models
- * and services. Key features include:
- *
- * - Simplified AI client initialization
- * - Centralized management of AI configurations
- * - Abstraction over different AI providers (e.g., Anthropic)
- * - Caching mechanism for AI responses
- * - Automatic model selection based on query complexity
- *
- * The module exports an `initAI` function that sets up and returns a ready-to-use
- * AI client, configured with the application's settings and authentication state.
+ * Main entry point for AI functionality, providing Claude API interactions
+ * with conversation management and memory optimization.
  */
 
-// Re-export everything from submodules
-export * from './unified-client.js';
-export * from './claude4-client.js';
-export * from './types.js';
-export * from './prompts.js';
+// Export interfaces and types
+export { type AIClient } from './ai-client.interface.js';
+export { ClaudeClient, createClaudeClient } from './claude-client.js';
+export { ContentGenerator } from './content-generator.js';
+export { ClaudeContentGenerator } from './claude-content-generator.js';
+export { TurnManager } from './turn-manager.js';
+export { 
+  ContentStreamManager, 
+  createContentStream,
+  type ToolCall,
+  type ToolResult
+} from './content-stream.js';
+export { MemoryManager, MemoryOptimizationStrategy } from './memory-manager.js';
+export {
+  ConversationCompressor,
+  type CompressionResult
+} from './conversation-compression.js';
+export {
+  ConversationContextIntegration
+} from '../context/conversation-context-integration.js';
 
-// Import specific items we need for initialization
-// Use aliases to avoid conflicts with exports
-import type { UnifiedClaudeClient as ClientType } from './unified-client.js';
-import { createClaude4Client as createClient } from './claude4-client.js';
-import { authManager } from '../auth/index.js';
+// Export types
+export type { 
+  QueryOptions,
+  AIResponse,
+  ToolSchema
+} from './claude-client.js';
+
+// Import core components
+import type { AIClient } from './ai-client.interface.js';
+import { createClaudeClient, ClaudeClient } from './claude-client.js';
 import { logger } from '../utils/logger.js';
 import { loadConfig } from '../config/index.js';
 import type { AppConfigType } from '../config/schema.js';
 
 // Store the singleton AI client instance
-let aiClient: ClientType | null = null;
+let aiClient: AIClient | null = null;
 
 /**
  * Initialize the AI client
@@ -39,57 +49,63 @@ let aiClient: ClientType | null = null;
  * @param providedConfig Optional configuration to override defaults
  * @returns The initialized AI client instance
  */
-export async function initAI(providedConfig?: AppConfigType): Promise<ClientType> {
-  if (aiClient) {
+export async function initAI(providedConfig?: AppConfigType): Promise<AIClient> {
+  if (aiClient !== null) {
     logger.debug('AI client already initialized');
     return aiClient;
   }
 
-  logger.info('Initializing AI client');
+  logger.info('🚀 Starting AI client initialization...');
 
   try {
-    // Use provided config or load default
+    // Load configuration
     const config = providedConfig || await loadConfig();
-    // Try to get API key from auth manager or environment
-    const authToken = authManager.getToken();
-    const apiKey = authToken?.accessToken || process.env.ANTHROPIC_API_KEY;
-
+    
+    // Get API key from environment variable directly (simplified approach)
+    const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
-      throw new Error('Anthropic API key is not configured. Please log in or set ANTHROPIC_API_KEY.');
+      throw new Error('ANTHROPIC_API_KEY environment variable is required. Please set it to your Anthropic API key.');
     }
 
-    // Create the Claude 4 client
-    aiClient = createClient(apiKey, config);
+    logger.debug('✅ Found ANTHROPIC_API_KEY in environment');
 
-    logger.info('AI client initialized successfully');
+    // Create Claude client with the API key
+    aiClient = createClaudeClient(apiKey, config);
+
+    // Test the connection
+    if (!aiClient.isAvailable()) {
+      throw new Error('AI client is not available. Please check your API key and network connection.');
+    }
+
+    logger.info('✅ AI client initialized successfully with environment API key');
     return aiClient;
+
   } catch (error) {
-    logger.error('Failed to initialize AI client', error);
+    logger.error('Failed to initialize AI client:', error);
     throw error;
   }
 }
 
 /**
- * Get the current AI client instance
- *
- * @returns The AI client instance, or null if not initialized
+ * Get the AI client instance
+ * 
+ * @returns The AI client instance or null if not initialized
  */
-export function getAIClient(): ClientType | null {
+export function getAIClient(): AIClient | null {
   return aiClient;
 }
 
 /**
- * Reset the AI client instance (useful for testing or re-initialization)
+ * Reset the AI client (for testing)
  */
 export function resetAI(): void {
   aiClient = null;
+  logger.debug('AI client reset');
 }
 
 /**
- * Check if AI is available
+ * Check if AI is initialized
  */
-export function isAIAvailable(): boolean {
+export function isAIInitialized(): boolean {
   return aiClient !== null;
 }
-
- 

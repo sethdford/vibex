@@ -5,7 +5,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { ConsoleMessage } from '../components/DetailedMessagesDisplay';
+import type { ConsoleMessage } from '../components/DetailedMessagesDisplay.js';
 
 /**
  * Hook for managing console messages
@@ -19,7 +19,7 @@ export function useConsoleMessages() {
   // Add a new console message
   const handleNewMessage = useCallback(
     (type: ConsoleMessage['type'], text: string) => {
-      setConsoleMessages((prevMessages) => [
+      setConsoleMessages(prevMessages => [
         ...prevMessages,
         {
           type,

@@ -1,0 +1,48 @@
+;;
+;; MacOS Seatbelt profile: permissive-open
+;; 
+;; A reasonably permissive sandbox profile that allows most operations 
+;; but restricts access to system files and services.
+;;
+
+;; Allow read access to most files
+(allow file-read*)
+
+;; Allow write access to target directories
+(allow file-write* 
+  (subpath (param "TARGET_DIR"))
+  (subpath (param "TMP_DIR"))
+  (subpath (param "HOME_DIR")))
+
+;; Allow network operations (all)
+(allow network*)
+
+;; Allow most process operations
+(allow process*)
+
+;; Allow system calls
+(allow syscall*)
+
+;; Allow mach operations
+(allow mach*)
+
+;; Allow signals
+(allow signal)
+
+;; Deny access to sensitive system resources
+(deny file-write* 
+  (subpath "/System")
+  (subpath "/bin")
+  (subpath "/sbin")
+  (subpath "/usr/bin")
+  (subpath "/usr/sbin"))
+
+;; Allow access to cache directory
+(allow file-write* (subpath (param "CACHE_DIR")))
+
+;; Logging
+(allow file-write*
+  (literal "/dev/dtracehelper"))
+
+;; Required for some apps
+(allow ipc-posix-shm*)

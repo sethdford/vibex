@@ -19,9 +19,9 @@
  * the application while providing appropriate detail based on the audience.
  */
 
-import { ErrorCategory, ErrorLevel, UserError, UserErrorOptions } from './types.js';
+import { ErrorCategory, ErrorLevel, UserError, type UserErrorOptions } from './types.js';
 import { logger } from '../utils/logger.js';
-import { getErrorDetails, wordWrap, indent } from '../utils/formatting.js';
+import { getErrorDetails as getFormattingErrorDetails, wordWrap, indent } from '../utils/formatting.js';
 import chalk from 'chalk';
 
 /**
@@ -114,7 +114,7 @@ function formatSystemError(error: Error): string {
  */
 export function ensureUserError(
   error: unknown,
-  defaultMessage: string = 'An unexpected error occurred',
+  defaultMessage = 'An unexpected error occurred',
   options: UserErrorOptions = {}
 ): UserError {
   if (error instanceof UserError) {
@@ -156,7 +156,7 @@ export function getErrorDetails(error: unknown): string {
   }
   
   if (error instanceof Error) {
-    return formatErrorDetails(error);
+    return formatSystemError(error);
   }
   
   return String(error);

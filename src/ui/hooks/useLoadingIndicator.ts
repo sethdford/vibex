@@ -5,20 +5,26 @@
  */
 
 import { useState, useEffect } from 'react';
-import { StreamingState } from '../types';
+import { StreamingState } from '../components/AdvancedStreamingDisplay.js';
 
-// Loading phrases to display during processing
+// Loading phrases to display during processing - inspired by Claude Code's informative UX
 const LOADING_PHRASES = [
-  'Thinking...',
-  'Analyzing your code...',
-  'Generating response...',
-  'Considering options...',
-  'Processing context...',
-  'Reviewing files...',
-  'Exploring solutions...',
-  'Researching best practices...',
-  'Formulating response...',
-  'Preparing answer...',
+  '🧠 Thinking through your request...',
+  '📁 Reading project context files...',
+  '🔍 Analyzing codebase structure...',
+  '💭 Processing your requirements...',
+  '🎯 Identifying relevant files...',
+  '⚡ Applying enterprise patterns...',
+  '🏗️ Considering architecture options...',
+  '📊 Evaluating best practices...',
+  '🔧 Preparing implementation plan...',
+  '✨ Crafting the perfect response...',
+  '🚀 Optimizing for performance...',
+  '🛡️ Ensuring type safety...',
+  '📝 Documenting approach...',
+  '🎨 Polishing the solution...',
+  '🔄 Cross-referencing patterns...',
+  '🎪 Adding that extra flair...',
 ];
 
 /**
@@ -39,7 +45,7 @@ export function useLoadingIndicator(streamingState: StreamingState) {
   
   // Reset timer when streaming state changes
   useEffect(() => {
-    if (streamingState === StreamingState.Responding) {
+    if (streamingState === StreamingState.RESPONDING) {
       setElapsedTime(0);
       setPhraseIndex(0);
     }
@@ -49,10 +55,10 @@ export function useLoadingIndicator(streamingState: StreamingState) {
   useEffect(() => {
     let interval: NodeJS.Timeout;
     
-    if (streamingState === StreamingState.Responding) {
+    if (streamingState === StreamingState.RESPONDING) {
       // Start timer that updates every 100ms
       interval = setInterval(() => {
-        setElapsedTime((prevTime) => prevTime + 100);
+        setElapsedTime(prevTime => prevTime + 100);
       }, 100);
     }
     
@@ -67,10 +73,10 @@ export function useLoadingIndicator(streamingState: StreamingState) {
   useEffect(() => {
     let phraseInterval: NodeJS.Timeout;
     
-    if (streamingState === StreamingState.Responding) {
+    if (streamingState === StreamingState.RESPONDING) {
       // Change phrase every 3 seconds
       phraseInterval = setInterval(() => {
-        setPhraseIndex((prevIndex) => (prevIndex + 1) % LOADING_PHRASES.length);
+        setPhraseIndex(prevIndex => (prevIndex + 1) % LOADING_PHRASES.length);
       }, 3000);
     }
     

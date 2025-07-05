@@ -86,16 +86,16 @@ export function useKeyboardShortcuts({
   // Handle keyboard input
   useInput((input, key) => {
     // If shortcuts are not active, do nothing
-    if (!isActive) return;
+    if (!isActive) {return;}
     
     // Check each shortcut
     shortcuts.forEach(shortcut => {
       // Skip inactive shortcuts
-      if (shortcut.isActive === false) return;
+      if (shortcut.isActive === false) {return;}
       
       // Check if the shortcut matches
       const ctrlMatch = shortcut.ctrl ? key.ctrl : !key.ctrl;
-      const altMatch = shortcut.alt ? key.alt : !key.alt;
+      const altMatch = shortcut.alt ? (key as any).alt : !(key as any).alt;
       const shiftMatch = shortcut.shift ? key.shift : !key.shift;
       const keyMatch = shortcut.key.toLowerCase() === input.toLowerCase();
       
@@ -120,14 +120,12 @@ export function useKeyboardShortcuts({
   }, [debug]);
   
   // Map of all active shortcuts
-  const shortcutMap = useCallback(() => {
-    return shortcuts.reduce((acc, shortcut) => {
+  const shortcutMap = useCallback(() => shortcuts.reduce((acc, shortcut) => {
       if (shortcut.isActive !== false) {
         acc[shortcut.name] = shortcut;
       }
       return acc;
-    }, {} as Record<string, ShortcutDefinition>);
-  }, [shortcuts]);
+    }, {} as Record<string, ShortcutDefinition>), [shortcuts]);
   
   return {
     registerShortcut,

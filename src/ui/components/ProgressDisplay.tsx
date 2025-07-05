@@ -7,12 +7,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
-import { useProgress, ProgressData } from '../contexts/ProgressContext';
-import { ProgressBar } from './ProgressBar';
-import { IndeterminateProgressBar } from './IndeterminateProgressBar';
-import { MiniProgressIndicator } from './MiniProgressIndicator';
-import { DetailedProgressInfo } from './DetailedProgressInfo';
-import { Colors } from '../colors';
+import type { ProgressData } from '../contexts/ProgressContext.js';
+import { useProgress } from '../contexts/ProgressContext.js';
+import { ProgressSystem } from './progress/ProgressSystem.js';
+import { DetailedProgressInfo } from './DetailedProgressInfo.js';
+import { Colors } from '../colors.js';
 
 /**
  * Progress display props
@@ -130,12 +129,12 @@ export const ProgressDisplay: React.FC<ProgressDisplayProps> = ({
     if (style === 'mini') {
       return (
         <Box key={item.id} marginRight={2}>
-          <MiniProgressIndicator 
+          <ProgressSystem 
+            mode="mini"
             label={item.label}
             value={item.value / item.total * 100}
-            indeterminate={item.indeterminate}
-            status={item.status}
             active={item.active}
+            status={item.status}
             showPercentage={true}
             size="small"
             animated={animated}
@@ -150,8 +149,8 @@ export const ProgressDisplay: React.FC<ProgressDisplayProps> = ({
         <Box key={item.id} marginBottom={1}>
           <Box marginRight={1}>
             {showStatus && (
-              <MiniProgressIndicator 
-                indeterminate={item.indeterminate}
+              <ProgressSystem 
+                mode={item.indeterminate ? "indeterminate" : "mini"}
                 status={item.status}
                 active={item.active}
                 size="small"
@@ -208,31 +207,33 @@ export const ProgressDisplay: React.FC<ProgressDisplayProps> = ({
         </Box>
         
         {item.indeterminate ? (
-          <IndeterminateProgressBar 
+          <ProgressSystem 
+            mode="indeterminate"
             active={item.active}
             width={width}
             label=""
             status={item.status}
             showStatus={showStatus}
-            currentStep={item.currentStep}
+            stepNumber={item.currentStep}
             totalSteps={item.totalSteps}
             showSteps={showSteps}
             animationStyle="bounce"
             message={item.message}
           />
         ) : (
-          <ProgressBar 
+          <ProgressSystem 
+            mode="standard"
             value={percentage}
             width={width}
             label=""
             showPercentage={true}
             status={item.status}
             showStatus={showStatus}
-            currentStep={item.currentStep}
+            stepNumber={item.currentStep}
             totalSteps={item.totalSteps}
             showSteps={showSteps}
             estimatedTimeRemaining={item.estimatedTimeRemaining}
-            showTimeEstimate={showTimeEstimate}
+            showETA={showTimeEstimate}
             animated={animated}
           />
         )}

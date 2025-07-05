@@ -4,7 +4,7 @@
  * Defines the structure of a UI theme
  */
 
-import { SyntaxColors } from '../colors';
+import type { SyntaxColors } from '../colors.js';
 
 /**
  * Theme interface

@@ -5,7 +5,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { HistoryItem } from '../types';
+import type { HistoryItem } from '../types.js';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -35,7 +35,7 @@ export function useHistory() {
       timestamp,
     } as HistoryItem;
     
-    setHistory((prev) => [...prev, newItem]);
+    setHistory(prev => [...prev, newItem]);
     
     // Optionally save history to disk
     // This could be debounced to avoid frequent disk writes

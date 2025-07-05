@@ -11,14 +11,15 @@ import ora, { Ora } from 'ora';
 import terminalLink from 'terminal-link';
 import { table } from 'table';
 import { logger } from '../utils/logger.js';
-import { TerminalInterface, TerminalConfig, PromptOptions, SpinnerInstance } from './types.js';
+import type { TerminalInterface, TerminalConfig, PromptOptions, SpinnerInstance } from './types.js';
 import { formatOutput, clearScreen, getTerminalSize } from './formatting.js';
-import { createPrompt } from './prompt.js';
+import { createPrompt, type PromptValue } from './prompt.js';
+import type { AppConfigType } from '../config/schema.js';
 
 /**
  * Initialize the terminal interface
  */
-export async function initTerminal(config: any): Promise<TerminalInterface> {
+export async function initTerminal(config: AppConfigType): Promise<TerminalInterface> {
   logger.debug('Initializing terminal interface');
   
   const terminalConfig: TerminalConfig = {
@@ -26,8 +27,6 @@ export async function initTerminal(config: any): Promise<TerminalInterface> {
     useColors: config.terminal?.useColors !== false,
     showProgressIndicators: config.terminal?.showProgressIndicators !== false,
     codeHighlighting: config.terminal?.codeHighlighting !== false,
-    maxHeight: config.terminal?.maxHeight,
-    maxWidth: config.terminal?.maxWidth,
   };
   
   const terminal = new Terminal(terminalConfig);
@@ -49,8 +48,8 @@ export async function initTerminal(config: any): Promise<TerminalInterface> {
  * Terminal class for handling user interaction
  */
 class Terminal implements TerminalInterface {
-  private config: TerminalConfig;
-  private activeSpinners: Map<string, SpinnerInstance> = new Map();
+  private readonly config: TerminalConfig;
+  private readonly activeSpinners: Map<string, SpinnerInstance> = new Map();
   private terminalWidth: number;
   private terminalHeight: number;
   private isInteractive: boolean;
@@ -60,8 +59,8 @@ class Terminal implements TerminalInterface {
     
     // Get initial terminal size
     const { rows, columns } = getTerminalSize();
-    this.terminalHeight = config.maxHeight || rows;
-    this.terminalWidth = config.maxWidth || columns;
+    this.terminalHeight = rows;
+    this.terminalWidth = columns;
     
     // Assume interactive by default
     this.isInteractive = process.stdout.isTTY && process.stdin.isTTY;
@@ -69,8 +68,8 @@ class Terminal implements TerminalInterface {
     // Listen for terminal resize events
     process.stdout.on('resize', () => {
       const { rows, columns } = getTerminalSize();
-      this.terminalHeight = config.maxHeight || rows;
-      this.terminalWidth = config.maxWidth || columns;
+      this.terminalHeight = rows;
+      this.terminalWidth = columns;
       logger.debug(`Terminal resized to ${columns}x${rows}`);
     });
   }
@@ -203,9 +202,14 @@ class Terminal implements TerminalInterface {
   /**
    * Display a table of data
    */
-  table(data: any[][], options: { header?: string[]; border?: boolean } = {}): void {
-    const config: any = {
-      border: options.border ? {} : { topBody: '', topJoin: '', topLeft: '', topRight: '', bottomBody: '', bottomJoin: '', bottomLeft: '', bottomRight: '', bodyLeft: '', bodyRight: '', bodyJoin: '', joinBody: '', joinLeft: '', joinRight: '', joinJoin: '' }
+  table(data: unknown[][], options: { header?: string[]; border?: boolean } = {}): void {
+    const config: Record<string, unknown> = {
+      border: options.border ? {} : { 
+        topBody: '', topJoin: '', topLeft: '', topRight: '', 
+        bottomBody: '', bottomJoin: '', bottomLeft: '', bottomRight: '', 
+        bodyLeft: '', bodyRight: '', bodyJoin: '', 
+        joinBody: '', joinLeft: '', joinRight: '', joinJoin: '' 
+      }
     };
     
     // Add header row with formatting
@@ -217,115 +221,59 @@ class Terminal implements TerminalInterface {
       }
     }
     
-    console.log(table(data, config));
+    console.log(table(data, config as any));
   }
 
   /**
    * Prompt user for input
    */
-  async prompt<T>(options: PromptOptions): Promise<T> {
+  async prompt<T extends PromptValue>(options: PromptOptions): Promise<T> {
     return createPrompt(options, this.config);
   }
 
   /**
-   * Create a spinner for showing progress
+   * Create a spinner for long-running operations
    */
-  spinner(text: string, id: string = 'default'): SpinnerInstance {
-    // Clean up existing spinner with the same ID
-    if (this.activeSpinners.has(id)) {
-      this.activeSpinners.get(id)!.stop();
-      this.activeSpinners.delete(id);
-    }
+  spinner(text: string, id = 'default'): SpinnerInstance {
+    const spinner = ora(text);
     
-    // Create spinner only if progress indicators are enabled and terminal is interactive
-    if (this.config.showProgressIndicators && this.isInteractive) {
-      const spinner = ora({
-        text,
-        spinner: 'dots',
-        color: 'cyan'
-      }).start();
-      
-      const spinnerInstance: SpinnerInstance = {
-        id,
-        update: (newText: string) => {
-          spinner.text = newText;
-          return spinnerInstance;
-        },
-        succeed: (text?: string) => {
-          spinner.succeed(text);
-          this.activeSpinners.delete(id);
-          return spinnerInstance;
-        },
-        fail: (text?: string) => {
-          spinner.fail(text);
-          this.activeSpinners.delete(id);
-          return spinnerInstance;
-        },
-        warn: (text?: string) => {
-          spinner.warn(text);
-          this.activeSpinners.delete(id);
-          return spinnerInstance;
-        },
-        info: (text?: string) => {
-          spinner.info(text);
-          this.activeSpinners.delete(id);
-          return spinnerInstance;
-        },
-        stop: () => {
-          spinner.stop();
-          this.activeSpinners.delete(id);
-          return spinnerInstance;
-        }
-      };
-      
-      this.activeSpinners.set(id, spinnerInstance);
-      return spinnerInstance;
-    } else {
-      // Fallback for non-interactive terminals or when progress indicators are disabled
-      console.log(text);
-      
-      // Return a dummy spinner
-      const dummySpinner: SpinnerInstance = {
-        id,
-        update: (newText: string) => {
-          if (newText !== text) {
-            console.log(newText);
-          }
-          return dummySpinner;
-        },
-        succeed: (text?: string) => {
-          if (text) {
-            this.success(text);
-          }
-          return dummySpinner;
-        },
-        fail: (text?: string) => {
-          if (text) {
-            this.error(text);
-          }
-          return dummySpinner;
-        },
-        warn: (text?: string) => {
-          if (text) {
-            this.warn(text);
-          }
-          return dummySpinner;
-        },
-        info: (text?: string) => {
-          if (text) {
-            this.info(text);
-          }
-          return dummySpinner;
-        },
-        stop: () => {
-          return dummySpinner;
-        }
-      };
-      
-      return dummySpinner;
-    }
+    const instance: SpinnerInstance = {
+      id,
+      update: (text: string) => {
+        spinner.text = text;
+        return instance;
+      },
+      succeed: (message?: string) => {
+        spinner.succeed(message);
+        this.activeSpinners.delete(id);
+        return instance;
+      },
+      fail: (message?: string) => {
+        spinner.fail(message);
+        this.activeSpinners.delete(id);
+        return instance;
+      },
+      warn: (message?: string) => {
+        spinner.warn(message);
+        this.activeSpinners.delete(id);
+        return instance;
+      },
+      info: (message?: string) => {
+        spinner.info(message);
+        this.activeSpinners.delete(id);
+        return instance;
+      },
+      stop: () => {
+        spinner.stop();
+        this.activeSpinners.delete(id);
+        return instance;
+      }
+    };
+    
+    // Start the spinner
+    spinner.start();
+    this.activeSpinners.set(id, instance);
+    
+    return instance;
   }
 }
-
-// Re-export the types
-export * from './types.js'; 

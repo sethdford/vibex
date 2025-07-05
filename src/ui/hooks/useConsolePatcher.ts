@@ -39,23 +39,23 @@ export function useConsolePatcher({
     };
     
     // Replace console.log
-    console.log = (...args: any[]) => {
+    console.log = (...args: readonly unknown[]) => {
       const message = args
-        .map((arg) => (typeof arg === 'string' ? arg : JSON.stringify(arg)))
+        .map(arg => (typeof arg === 'string' ? arg : JSON.stringify(arg)))
         .join(' ');
       onNewMessage('log', message);
       originalConsole.log(...args);
     };
     
     // Replace console.error
-    console.error = (...args: any[]) => {
+    console.error = (...args: readonly unknown[]) => {
       const message = args
-        .map((arg) =>
-          arg instanceof Error
+        .map(arg =>
+          (arg instanceof Error
             ? `${arg.name}: ${arg.message}\n${arg.stack}`
             : typeof arg === 'string'
             ? arg
-            : JSON.stringify(arg)
+            : JSON.stringify(arg))
         )
         .join(' ');
       onNewMessage('error', message);
@@ -63,18 +63,18 @@ export function useConsolePatcher({
     };
     
     // Replace console.warn
-    console.warn = (...args: any[]) => {
+    console.warn = (...args: readonly unknown[]) => {
       const message = args
-        .map((arg) => (typeof arg === 'string' ? arg : JSON.stringify(arg)))
+        .map(arg => (typeof arg === 'string' ? arg : JSON.stringify(arg)))
         .join(' ');
       onNewMessage('warn', message);
       originalConsole.warn(...args);
     };
     
     // Replace console.info
-    console.info = (...args: any[]) => {
+    console.info = (...args: readonly unknown[]) => {
       const message = args
-        .map((arg) => (typeof arg === 'string' ? arg : JSON.stringify(arg)))
+        .map(arg => (typeof arg === 'string' ? arg : JSON.stringify(arg)))
         .join(' ');
       onNewMessage('info', message);
       originalConsole.info(...args);
@@ -82,9 +82,9 @@ export function useConsolePatcher({
     
     // Replace console.debug (only captured in debug mode)
     if (debugMode) {
-      console.debug = (...args: any[]) => {
+      console.debug = (...args: readonly unknown[]) => {
         const message = args
-          .map((arg) => (typeof arg === 'string' ? arg : JSON.stringify(arg)))
+          .map(arg => (typeof arg === 'string' ? arg : JSON.stringify(arg)))
           .join(' ');
         onNewMessage('debug', message);
         originalConsole.debug(...args);

@@ -6,8 +6,8 @@
 
 import React, { useState, useCallback } from 'react';
 import { Box, Text } from 'ink';
-import { useClipboard } from '../hooks/useClipboard';
-import { Colors } from '../colors';
+import { useClipboard } from '../hooks/useClipboard.js';
+import { Colors } from '../colors.js';
 
 /**
  * Clipboard actions props
@@ -66,7 +66,7 @@ export const ClipboardActions: React.FC<ClipboardActionsProps> = ({
   const handleCopy = useCallback(async () => {
     setStatus(null);
     
-    if (isLoading) return;
+    if (isLoading) {return;}
     if (!content) {
       setStatus({ message: 'Nothing to copy', isError: true });
       clearStatusAfterDelay();
@@ -88,7 +88,7 @@ export const ClipboardActions: React.FC<ClipboardActionsProps> = ({
   const handlePaste = useCallback(async () => {
     setStatus(null);
     
-    if (isLoading || !onPaste) return;
+    if (isLoading || !onPaste) {return;}
     
     const text = await pasteFromClipboard();
     
@@ -102,9 +102,16 @@ export const ClipboardActions: React.FC<ClipboardActionsProps> = ({
     clearStatusAfterDelay();
   }, [pasteFromClipboard, error, isLoading, onPaste, clearStatusAfterDelay]);
   
-  // Register keyboard handler
+  // Register keyboard handler (only in browser environment)
   React.useEffect(() => {
-    if (!isFocused) return;
+    // Skip entirely in Node.js environment - this prevents DOM errors
+    if (typeof document === 'undefined' || typeof window === 'undefined') {
+      return;
+    }
+    
+    if (!isFocused) {
+      return;
+    }
     
     const handleKeyPress = (e: KeyboardEvent) => {
       // Copy: Ctrl+C (only when content is selected, not as interrupt)

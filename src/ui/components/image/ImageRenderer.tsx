@@ -11,7 +11,7 @@ import sharp from 'sharp';
 import fs from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
-import { Colors } from '../../colors';
+import { Colors } from '../../colors.js';
 import { logger } from '../../../utils/logger.js';
 
 /**
@@ -89,7 +89,7 @@ export const ImageRenderer: React.FC<ImageRendererProps> = ({
           .resize({
             width: maxWidth,
             height: maxHeight,
-            fit: fit,
+            fit,
             withoutEnlargement: true,
           })
           .toBuffer();

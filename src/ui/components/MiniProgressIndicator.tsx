@@ -6,8 +6,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { Box, Text } from 'ink';
-import { Colors } from '../colors';
-import { StatusIcon, StatusType } from './StatusIcon';
+import { Colors } from '../colors.js';
+import type { StatusType } from './StatusIcon.js';
 
 /**
  * Mini progress indicator props
@@ -93,10 +93,10 @@ export const MiniProgressIndicator: React.FC<MiniProgressIndicatorProps> = ({
   
   // Set spinner animation
   useEffect(() => {
-    if (!animated || !indeterminate || !active) return;
+    if (!animated || !indeterminate || !active) {return;}
     
     const interval = setInterval(() => {
-      setSpinnerFrame((prev) => (prev + 1) % spinnerFrames.length);
+      setSpinnerFrame(prev => (prev + 1) % spinnerFrames.length);
     }, 80);
     
     return () => clearInterval(interval);
@@ -104,9 +104,11 @@ export const MiniProgressIndicator: React.FC<MiniProgressIndicatorProps> = ({
   
   // Status color mapping
   const statusColors: Record<StatusType, string> = {
-    running: color || Colors.AccentBlue,
+    running: Colors.AccentBlue,
     success: Colors.Success,
+    completed: Colors.Success,
     error: Colors.Error,
+    failed: Colors.Error,
     warning: Colors.Warning,
     info: Colors.Info,
     waiting: Colors.TextMuted,

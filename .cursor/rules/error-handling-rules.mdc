@@ -1,0 +1,386 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Error Handling Rules: No Console Pollution, Proper Errors
+
+## 🚨 CONSOLE POLLUTION - NEVER DO THESE (GEMINI CLI HAS 100+)
+
+### Forbidden Console Usage
+```typescript
+// ❌ FORBIDDEN - Console pollution like Gemini CLI
+console.log('debug info');
+console.error('Something went wrong');
+console.warn('Warning message');
+console.info('Info message');
+console.debug('Debug info');
+
+// ✅ REQUIRED - Use proper logging
+import { logger } from '../utils/logger.js';
+logger.debug('debug info');
+logger.error('Something went wrong');
+logger.warn('Warning message');
+logger.info('Info message');
+```
+
+### Exception: CLI Entry Points Only
+```typescript
+// ✅ ALLOWED - Only in CLI entry points (cli.ts, main.ts)
+if (process.argv.includes('--version')) {
+  console.log(version);  // Direct user output
+  process.exit(0);
+}
+
+// ✅ ALLOWED - Only in test files
+describe('test suite', () => {
+  console.log('Test output');  // Test debugging
+});
+```
+
+## 🛡️ PROPER ERROR HANDLING PATTERNS
+
+### 1. Use Our UserError System
+```typescript
+// ✅ REQUIRED - Structured error handling
+import { createUserError, ErrorCategory } from '../errors/index.js';
+
+throw createUserError('Clear error message', {
+  category: ErrorCategory.VALIDATION,
+  resolution: 'How to fix this issue',
+  details: { additionalContext: 'value' }
+});
+
+// ❌ WRONG - Generic errors like Gemini CLI
+throw new Error('something went wrong');
+throw 'string error';  // Even worse
+```
+
+### 2. Proper Async Error Handling
+```typescript
+// ✅ REQUIRED - Comprehensive async error handling
+async function performOperation(): Promise<OperationResult> {
+  try {
+    const result = await riskyOperation();
+    return { success: true, data: result };
+  } catch (error) {
+    // Handle known error types
+    if (error instanceof UserError) {
+      throw error;  // Re-throw our errors
+    }
+    
+    if (error instanceof TypeError) {
+      throw createUserError('Invalid input provided', {
+        category: ErrorCategory.VALIDATION,
+        resolution: 'Check input parameters',
+        details: { originalError: error.message }
+      });
+    }
+    
+    // Handle unknown errors
+    throw createUserError('Operation failed', {
+      category: ErrorCategory.SYSTEM,
+      resolution: 'Try again or contact support',
+      details: { error: error instanceof Error ? error.message : 'Unknown error' }
+    });
+  }
+}
+
+// ❌ WRONG - Poor error handling like Gemini CLI
+async function performOperation() {
+  try {
+    return await riskyOperation();
+  } catch (error) {
+    console.error('Error:', error);  // Console pollution
+    throw error;  // No context
+  }
+}
+```
+
+### 3. Error Boundary Patterns
+```typescript
+// ✅ REQUIRED - Error boundaries for critical operations
+async function withErrorBoundary<T>(
+  operation: () => Promise<T>,
+  context: string
+): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    logger.error(`Error in ${context}`, { error });
+    
+    if (error instanceof UserError) {
+      throw error;
+    }
+    
+    throw createUserError(`${context} failed`, {
+      category: ErrorCategory.SYSTEM,
+      resolution: 'Check logs for details',
+      details: { context, error }
+    });
+  }
+}
+
+// Usage
+const result = await withErrorBoundary(
+  () => complexOperation(),
+  'user data processing'
+);
+```
+
+### 4. Validation Error Patterns
+```typescript
+// ✅ REQUIRED - Structured validation errors
+function validateUserInput(input: unknown): UserInput {
+  const errors: string[] = [];
+  
+  if (!input || typeof input !== 'object') {
+    errors.push('Input must be an object');
+  }
+  
+  const data = input as Record<string, unknown>;
+  
+  if (!data.name || typeof data.name !== 'string') {
+    errors.push('Name is required and must be a string');
+  }
+  
+  if (!data.email || typeof data.email !== 'string') {
+    errors.push('Email is required and must be a string');
+  }
+  
+  if (errors.length > 0) {
+    throw createUserError('Validation failed', {
+      category: ErrorCategory.VALIDATION,
+      resolution: 'Fix the following issues: ' + errors.join(', '),
+      details: { validationErrors: errors }
+    });
+  }
+  
+  return data as UserInput;
+}
+
+// ❌ WRONG - Poor validation like Gemini CLI
+function validateUserInput(input: any) {
+  if (!input.name) {
+    console.error('Name is required');  // Console pollution
+    throw new Error('Invalid input');   // No context
+  }
+}
+```
+
+## 🔧 ERROR RECOVERY PATTERNS
+
+### 1. Retry with Backoff
+```typescript
+// ✅ REQUIRED - Intelligent retry logic
+async function withRetry<T>(
+  operation: () => Promise<T>,
+  maxAttempts: number = 3,
+  baseDelay: number = 1000
+): Promise<T> {
+  let lastError: Error;
+  
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      
+      // Don't retry user errors
+      if (error instanceof UserError) {
+        throw error;
+      }
+      
+      // Don't retry on last attempt
+      if (attempt === maxAttempts) {
+        break;
+      }
+      
+      // Exponential backoff
+      const delay = baseDelay * Math.pow(2, attempt - 1);
+      logger.warn(`Attempt ${attempt} failed, retrying in ${delay}ms`, { error });
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw createUserError('Operation failed after retries', {
+    category: ErrorCategory.NETWORK,
+    resolution: 'Check network connection and try again',
+    details: { attempts: maxAttempts, lastError: lastError.message }
+  });
+}
+```
+
+### 2. Graceful Degradation
+```typescript
+// ✅ REQUIRED - Graceful degradation patterns
+async function getEnhancedUserData(userId: string): Promise<UserData> {
+  const baseData = await getUserData(userId);
+  
+  try {
+    // Try to get enhanced data
+    const enhancedData = await getEnhancedData(userId);
+    return { ...baseData, ...enhancedData };
+  } catch (error) {
+    // Log but don't fail
+    logger.warn('Enhanced data unavailable, using base data', { userId, error });
+    return baseData;
+  }
+}
+```
+
+### 3. Circuit Breaker Pattern
+```typescript
+// ✅ REQUIRED - Circuit breaker for external services
+class CircuitBreaker {
+  private failures = 0;
+  private lastFailureTime = 0;
+  private state: 'CLOSED' | 'OPEN' | 'HALF_OPEN' = 'CLOSED';
+  
+  constructor(
+    private threshold: number = 5,
+    private timeout: number = 60000
+  ) {}
+  
+  async execute<T>(operation: () => Promise<T>): Promise<T> {
+    if (this.state === 'OPEN') {
+      if (Date.now() - this.lastFailureTime < this.timeout) {
+        throw createUserError('Service temporarily unavailable', {
+          category: ErrorCategory.SERVICE_UNAVAILABLE,
+          resolution: 'Try again later'
+        });
+      }
+      this.state = 'HALF_OPEN';
+    }
+    
+    try {
+      const result = await operation();
+      this.onSuccess();
+      return result;
+    } catch (error) {
+      this.onFailure();
+      throw error;
+    }
+  }
+  
+  private onSuccess(): void {
+    this.failures = 0;
+    this.state = 'CLOSED';
+  }
+  
+  private onFailure(): void {
+    this.failures++;
+    this.lastFailureTime = Date.now();
+    
+    if (this.failures >= this.threshold) {
+      this.state = 'OPEN';
+    }
+  }
+}
+```
+
+## 🛡️ ERROR PREVENTION CHECKS
+
+### Pre-Commit Error Checks
+```bash
+#!/bin/bash
+# Add to .git/hooks/pre-commit
+
+echo "🛡️  Error handling audit..."
+
+# 1. Check for console usage (except CLI and tests)
+CONSOLE_COUNT=$(grep -r "console\." src/ | grep -v ".test." | grep -v "cli.ts" | wc -l)
+if [ $CONSOLE_COUNT -gt 0 ]; then
+  echo "❌ Found $CONSOLE_COUNT console statements outside CLI/tests"
+  grep -r "console\." src/ | grep -v ".test." | grep -v "cli.ts"
+  exit 1
+fi
+
+# 2. Check for generic Error usage
+GENERIC_ERRORS=$(grep -r "throw new Error\|throw Error" src/ | wc -l)
+if [ $GENERIC_ERRORS -gt 0 ]; then
+  echo "⚠️  Found $GENERIC_ERRORS generic Error throws (prefer UserError)"
+  grep -r "throw new Error\|throw Error" src/
+fi
+
+# 3. Check for string throws
+STRING_THROWS=$(grep -r "throw ['\"]" src/ | wc -l)
+if [ $STRING_THROWS -gt 0 ]; then
+  echo "❌ Found $STRING_THROWS string throws"
+  grep -r "throw ['\"]" src/
+  exit 1
+fi
+
+# 4. Check for unhandled promises
+UNHANDLED_PROMISES=$(grep -r "\.then\|\.catch" src/ | grep -v ".test." | wc -l)
+if [ $UNHANDLED_PROMISES -gt 0 ]; then
+  echo "⚠️  Found $UNHANDLED_PROMISES .then/.catch (prefer async/await)"
+fi
+
+echo "✅ Error handling audit passed"
+```
+
+## 🎯 ERROR CATEGORIES
+
+### Use Our Error Categories
+```typescript
+// ✅ REQUIRED - Use appropriate categories
+ErrorCategory.VALIDATION     // Input validation errors
+ErrorCategory.AUTHENTICATION // Auth failures
+ErrorCategory.AUTHORIZATION  // Permission errors
+ErrorCategory.NOT_FOUND      // Resource not found
+ErrorCategory.NETWORK        // Network/API errors
+ErrorCategory.SYSTEM         // System/internal errors
+ErrorCategory.TIMEOUT        // Operation timeouts
+ErrorCategory.SERVICE_UNAVAILABLE // External service down
+```
+
+### Error Message Guidelines
+```typescript
+// ✅ GOOD - Clear, actionable error messages
+throw createUserError('API key is required for authentication', {
+  category: ErrorCategory.AUTHENTICATION,
+  resolution: 'Set the API key in your configuration file'
+});
+
+// ❌ BAD - Vague error messages like Gemini CLI
+throw new Error('auth failed');
+throw new Error('something went wrong');
+```
+
+## 🔍 ERROR MONITORING
+
+### Error Tracking
+```typescript
+// ✅ REQUIRED - Track error patterns
+export class ErrorTracker {
+  private static errorCounts = new Map<string, number>();
+  
+  static track(error: Error, context: string): void {
+    const key = `${error.constructor.name}:${context}`;
+    const count = this.errorCounts.get(key) || 0;
+    this.errorCounts.set(key, count + 1);
+    
+    // Alert on frequent errors
+    if (count > 10) {
+      logger.error(`Frequent error detected: ${key}`, { count, error });
+    }
+  }
+  
+  static getStats(): Record<string, number> {
+    return Object.fromEntries(this.errorCounts);
+  }
+}
+```
+
+## ⚡ QUICK ERROR FIXES
+
+**Using console.log?** → Replace with logger
+**Throwing generic Error?** → Use createUserError
+**Throwing strings?** → Use proper Error objects
+**No error context?** → Add error details and resolution
+**Unhandled promise?** → Add proper try/catch
+**Silent failures?** → Log errors appropriately
+**No error recovery?** → Add retry logic or graceful degradation
+
+**Remember: Clean error handling is a key differentiator from Gemini CLI's console.error spam. Every error should be informative and actionable.**

@@ -1,0 +1,17 @@
+## CRITICAL: Testing Framework Rules
+- **NEVER use vitest imports** - We use Jest exclusively
+- **ALWAYS import from Jest**: `import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globals'`
+- **NEVER import from 'vitest'** - This causes build failures
+- **Test file imports MUST use .ts/.tsx extensions** - Never import from .js files that don't exist
+- **Jest mocks MUST be properly typed** - Use `jest.Mock<ReturnType, Args[]>` format
+- **CRITICAL: Tests MUST be in tests/ directory, NEVER in src/** - This violates our TypeScript compilation setup
+
+## Testing Directory Structure Rules
+- **FORBIDDEN**: Any test files in `src/` directory (including `src/**/__tests__/`, `src/**/*.test.ts`, `src/**/*.spec.ts`)
+- **REQUIRED**: All tests in `tests/` directory with structure matching `src/`
+- **Example**: `src/context/git-aware-file-filter.ts` → `tests/context/git-aware-file-filter.test.ts`
+- **Reason**: Tests are excluded from main TypeScript compilation to prevent blocking builds
+description:
+globs:
+alwaysApply: false
+---

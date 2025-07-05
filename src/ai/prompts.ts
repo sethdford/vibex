@@ -5,15 +5,6 @@
  * for different AI tasks and scenarios.
  */
 
-import { Message } from './types.js';
-
-// Define MessageRole consts since we're using the type as values
-const MESSAGE_ROLE = {
-  USER: 'user' as const,
-  ASSISTANT: 'assistant' as const,
-  SYSTEM: 'system' as const
-};
-
 /**
  * System prompt for code assistance
  */
@@ -167,165 +158,27 @@ export const PROMPT_TEMPLATES: Record<string, PromptTemplate> = {
   }
 };
 
-/**
- * Format a prompt by replacing placeholders with values
- * 
- * @param template The prompt template with {placeholders}
- * @param values Values to replace placeholders with
- * @param defaults Default values for placeholders not in values
- * @returns Formatted prompt string
- */
-export function formatPrompt(
-  template: string,
-  values: Record<string, string | number | boolean>,
-  defaults: Record<string, string> = {}
-): string {
-  // Create a merged object of defaults and provided values
-  const mergedValues = { ...defaults, ...values };
-  
-  // Replace each placeholder with its value
-  return template.replace(
-    /{(\w+)}/g, 
-    (match, key) => {
-      const value = mergedValues[key];
-      return value !== undefined ? String(value) : match;
-    }
-  );
-}
+// Import enterprise templates from separate file
+import {
+  ENTERPRISE_SYSTEM_PROMPT,
+  ENTERPRISE_SCAFFOLDING_PROMPT as PROJECT_SCAFFOLDING_SYSTEM_PROMPT,
+  ENTERPRISE_PROMPT_TEMPLATES
+} from './enterprise-prompts.js';
 
-/**
- * Format a prompt using a predefined template
- * 
- * @param templateName Name of the template from PROMPT_TEMPLATES
- * @param values Values to replace placeholders with
- * @returns Object with formatted prompt and system message
- */
-export function usePromptTemplate(
-  templateName: string,
-  values: Record<string, string | number | boolean>
-): { prompt: string; system?: string } {
-  const template = PROMPT_TEMPLATES[templateName];
-  
-  if (!template) {
-    throw new Error(`Prompt template "${templateName}" not found`);
-  }
-  
-  return {
-    prompt: formatPrompt(template.template, values, template.defaults),
-    system: template.system
-  };
-}
+// Re-export enterprise templates
+export {
+  ENTERPRISE_SYSTEM_PROMPT,
+  PROJECT_SCAFFOLDING_SYSTEM_PROMPT,
+  ENTERPRISE_PROMPT_TEMPLATES
+};
 
-/**
- * Create a conversation from a prompt
- * 
- * @param prompt User prompt string
- * @param system Optional system message
- * @returns Array of messages for the conversation
- */
-export function createConversation(
-  prompt: string,
-  system?: string
-): Array<{ role: 'user' | 'assistant' | 'system'; content: string }> {
-  const messages = [];
-  
-  // Add system message if provided
-  if (system) {
-    messages.push({
-      role: MESSAGE_ROLE.SYSTEM,
-      content: system
-    });
-  }
-  
-  // Add user message
-  messages.push({
-    role: MESSAGE_ROLE.USER,
-    content: prompt
-  });
-  
-  return messages;
-}
-
-/**
- * Create a user message
- */
-export function createUserMessage(content: string): Message {
-  return {
-    role: MESSAGE_ROLE.USER,
-    content
-  };
-}
-
-/**
- * Create a system message
- */
-export function createSystemMessage(content: string): Message {
-  return {
-    role: MESSAGE_ROLE.SYSTEM,
-    content
-  };
-}
-
-/**
- * Create an assistant message
- */
-export function createAssistantMessage(content: string): Message {
-  return {
-    role: MESSAGE_ROLE.ASSISTANT,
-    content
-  };
-}
-
-/**
- * Create a message with file context
- */
-export function createFileContextMessage(
-  filePath: string,
-  content: string,
-  language?: string
-): string {
-  // Return a simpler content format that works with the current Message type
-  return `File: ${filePath}\n\n\`\`\`${language || getLanguageFromFilePath(filePath)}\n${content}\n\`\`\``;
-}
-
-/**
- * Get language from file path
- */
-function getLanguageFromFilePath(filePath: string): string {
-  const extension = filePath.split('.').pop()?.toLowerCase() || '';
-  
-  const languageMap: Record<string, string> = {
-    js: 'javascript',
-    ts: 'typescript',
-    jsx: 'javascript',
-    tsx: 'typescript',
-    py: 'python',
-    rb: 'ruby',
-    java: 'java',
-    c: 'c',
-    cpp: 'cpp',
-    cs: 'csharp',
-    go: 'go',
-    rs: 'rust',
-    php: 'php',
-    swift: 'swift',
-    kt: 'kotlin',
-    scala: 'scala',
-    sh: 'bash',
-    html: 'html',
-    css: 'css',
-    scss: 'scss',
-    sass: 'sass',
-    less: 'less',
-    md: 'markdown',
-    json: 'json',
-    yml: 'yaml',
-    yaml: 'yaml',
-    toml: 'toml',
-    sql: 'sql',
-    graphql: 'graphql',
-    xml: 'xml'
-  };
-  
-  return languageMap[extension] || '';
-} 
+// Import utility functions from separate file
+export { 
+  formatPrompt,
+  usePromptTemplate,
+  createConversation,
+  createUserMessage,
+  createSystemMessage,
+  createAssistantMessage,
+  createFileContextMessage
+} from './prompt-utils.js'; 

@@ -5,12 +5,15 @@
  * with proper error handling and security considerations.
  */
 
-import { promises as fs } from 'fs';
+import fs from 'fs/promises';
 import path from 'path';
 import { logger } from '../utils/logger.js';
 import { createUserError } from '../errors/formatter.js';
 import { ErrorCategory } from '../errors/types.js';
-import { ErrnoException } from '../utils/types.js';
+import type { ErrnoException } from '../utils/types.js';
+import type { SandboxService } from '../security/sandbox.js';
+import { SandboxPermission, hasPermission } from '../security/sandbox.js';
+import type { AppConfigType } from '../config/schema.js';
 
 /**
  * Result of a file operation
@@ -24,21 +27,47 @@ interface FileOperationResult {
 }
 
 /**
+ * File operations configuration
+ */
+export interface FileOperationsConfig extends AppConfigType {
+  maxReadSizeBytes?: number;
+  workspacePath?: string;
+  permissions?: {
+    allowFileWrite?: boolean;
+    [key: string]: unknown;
+  };
+}
+
+/**
+ * Sandbox configuration for file operations
+ */
+export interface FileSandboxConfig {
+  config?: {
+    enabled?: boolean;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
+}
+
+/**
  * File Operations Manager
  */
 class FileOperationsManager {
-  private config: any;
-  private workspacePath: string;
+  private readonly config: FileOperationsConfig;
+  private readonly workspacePath: string;
+  private readonly sandbox?: SandboxService;
 
   /**
    * Create a new file operations manager
    */
-  constructor(config: any) {
+  constructor(config: FileOperationsConfig, sandbox?: SandboxService) {
     this.config = config;
     this.workspacePath = config.workspacePath || process.cwd();
+    this.sandbox = sandbox;
     
-    logger.debug('File operations manager created', {
-      workspacePath: this.workspacePath
+    logger.debug('File operations initialized', {
+      maxReadSize: config.maxReadSizeBytes || 10 * 1024 * 1024, // 10MB default
+      sandboxEnabled: sandbox?.getConfig()?.enabled || false
     });
   }
 
@@ -99,6 +128,31 @@ class FileOperationsManager {
     
     logger.debug('Reading file', { path: filePath, absolutePath });
     
+    // Check sandbox permissions if enabled
+    if (this.sandbox?.getConfig()?.enabled) {
+      const allowed = await this.sandbox.checkFileAccess(absolutePath);
+      if (!allowed) {
+        return {
+          success: false,
+          error: createUserError(`Access denied by sandbox: ${filePath}`, {
+            category: ErrorCategory.SECURITY,
+            resolution: 'This file is outside the allowed paths configured in the sandbox.'
+          })
+        };
+      }
+    } else if (this.config?.security?.permissions) {
+      const allowed = hasPermission(this.config as AppConfigType, SandboxPermission.FILE_READ);
+      if (!allowed) {
+        return {
+          success: false,
+          error: createUserError(`File read operation not allowed: ${filePath}`, {
+            category: ErrorCategory.SECURITY,
+            resolution: 'File read permission is disabled in security settings.'
+          })
+        };
+      }
+    }
+    
     try {
       // Verify file exists and is a file
       const stats = await fs.stat(absolutePath);
@@ -113,7 +167,7 @@ class FileOperationsManager {
       }
       
       // Check file size
-      const maxSizeBytes = this.config.fileOps?.maxReadSizeBytes || 10 * 1024 * 1024; // 10MB default
+      const maxSizeBytes = this.config.maxReadSizeBytes || 10 * 1024 * 1024; // 10MB default
       
       if (stats.size > maxSizeBytes) {
         return {
@@ -180,6 +234,31 @@ class FileOperationsManager {
       contentLength: content.length,
       createDirs: options.createDirs
     });
+    
+    // Check sandbox permissions if enabled
+    if (this.sandbox?.getConfig()?.enabled) {
+      const allowed = await this.sandbox.checkFileAccess(absolutePath, true);
+      if (!allowed) {
+        return {
+          success: false,
+          error: createUserError(`Write access denied by sandbox: ${filePath}`, {
+            category: ErrorCategory.SECURITY,
+            resolution: 'This file is outside the allowed paths or the filesystem is in read-only mode.'
+          })
+        };
+      }
+    } else if (this.config?.security?.permissions) {
+      const allowed = hasPermission(this.config as AppConfigType, SandboxPermission.FILE_WRITE);
+      if (!allowed) {
+        return {
+          success: false,
+          error: createUserError(`File write operation not allowed: ${filePath}`, {
+            category: ErrorCategory.SECURITY,
+            resolution: 'File write permission is disabled in security settings.'
+          })
+        };
+      }
+    }
     
     try {
       // Check if file exists
@@ -496,11 +575,13 @@ class FileOperationsManager {
 /**
  * Initialize the file operations system
  */
-export async function initFileOperations(config: any): Promise<FileOperationsManager> {
-  logger.info('Initializing file operations system');
+export async function initFileOperations(config: FileOperationsConfig, sandbox?: SandboxService): Promise<FileOperationsManager> {
+  logger.info('Initializing file operations system', {
+    sandboxEnabled: sandbox?.getConfig()?.enabled || false
+  });
   
   try {
-    const fileOps = new FileOperationsManager(config);
+    const fileOps = new FileOperationsManager(config, sandbox);
     await fileOps.initialize();
     
     logger.info('File operations system initialized successfully');
@@ -510,7 +591,7 @@ export async function initFileOperations(config: any): Promise<FileOperationsMan
     logger.error('Failed to initialize file operations system', error);
     
     // Create a basic file operations manager even if initialization failed
-    return new FileOperationsManager(config);
+    return new FileOperationsManager(config, sandbox);
   }
 }
 

@@ -1,0 +1,41 @@
+# Linux seccomp-bpf sandbox profile for restrictive mode
+# This is applied using the seccomp-bpf Linux kernel feature
+
+# Allow basic process operations
+allow process-exec
+allow process-fork
+
+# Allow network operations
+allow socket
+allow bind
+allow connect
+allow listen
+allow accept
+
+# Allow necessary file operations
+allow file-read path="/usr/lib"
+allow file-read path="/lib"
+allow file-read path="/etc/passwd"
+allow file-read path="/etc/resolv.conf"
+allow file-read path="/etc/localtime"
+allow file-read path="/tmp"
+allow file-read path="/dev/urandom"
+allow file-read path="${TARGET_DIR}"
+allow file-read path="${HOME_DIR}"
+
+# Allow write to specified directories
+allow file-write path="${TARGET_DIR}"
+allow file-write path="${TMP_DIR}"
+allow file-write path="${CACHE_DIR}"
+
+# Basic system calls
+allow syscall-unix
+
+# Allow memory operations
+allow mmap
+allow shm
+
+# Resource limits
+set process-limit = 50
+set memory-limit = 1GB
+set file-limit = 1024

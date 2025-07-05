@@ -4,7 +4,8 @@
  * Manages authentication processes, token handling, and authentication state.
  */
 
-import { AuthToken, AuthMethod, AuthState, AuthResult, TokenStorage, OAuthConfig } from './types.js';
+import type { AuthToken, AuthResult, TokenStorage, OAuthConfig, AuthConfig } from './types.js';
+import { AuthMethod, AuthState } from './types.js';
 import { createTokenStorage, isTokenExpired } from './tokens.js';
 import { performOAuthFlow, refreshOAuthToken, DEFAULT_OAUTH_CONFIG } from './oauth.js';
 import { logger } from '../utils/logger.js';
@@ -20,13 +21,21 @@ export const AUTH_EVENTS = {
 };
 
 /**
+ * AuthManager configuration options
+ * @deprecated Use AuthConfig from './types.js' instead
+ */
+export interface AuthManagerConfig extends AuthConfig {
+  api?: { key?: string };
+}
+
+/**
  * Authentication Manager Class
  * 
  * Centralizes all authentication-related functionality
  */
 export class AuthManager extends EventEmitter {
   private state: AuthState = AuthState.INITIAL;
-  private tokenStorage: TokenStorage;
+  private readonly tokenStorage: TokenStorage;
   private currentToken: AuthToken | null = null;
   private refreshTimer: NodeJS.Timeout | null = null;
   private readonly tokenKey = 'default';
@@ -42,7 +51,7 @@ export class AuthManager extends EventEmitter {
   /**
    * Create a new AuthManager instance
    */
-  constructor(config: any) {
+  constructor(config: AuthManagerConfig) {
     super();
     
     // Extract authentication-related configuration
@@ -307,7 +316,7 @@ export class AuthManager extends EventEmitter {
       this.refreshTimer = null;
     }
     
-    if (!this.currentToken || !this.currentToken.refreshToken) {
+    if (!this.currentToken?.refreshToken) {
       return;
     }
     

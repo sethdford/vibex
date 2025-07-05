@@ -4,6 +4,8 @@
  * Helper functions for enhancing accessibility in the terminal UI
  */
 
+import type { AppConfigType } from '../../config/schema.js';
+
 /**
  * Format text for screen readers
  * 
@@ -15,7 +17,7 @@
  * @returns Formatted text
  */
 export function formatForScreenReader(text: string): string {
-  if (!text) return '';
+  if (!text) {return '';}
   
   return text
     // Replace common symbols with text descriptions
@@ -48,9 +50,9 @@ export function formatForScreenReader(text: string): string {
  * @param maxLength - Maximum length (defaults to 100)
  * @returns Abbreviated text
  */
-export function abbreviateForScreenReader(text: string, maxLength: number = 100): string {
-  if (!text) return '';
-  if (text.length <= maxLength) return text;
+export function abbreviateForScreenReader(text: string, maxLength = 100): string {
+  if (!text) {return '';}
+  if (text.length <= maxLength) {return text;}
   
   // Create abbreviated version
   const words = text.split(' ');
@@ -77,8 +79,8 @@ export function abbreviateForScreenReader(text: string, maxLength: number = 100)
  * @param config - Application config
  * @returns True if accessibility mode is enabled
  */
-export function isAccessibilityModeEnabled(config: any): boolean {
-  return !!config?.accessibility?.enabled;
+export function isAccessibilityModeEnabled(config: AppConfigType): boolean {
+  return config.accessibility?.enabled ?? false;
 }
 
 /**
@@ -87,8 +89,8 @@ export function isAccessibilityModeEnabled(config: any): boolean {
  * @param config - Application config
  * @returns True if loading phrases should be disabled
  */
-export function shouldDisableLoadingPhrases(config: any): boolean {
-  return !!config?.accessibility?.disableLoadingPhrases;
+export function shouldDisableLoadingPhrases(config: AppConfigType): boolean {
+  return config.accessibility?.disableLoadingPhrases ?? false;
 }
 
 /**
@@ -99,6 +101,6 @@ export function shouldDisableLoadingPhrases(config: any): boolean {
  * @returns Formatted ARIA label
  */
 export function generateAriaLabel(labelText: string, description?: string): string {
-  if (!description) return labelText;
+  if (!description) {return labelText;}
   return `${labelText}. ${description}`;
 }

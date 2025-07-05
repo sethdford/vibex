@@ -7,10 +7,10 @@
 
 import path from 'path';
 import fs from 'fs/promises';
-import { fileExists, directoryExists, readTextFile, findFiles } from '../fs/operations';
-import { logger } from '../utils/logger';
-import { createUserError } from '../errors/formatter';
-import { ErrorCategory } from '../errors/types';
+import { fileExists, directoryExists, readTextFile, findFiles } from '../fs/operations.js';
+import { logger } from '../utils/logger.js';
+import { createUserError } from '../errors/formatter.js';
+import { ErrorCategory } from '../errors/types.js';
 
 /**
  * File info with language detection and stats
@@ -201,15 +201,15 @@ export async function analyzeCodebase(
   };
   
   // Pattern for ignore patterns
-  const ignoreRegexes = ignorePatterns.map(pattern => {
+  const ignoreRegexes = ignorePatterns.map(pattern => 
     // Convert glob pattern to regex pattern
-    return new RegExp(
+     new RegExp(
       pattern
         .replace(/\./g, '\\.')
         .replace(/\*/g, '.*')
         .replace(/\?/g, '.')
-    );
-  });
+    )
+  );
   
   // Find all files recursively
   let allFiles: string[] = [];
@@ -573,14 +573,12 @@ export async function findFilesByContent(
   const flags = caseSensitive ? 'g' : 'gi';
   const regex = new RegExp(searchTerm, flags);
   
-  const ignoreRegexes = ignorePatterns.map(pattern => {
-    return new RegExp(
+  const ignoreRegexes = ignorePatterns.map(pattern => new RegExp(
       pattern
         .replace(/\./g, '\\.')
         .replace(/\*/g, '.*')
         .replace(/\?/g, '.')
-    );
-  });
+    ));
   
   // Find all files (optionally filtered by extension)
   const allFiles = await findFiles(directory, { recursive: true });

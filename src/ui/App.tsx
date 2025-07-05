@@ -22,7 +22,7 @@ import type {
 } from 'ink';
 
 import { type HistoryItem, MessageType } from './types.js';
-import { StreamingState } from './components/AdvancedStreamingDisplay.js';
+import { StreamingState } from './components/ModernInterface.js';
 import { useTerminalSize } from './hooks/useTerminalSize.js';
 import { useLoadingIndicator } from './hooks/useLoadingIndicator.js';
 import { useThemeCommand } from './hooks/useThemeCommand.js';
@@ -73,10 +73,10 @@ import { loadConfig } from '../config/index.js';
 import { getAIClient } from '../ai/index.js';
 import { logger } from '../utils/logger.js';
 import type { AppConfigType } from '../config/schema.js';
+import type { IntegratedConfig } from '../config/claude-integration.js';
 // Advanced UI Components
-import { ModernInterface, InterfaceMode } from './components/ModernInterface.js';
+import { ModernInterface, InterfaceMode, DensityMode as ModernDensityMode } from './components/ModernInterface.js';
 import { MultimodalContentHandler, ProcessingStatus } from './components/MultimodalContentHandler.js';
-import { CompactInterface } from './components/CompactInterface.js';
 import type { MultimodalContent, ThinkingBlock, CanvasElement, CollaborationState } from './components/ModernInterface.js';
 import type { MultimodalContentItem, ProcessingCapabilities, ContentType } from './components/MultimodalContentHandler.js';
 
@@ -92,9 +92,9 @@ import type { DensityMetrics } from './utils/density-metrics.js';
 const CTRL_EXIT_PROMPT_DURATION_MS = 1000;
 
 /**
- * App configuration interface - using proper schema type
+ * App configuration interface - using integrated configuration with Claude optimizations
  */
-export interface AppConfig extends Omit<AppConfigType, 'debug'> {
+export interface AppConfig extends Omit<IntegratedConfig, 'debug'> {
   debug?: boolean;
   targetDir?: string;
   [key: string]: unknown;
@@ -154,14 +154,9 @@ export const AppWrapper = (props: AppProps) => (
 );
 
 /**
- * UI Density Mode enumeration
+ * UI Density Mode enumeration - using ModernInterface DensityMode
  */
-export enum DensityMode {
-  NORMAL = 'normal',
-  COMPACT = 'compact',
-  ULTRA_COMPACT = 'ultra_compact',
-  ADAPTIVE = 'adaptive'
-}
+export const DensityMode = ModernDensityMode;
 
 /**
  * Main App component
@@ -216,7 +211,7 @@ const App = ({ config, initialContext, settings = {}, startupWarnings = [], upda
   const [advancedFeaturesEnabled, setAdvancedFeaturesEnabled] = useState<boolean>(true);
   
   // UI Density Management State
-  const [densityMode, setDensityMode] = useState<DensityMode>(DensityMode.NORMAL);
+  const [densityMode, setDensityMode] = useState<typeof DensityMode[keyof typeof DensityMode]>(DensityMode.NORMAL);
   const [isCompactMode, setIsCompactMode] = useState(false);
   const mainContentRef = useRef<HTMLElement | null>(null);
   
@@ -331,6 +326,69 @@ const App = ({ config, initialContext, settings = {}, startupWarnings = [], upda
       logger.error('Error refreshing memory:', error);
     }
   }, [addItem]);
+
+  // Claude configuration initialization
+  useEffect(() => {
+    const initializeClaudeConfig = async () => {
+      try {
+        if (config.claude) {
+          logger.info('🤖 Claude-optimized configuration detected', {
+            version: config.claude.version,
+            conversationMode: config.claude.conversation.enableAdvancedReasoning,
+            uiMode: config.claude.ui.defaultInterfaceMode,
+            performanceMode: config.claude.performance.enableParallelProcessing
+          });
+          
+          // Apply Claude UI optimizations
+          if (config.claude.ui.defaultInterfaceMode) {
+            const modeMap: Record<string, InterfaceMode> = {
+              'chat': InterfaceMode.CHAT,
+              'canvas': InterfaceMode.CANVAS,
+              'multimodal': InterfaceMode.MULTIMODAL,
+              'analysis': InterfaceMode.ANALYSIS,
+              'collaboration': InterfaceMode.COLLABORATION,
+              'compact': InterfaceMode.COMPACT,
+              'streaming': InterfaceMode.STREAMING
+            };
+            const claudeMode = modeMap[config.claude.ui.defaultInterfaceMode];
+            if (claudeMode) {
+              setInterfaceMode(claudeMode);
+              logger.debug(`Interface mode set to: ${claudeMode}`);
+            }
+          }
+          
+          // Apply density mode from Claude config
+          if (config.claude.ui.densityMode) {
+            const densityMap: Record<string, typeof DensityMode[keyof typeof DensityMode]> = {
+              'ultra-compact': DensityMode.ULTRA_COMPACT,
+              'compact': DensityMode.COMPACT,
+              'normal': DensityMode.NORMAL,
+              'spacious': DensityMode.ADAPTIVE // Map spacious to adaptive
+            };
+            const claudeDensity = densityMap[config.claude.ui.densityMode];
+            if (claudeDensity) {
+              setDensityMode(claudeDensity);
+              setIsCompactMode(claudeDensity === DensityMode.COMPACT || claudeDensity === DensityMode.ULTRA_COMPACT);
+              logger.debug(`Density mode set to: ${claudeDensity}`);
+            }
+          }
+          
+          // Enable advanced features if configured
+          if (config.claude.features) {
+            setAdvancedFeaturesEnabled(
+              config.claude.features.workflowOrchestration.enableRealTimeOrchestration ||
+              config.claude.features.multimodalContent.enableImageAnalysis ||
+              config.claude.features.collaboration.enableRealTimeCollaboration
+            );
+          }
+        }
+      } catch (error) {
+        logger.warn('Failed to initialize Claude configuration:', error);
+      }
+    };
+    
+    initializeClaudeConfig();
+  }, [config]);
 
   // Automatic context loading on startup
   useEffect(() => {
@@ -1088,14 +1146,18 @@ const App = ({ config, initialContext, settings = {}, startupWarnings = [], upda
             minHeight={0}
           >
             {isCompactMode ? (
-              <CompactInterface
+              <ModernInterface
+                mode={InterfaceMode.COMPACT}
+                densityMode={densityMode === DensityMode.COMPACT ? ModernDensityMode.COMPACT : 
+                           densityMode === DensityMode.ULTRA_COMPACT ? ModernDensityMode.ULTRA_COMPACT :
+                           ModernDensityMode.NORMAL}
                 terminalWidth={terminalWidth}
                 terminalHeight={terminalHeight}
                 history={history}
                 input={buffer.text}
                 isProcessing={streamingState !== StreamingState.IDLE}
                 streamingText={streamingText}
-                model={config?.ai?.model || 'claude-sonnet-4-20250514'}
+                model={config?.claude?.model || 'claude-sonnet-4-20250514'}
                 metrics={{
                   tokensUsed: sessionStats.currentResponse.totalTokenCount,
                   responseTime: elapsedTime,
@@ -1110,6 +1172,8 @@ const App = ({ config, initialContext, settings = {}, startupWarnings = [], upda
                 onCancel={() => {
                   // Handle cancel if needed
                 }}
+                onModeChange={setInterfaceMode}
+                onDensityChange={(density) => setDensityMode(density)}
               />
             ) : (
               /* Normal mode - existing content */

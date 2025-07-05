@@ -7,8 +7,8 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import Spinner from 'ink-spinner';
-import { Colors } from '../colors';
-import { StreamingState } from '../types';
+import { Colors } from '../colors.js';
+import { StreamingState } from '../types.js';
 
 /**
  * Loading indicator props
@@ -68,7 +68,7 @@ export const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({
   }
   
   return (
-    <Box flexDirection="column" marginY={1}>
+    <Box marginY={0}>
       {(thought || currentLoadingPhrase) && (
         <Box>
           <Box marginRight={1}>
@@ -77,19 +77,9 @@ export const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({
             </Text>
           </Box>
           
-          <Box flexDirection="column" flexGrow={1}>
-            {currentLoadingPhrase && (
-              <Text color={Colors.TextMuted}>
-                {currentLoadingPhrase}
-              </Text>
-            )}
-            
-            {thought && (
-              <Text color={Colors.TextDim}>
-                {thought}
-              </Text>
-            )}
-          </Box>
+          <Text color={Colors.TextMuted}>
+            {currentLoadingPhrase || thought}
+          </Text>
           
           <Box marginLeft={2}>
             <Text color={Colors.TextDim}>

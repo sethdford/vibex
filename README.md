@@ -226,7 +226,7 @@ Vibex stores configuration in `~/.vibex/config/config.json`.
 ### Environment Variables
 
 ```bash
-# Claude API Key
+# Claude API Key (REQUIRED for AI features)
 export ANTHROPIC_API_KEY="your-api-key-here"
 
 # Disable telemetry
@@ -238,6 +238,8 @@ export VIBEX_LOG_LEVEL=debug
 # Custom config path
 export VIBEX_CONFIG_PATH="/path/to/config.json"
 ```
+
+> **Important**: You must export your `ANTHROPIC_API_KEY` before running VibeX to use AI features.
 
 ## 🗂️ File Structure
 

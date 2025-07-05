@@ -6,14 +6,20 @@
 
 import * as keytar from 'keytar';
 import { logger } from '../utils/logger.js';
-import { AuthToken, TokenStorage } from './types.js';
+import type { AuthToken, TokenStorage } from './types.js';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
 
-const TOKEN_FILE_PATH = path.join(os.homedir(), '.claude-code-auth.json');
 const KEYCHAIN_SERVICE = 'claude-code-cli';
 const KEYCHAIN_ACCOUNT = 'claude-code-credentials';
+
+/**
+ * Get the token file path (moved to function to make it mockable)
+ */
+function getTokenFilePath(): string {
+  return path.join(os.homedir(), '.claude-code-auth.json');
+}
 
 /**
  * Create a token storage provider
@@ -27,7 +33,7 @@ export function createTokenStorage(): TokenStorage {
       logger.debug(`Saving auth token for ${key}`);
       try {
         const data = JSON.stringify({ [key]: token });
-        await fs.writeFile(TOKEN_FILE_PATH, data);
+        await fs.writeFile(getTokenFilePath(), data);
       } catch (error) {
         logger.error('Failed to save token to file', error);
       }
@@ -39,7 +45,7 @@ export function createTokenStorage(): TokenStorage {
     async getToken(key: string): Promise<AuthToken | null> {
       logger.debug(`Getting auth token for ${key}`);
       try {
-        const data = await fs.readFile(TOKEN_FILE_PATH, 'utf-8');
+        const data = await fs.readFile(getTokenFilePath(), 'utf-8');
         const tokens = JSON.parse(data);
         return tokens[key] || null;
       } catch (error) {
@@ -57,10 +63,10 @@ export function createTokenStorage(): TokenStorage {
     async deleteToken(key: string): Promise<void> {
       logger.debug(`Deleting auth token for ${key}`);
       try {
-        const data = await fs.readFile(TOKEN_FILE_PATH, 'utf-8');
+        const data = await fs.readFile(getTokenFilePath(), 'utf-8');
         const tokens = JSON.parse(data);
         delete tokens[key];
-        await fs.writeFile(TOKEN_FILE_PATH, JSON.stringify(tokens));
+        await fs.writeFile(getTokenFilePath(), JSON.stringify(tokens));
       } catch (error) {
         if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) {
           logger.error('Failed to delete token from file', error);
@@ -74,7 +80,7 @@ export function createTokenStorage(): TokenStorage {
     async clearTokens(): Promise<void> {
       logger.debug('Clearing all auth tokens');
       try {
-        await fs.unlink(TOKEN_FILE_PATH);
+        await fs.unlink(getTokenFilePath());
       } catch (error) {
         if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) {
           logger.error('Failed to clear tokens', error);
@@ -87,7 +93,7 @@ export function createTokenStorage(): TokenStorage {
 /**
  * Check if a token is expired
  */
-export function isTokenExpired(token: AuthToken, thresholdSeconds: number = 0): boolean {
+export function isTokenExpired(token: AuthToken, thresholdSeconds = 0): boolean {
   if (!token.expiresAt) {
     return false;
   }

@@ -1,46 +1,43 @@
 /**
- * Tool Registry and Management System
+ * Tool Registry and Built-in Tools
  * 
- * This module serves as the central hub for all tool-related functionality,
- * providing registration, discovery, and execution of tools throughout the application.
- * Key capabilities include:
- * 
- * - Central tool registry for maintaining available tools
- * - Tool registration and deregistration interfaces
- * - Type-safe execution of tool operations
- * - Tool discovery and metadata access
- * - Built-in tool initialization for core functionality
- * - Tool result handling and formatting
- * - Error handling for tool execution failures
- * 
- * The tool system enables AI assistants to interact with the system by providing
- * a standardized interface for executing operations and receiving structured results.
+ * This module manages the registration and execution of tools available to the AI,
+ * providing a centralized system for tool management with live feedback capabilities.
  */
 
 import { logger } from '../utils/logger.js';
-import { createWebFetchTool, executeWebFetch } from './web-fetch.js';
-import { createCodeAnalyzerTool, executeCodeAnalysis } from './code-analyzer.js';
+import type { ToolOperation, LiveFeedbackData } from '../ui/components/LiveToolFeedback.js';
+import { GitService } from '../services/git-service.js';
+import { gitCheckpointing } from '../services/git-checkpointing-service.js';
 
 /**
- * Tool definition interface
+ * Tool input parameters interface
  */
-export interface ToolDefinition {
-  name: string;
-  description: string;
-  input_schema: {
-    type: 'object';
-    properties: Record<string, any>;
-    required?: string[];
-  };
+export interface ToolInputParameters {
+  [key: string]: string | number | boolean | null | undefined;
 }
 
 /**
- * Internal tool result interface
+ * Tool schema property definition
  */
-export interface InternalToolResult {
-  success: boolean;
-  result?: any;
-  error?: string;
+export interface ToolSchemaProperty {
+  type: 'string' | 'number' | 'boolean' | 'array' | 'object';
+  description?: string;
+  enum?: string[];
+  items?: ToolSchemaProperty;
+  properties?: Record<string, ToolSchemaProperty>;
+  required?: string[];
+  default?: string | number | boolean | null;
+}
+
+/**
+ * Tool use block interface (from Claude API)
+ */
+export interface ToolUseBlock {
+  type: 'tool_use';
+  id: string;
+  name: string;
+  input: ToolInputParameters;
 }
 
 /**
@@ -53,70 +50,215 @@ export interface ToolResult {
 }
 
 /**
- * Tool use block interface (from Claude API)
+ * Tool definition interface
  */
-export interface ToolUseBlock {
-  type: 'tool_use';
-  id: string;
+export interface ToolDefinition {
   name: string;
-  input: Record<string, any>;
+  description: string;
+  input_schema: {
+    type: 'object';
+    properties: Record<string, ToolSchemaProperty>;
+    required?: string[];
+  };
 }
 
 /**
- * Tool handler function type
+ * Internal tool result interface
  */
-export type ToolHandler = (input: any) => Promise<InternalToolResult>;
+export interface InternalToolResult {
+  success: boolean;
+  result?: unknown;
+  error?: string;
+  metadata?: {
+    linesAdded?: number;
+    linesRemoved?: number;
+    linesModified?: number;
+    filesAffected?: number;
+    outputSize?: number;
+    executionTime?: number;
+    checkpointId?: string;
+    checkpointCreated?: boolean;
+  };
+}
 
 /**
- * Tool registry class
+ * Tool handler function with feedback support
+ */
+export type ToolHandler = (
+  input: ToolInputParameters,
+  feedback?: {
+    onStart?: (operation: string, target?: string, message?: string) => string;
+    onProgress?: (id: string, progress: Partial<LiveFeedbackData>) => void;
+    onComplete?: (id: string, result: InternalToolResult) => void;
+  }
+) => Promise<InternalToolResult>;
+
+/**
+ * Tool registry for managing available tools
  */
 class ToolRegistry {
-  private tools: Map<string, {
-    definition: ToolDefinition;
-    handler: ToolHandler;
-  }> = new Map();
+  private readonly tools = new Map<string, { definition: ToolDefinition; handler: ToolHandler }>();
+  private readonly executionStats = new Map<string, { count: number; successCount: number; totalTime: number }>();
 
   /**
    * Register a tool
    */
   register(definition: ToolDefinition, handler: ToolHandler): void {
-    if (this.tools.has(definition.name)) {
-      logger.warn(`Tool ${definition.name} is already registered, overwriting`);
-    }
-
     this.tools.set(definition.name, { definition, handler });
-    logger.debug(`Registered tool: ${definition.name}`);
+    
+    // Initialize stats
+    if (!this.executionStats.has(definition.name)) {
+      this.executionStats.set(definition.name, {
+        count: 0,
+        successCount: 0,
+        totalTime: 0
+      });
+    }
+    
+    logger.info(`Registered tool: ${definition.name}`);
   }
 
   /**
-   * Get a tool by name
+   * Get all registered tools
+   */
+  getAll(): ToolDefinition[] {
+    return Array.from(this.tools.values()).map(tool => tool.definition);
+  }
+
+  /**
+   * Get tool by name
    */
   get(name: string): { definition: ToolDefinition; handler: ToolHandler } | undefined {
     return this.tools.get(name);
   }
 
   /**
-   * Get all tool definitions
+   * Execute a tool with live feedback support and automatic checkpointing
    */
-  getDefinitions(): ToolDefinition[] {
-    return Array.from(this.tools.values()).map(t => t.definition);
-  }
-
-  /**
-   * Execute a tool
-   */
-  async execute(toolUse: ToolUseBlock): Promise<ToolResult> {
+  async execute(
+    toolUse: ToolUseBlock,
+    feedbackCallbacks?: {
+      onStart?: (operation: string, target?: string, message?: string) => string;
+      onProgress?: (id: string, progress: Partial<LiveFeedbackData>) => void;
+      onComplete?: (id: string, result: InternalToolResult) => void;
+    }
+  ): Promise<ToolResult> {
+    const startTime = Date.now();
     const tool = this.tools.get(toolUse.name);
+    
     if (!tool) {
+      const error = `Tool ${toolUse.name} not found`;
+      logger.error(error);
       return {
         tool_use_id: toolUse.id,
-        content: `Tool ${toolUse.name} not found`,
+        content: error,
         is_error: true,
       };
     }
 
+    // Update execution stats
+    const stats = this.executionStats.get(toolUse.name)!;
+    stats.count++;
+
     try {
-      const result = await tool.handler(toolUse.input);
+      // ENHANCED CHECKPOINTING: Create comprehensive checkpoint before dangerous operations
+      const requiresCheckpoint = this.isDestructiveOperation(toolUse.name, toolUse.input);
+      let checkpointMetadata: any = undefined;
+      
+      if (requiresCheckpoint) {
+        try {
+          // Extract file paths that will be modified
+          const filePaths = this.extractFilePaths(toolUse.name, toolUse.input);
+          
+          if (filePaths.length > 0) {
+            // Initialize checkpointing service if needed
+            await gitCheckpointing.initialize();
+            
+            // Check if automatic checkpointing should be performed
+            const shouldCheckpoint = gitCheckpointing.shouldCreateCheckpoint(toolUse.name, filePaths);
+            
+            if (shouldCheckpoint) {
+              // Update progress with checkpoint info
+              if (feedbackCallbacks?.onProgress) {
+                const feedbackId = feedbackCallbacks.onStart?.(toolUse.name as ToolOperation, '', 'Creating safety checkpoint...');
+                if (feedbackId) {
+                  feedbackCallbacks.onProgress(feedbackId, {
+                    status: 'processing',
+                    message: `Creating checkpoint for ${filePaths.length} file(s)...`
+                  });
+                }
+              }
+              
+              // Create comprehensive checkpoint with conversation state
+              checkpointMetadata = await gitCheckpointing.createCheckpoint({
+                name: `Before ${toolUse.name} operation`,
+                description: `Auto-checkpoint before ${toolUse.name} modifying: ${filePaths.join(', ')}`,
+                filePaths,
+                triggerOperation: toolUse.name,
+                saveConversation: true,
+                custom: {
+                  toolInput: JSON.stringify(toolUse.input),
+                  timestamp: Date.now(),
+                  automaticCheckpoint: true,
+                },
+              });
+              
+              if (checkpointMetadata) {
+                logger.info(`Created comprehensive checkpoint before ${toolUse.name}`, {
+                  checkpointId: checkpointMetadata.id,
+                  filesCount: filePaths.length,
+                  hasGitCommit: !!checkpointMetadata.gitCommitHash,
+                  hasConversation: !!checkpointMetadata.conversationId,
+                });
+                
+                // Update progress with success
+                if (feedbackCallbacks?.onProgress) {
+                  const feedbackId = feedbackCallbacks.onStart?.(toolUse.name as ToolOperation, '', 'Checkpoint created successfully');
+                  if (feedbackId) {
+                    feedbackCallbacks.onProgress(feedbackId, {
+                      status: 'processing',
+                      message: `Checkpoint ${checkpointMetadata.id} created with ${filePaths.length} file(s)`
+                    });
+                  }
+                }
+              }
+            } else {
+              logger.debug('Checkpointing not required or disabled for this operation');
+            }
+          }
+        } catch (error) {
+          logger.warn(`Enhanced checkpointing failed for ${toolUse.name}: ${error}`);
+          // Continue with execution even if checkpointing fails
+        }
+      }
+
+      // Execute tool with feedback support
+      const result = await tool.handler(toolUse.input, feedbackCallbacks);
+      const executionTime = Date.now() - startTime;
+      
+      // Update stats
+      if (result.success) {
+        stats.successCount++;
+      }
+      stats.totalTime += executionTime;
+      
+      // Add execution time and checkpoint info to metadata
+      if (result.metadata) {
+        result.metadata.executionTime = executionTime;
+        if (checkpointMetadata) {
+          result.metadata.checkpointId = checkpointMetadata.id;
+          result.metadata.checkpointCreated = true;
+        }
+      } else {
+        result.metadata = { 
+          executionTime,
+          ...(checkpointMetadata ? { 
+            checkpointId: checkpointMetadata.id, 
+            checkpointCreated: true
+          } : {})
+        };
+      }
+
       if (result.success) {
         return {
           tool_use_id: toolUse.id,
@@ -129,7 +271,10 @@ class ToolRegistry {
           is_error: true,
         };
       }
-    } catch (error) {
+    } catch (error: unknown) {
+      const executionTime = Date.now() - startTime;
+      stats.totalTime += executionTime;
+      
       logger.error(`Error executing tool ${toolUse.name}:`, error);
       return {
         tool_use_id: toolUse.id,
@@ -140,37 +285,106 @@ class ToolRegistry {
   }
 
   /**
-   * Execute multiple tools
+   * Determine if an operation requires checkpointing
    */
-  async executeMany(toolUses: ToolUseBlock[]): Promise<ToolResult[]> {
-    return Promise.all(toolUses.map(toolUse => this.execute(toolUse)));
+  private isDestructiveOperation(toolName: string, input: ToolInputParameters): boolean {
+    const destructiveTools = new Set([
+      'write_file',
+      'edit',
+      'execute_command', // Could modify files
+      'create_file',
+      'delete_file',
+      'move_file',
+      'copy_file'
+    ]);
+    
+    // Always checkpoint file modification tools
+    if (destructiveTools.has(toolName)) {
+      return true;
+    }
+    
+    // Check for potentially destructive commands
+    if (toolName === 'execute_command' && input.command) {
+      const command = String(input.command).toLowerCase();
+      const destructiveCommands = ['rm ', 'mv ', 'cp ', 'git ', 'npm install', 'yarn install'];
+      return destructiveCommands.some(cmd => command.includes(cmd));
+    }
+    
+    return false;
   }
 
   /**
-   * Check if a tool exists
+   * Extract file paths that will be modified by the operation
    */
-  has(name: string): boolean {
-    return this.tools.has(name);
+  private extractFilePaths(toolName: string, input: ToolInputParameters): string[] {
+    const paths: string[] = [];
+    
+    switch (toolName) {
+      case 'write_file':
+      case 'edit':
+      case 'create_file':
+      case 'delete_file':
+        if (input.path && typeof input.path === 'string') {
+          paths.push(input.path);
+        }
+        break;
+        
+      case 'move_file':
+      case 'copy_file':
+        if (input.source && typeof input.source === 'string') {
+          paths.push(input.source);
+        }
+        if (input.destination && typeof input.destination === 'string') {
+          paths.push(input.destination);
+        }
+        break;
+        
+      case 'execute_command':
+        // For commands, we can't easily predict file changes
+        // Could add heuristics here based on command analysis
+        break;
+    }
+    
+    return paths;
   }
 
   /**
-   * Clear all tools
+   * Get execution statistics
    */
-  clear(): void {
-    this.tools.clear();
+  getStats(): Record<string, { count: number; successRate: number; avgTime: number }> {
+    const stats: Record<string, { count: number; successRate: number; avgTime: number }> = {};
+    
+    for (const [name, data] of this.executionStats.entries()) {
+      stats[name] = {
+        count: data.count,
+        successRate: data.count > 0 ? (data.successCount / data.count) * 100 : 0,
+        avgTime: data.count > 0 ? data.totalTime / data.count : 0
+      };
+    }
+    
+    return stats;
   }
 
-
+  /**
+   * Clear execution statistics
+   */
+  clearStats(): void {
+    for (const stats of this.executionStats.values()) {
+      stats.count = 0;
+      stats.successCount = 0;
+      stats.totalTime = 0;
+    }
+  }
 }
 
-// Create singleton tool registry
-export const toolRegistry = new ToolRegistry();
+// Global tool registry instance
+const toolRegistry = new ToolRegistry();
 
 /**
- * Register built-in tools
+ * Register all built-in tools
  */
-export function registerBuiltInTools(): void {
-  // Register file system tools
+export async function registerBuiltInTools(): Promise<void> {
+  // Register file reading tool with feedback
   toolRegistry.register({
     name: 'read_file',
     description: 'Read the contents of a file',
@@ -179,24 +393,81 @@ export function registerBuiltInTools(): void {
       properties: {
         path: {
           type: 'string',
-          description: 'Path to the file to read'
+          description: 'The path to the file to read'
         }
       },
       required: ['path']
     }
-  }, async (input): Promise<InternalToolResult> => {
+  }, async (input, feedback): Promise<InternalToolResult> => {
+    const feedbackId = feedback?.onStart?.('read_file', input.path as string, 'Reading file...');
+    
     try {
       const fs = await import('fs/promises');
-      const content = await fs.readFile(input.path, 'utf-8');
-      return { success: true, result: content };
-    } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to read file' 
+      const path = await import('path');
+      
+      // Update progress
+      if (feedbackId && feedback?.onProgress) {
+        feedback.onProgress(feedbackId, {
+          status: 'processing',
+          message: 'Checking file existence...'
+        });
+      }
+      
+      const resolvedPath = path.resolve(input.path as string);
+      const stats = await fs.stat(resolvedPath);
+      
+      if (!stats.isFile()) {
+        const error = `Path ${input.path} is not a file`;
+        if (feedbackId && feedback?.onComplete) {
+          feedback.onComplete(feedbackId, { success: false, error });
+        }
+        return { success: false, error };
+      }
+      
+      // Update progress
+      if (feedbackId && feedback?.onProgress) {
+        feedback.onProgress(feedbackId, {
+          status: 'processing',
+          message: 'Reading file contents...',
+          progress: { current: 50, total: 100, unit: '%' }
+        });
+      }
+      
+      const content = await fs.readFile(resolvedPath, 'utf-8');
+      const result = {
+        success: true,
+        result: {
+          path: input.path,
+          content,
+          size: content.length,
+          lines: content.split('\n').length
+        },
+        metadata: {
+          outputSize: content.length,
+          filesAffected: 1
+        }
       };
+      
+      if (feedbackId && feedback?.onComplete) {
+        feedback.onComplete(feedbackId, result);
+      }
+      
+      return result;
+    } catch (error: unknown) {
+      const errorResult = {
+        success: false,
+        error: `Failed to read file ${input.path}: ${error instanceof Error ? error.message : String(error)}`
+      };
+      
+      if (feedbackId && feedback?.onComplete) {
+        feedback.onComplete(feedbackId, errorResult);
+      }
+      
+      return errorResult;
     }
   });
 
+  // Register file writing tool with feedback
   toolRegistry.register({
     name: 'write_file',
     description: 'Write content to a file',
@@ -205,62 +476,223 @@ export function registerBuiltInTools(): void {
       properties: {
         path: {
           type: 'string',
-          description: 'Path to the file to write'
+          description: 'The path to the file to write'
         },
         content: {
           type: 'string',
-          description: 'Content to write to the file'
+          description: 'The content to write to the file'
         }
       },
       required: ['path', 'content']
     }
-  }, async (input): Promise<InternalToolResult> => {
+  }, async (input, feedback): Promise<InternalToolResult> => {
+    const feedbackId = feedback?.onStart?.('write_file', input.path as string, 'Writing file...');
+    
     try {
       const fs = await import('fs/promises');
-      await fs.writeFile(input.path, input.content, 'utf-8');
-      return { success: true };
-    } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to write file' 
+      const path = await import('path');
+      
+      // Update progress
+      if (feedbackId && feedback?.onProgress) {
+        feedback.onProgress(feedbackId, {
+          status: 'processing',
+          message: 'Preparing to write file...'
+        });
+      }
+      
+      const resolvedPath = path.resolve(input.path as string);
+      const dir = path.dirname(resolvedPath);
+      
+      // Ensure directory exists
+      await fs.mkdir(dir, { recursive: true });
+      
+      // Update progress
+      if (feedbackId && feedback?.onProgress) {
+        feedback.onProgress(feedbackId, {
+          status: 'processing',
+          message: 'Writing content...',
+          progress: { current: 75, total: 100, unit: '%' }
+        });
+      }
+      
+      await fs.writeFile(resolvedPath, input.content as string, 'utf-8');
+      
+      const lines = (input.content as string).split('\n').length;
+      const result = {
+        success: true,
+        result: {
+          path: input.path as string,
+          size: (input.content as string).length,
+          lines
+        },
+        metadata: {
+          linesAdded: lines,
+          filesAffected: 1,
+          outputSize: (input.content as string).length
+        }
       };
+      
+      if (feedbackId && feedback?.onComplete) {
+        feedback.onComplete(feedbackId, result);
+      }
+      
+      return result;
+    } catch (error: unknown) {
+      const errorResult = {
+        success: false,
+        error: `Failed to write file ${input.path}: ${error instanceof Error ? error.message : String(error)}`
+      };
+      
+      if (feedbackId && feedback?.onComplete) {
+        feedback.onComplete(feedbackId, errorResult);
+      }
+      
+      return errorResult;
     }
   });
 
+  // Register command execution tool with feedback
   toolRegistry.register({
-    name: 'list_directory',
-    description: 'List files in a directory',
+    name: 'execute_command',
+    description: 'Execute a shell command in a specified directory (useful for npm install, git init, etc.)',
     input_schema: {
       type: 'object',
       properties: {
-        path: {
+        command: {
           type: 'string',
-          description: 'Path to the directory'
+          description: 'The shell command to execute'
+        },
+        cwd: {
+          type: 'string',
+          description: 'Working directory to execute the command in (default: current directory)'
+        },
+        timeout: {
+          type: 'number',
+          description: 'Timeout in milliseconds (default: 30000)',
+          default: 30000
         }
       },
-      required: ['path']
+      required: ['command']
     }
-  }, async (input): Promise<InternalToolResult> => {
+  }, async (input, feedback): Promise<InternalToolResult> => {
+    const feedbackId = feedback?.onStart?.('execute_command', String(input.command || ''), 'Executing command...');
+    
     try {
-      const fs = await import('fs/promises');
-      const files = await fs.readdir(input.path);
-      return { success: true, result: files };
-    } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to list directory' 
+      const { exec } = await import('child_process');
+      const { promisify } = await import('util');
+      const execAsync = promisify(exec);
+      
+      // Update progress
+      if (feedbackId && feedback?.onProgress) {
+        feedback.onProgress(feedbackId, {
+          status: 'processing',
+          message: `Running: ${input.command}`
+        });
+      }
+      
+      const options: { timeout: number; maxBuffer: number; cwd?: string } = {
+        timeout: typeof input.timeout === 'number' ? input.timeout : 30000,
+        maxBuffer: 1024 * 1024 // 1MB buffer
       };
+      
+      if (input.cwd && typeof input.cwd === 'string') {
+        const path = await import('path');
+        options.cwd = path.resolve(input.cwd);
+      }
+      
+      const { stdout, stderr } = await execAsync(String(input.command || ''), options);
+      
+      const result = {
+        success: true,
+        result: {
+          command: input.command,
+          stdout: String(stdout).trim(),
+          stderr: String(stderr).trim(),
+          cwd: options.cwd || process.cwd()
+        },
+        metadata: {
+          outputSize: String(stdout).length + String(stderr).length
+        }
+      };
+      
+      if (feedbackId && feedback?.onComplete) {
+        feedback.onComplete(feedbackId, result);
+      }
+      
+      return result;
+    } catch (error: unknown) {
+      // Create a proper error interface for exec errors
+      interface ExecError extends Error {
+        stdout?: string;
+        stderr?: string;
+      }
+      
+      const execError = error as ExecError;
+      const errorResult = {
+        success: false,
+        error: `Command failed: ${execError.message || String(error)}${execError.stdout ? `\nStdout: ${execError.stdout}` : ''}${execError.stderr ? `\nStderr: ${execError.stderr}` : ''}`
+      };
+      
+      if (feedbackId && feedback?.onComplete) {
+        feedback.onComplete(feedbackId, errorResult);
+      }
+      
+      return errorResult;
     }
   });
 
   // Register web fetch tool
+  const { createWebFetchTool, executeWebFetch } = await import('./web-fetch.js');
   toolRegistry.register(createWebFetchTool(), executeWebFetch);
 
   // Register code analyzer tool
-  toolRegistry.register(createCodeAnalyzerTool(), executeCodeAnalysis);
+  const { createCodeAnalyzerTool, executeCodeAnalysis } = await import('./code-analyzer.js');
+  toolRegistry.register(createCodeAnalyzerTool(), async (input, feedback): Promise<InternalToolResult> => {
+    // Convert ToolInputParameters to CodeAnalysisInput
+    const codeInput = {
+      file_path: String(input.file_path || ''),
+      analysis_type: typeof input.analysis_type === 'string' ? input.analysis_type : undefined,
+      include_suggestions: typeof input.include_suggestions === 'boolean' ? input.include_suggestions : undefined
+    };
+    
+    return executeCodeAnalysis(codeInput);
+  });
 
-  logger.info('Registered built-in tools');
+  // Register advanced file system tools
+  const { advancedFileTools } = await import('./advanced-file-tools.js');
+  
+  // Register list_directory tool
+  toolRegistry.register(
+    advancedFileTools.list_directory.definition,
+    advancedFileTools.list_directory.handler
+  );
+  
+  // Register read_many_files tool
+  toolRegistry.register(
+    advancedFileTools.read_many_files.definition,
+    advancedFileTools.read_many_files.handler
+  );
+  
+  // Register edit tool
+  toolRegistry.register(
+    advancedFileTools.edit.definition,
+    advancedFileTools.edit.handler
+  );
+  
+  // Register glob tool
+  toolRegistry.register(
+    advancedFileTools.glob.definition,
+    advancedFileTools.glob.handler
+  );
+
+  logger.info(`Registered ${toolRegistry.getAll().length} built-in tools`);
 }
 
-// Auto-register built-in tools when module is imported
-registerBuiltInTools(); 
+// Export the registry and key functions
+export { toolRegistry };
+export const getToolRegistry = () => toolRegistry;
+export const getAllTools = () => toolRegistry.getAll();
+export const executeTool = async (toolUse: ToolUseBlock, feedbackCallbacks?: Parameters<typeof toolRegistry.execute>[1]) => 
+  toolRegistry.execute(toolUse, feedbackCallbacks);
+export const getToolStats = () => toolRegistry.getStats();
+export const clearToolStats = () => toolRegistry.clearStats();

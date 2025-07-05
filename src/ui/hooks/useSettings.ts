@@ -11,7 +11,33 @@ import path from 'path';
 import os from 'os';
 import { logger } from '../../utils/logger.js';
 import { appConfigSchema, AppConfigType } from '../../config/schema.js';
-import { SettingDefinition } from '../components/SettingsDialog';
+import type { SettingDefinition } from '../components/SettingsDialog.js';
+
+/**
+ * Settings value type
+ */
+type SettingsValue = string | number | boolean | null | undefined;
+
+/**
+ * Settings record type
+ */
+type SettingsRecord = Record<string, SettingsValue>;
+
+/**
+ * Configuration schema type
+ */
+interface SchemaShape {
+  terminal?: {
+    shape?: Record<string, unknown>;
+  };
+  ai?: {
+    shape?: Record<string, unknown>;
+  };
+}
+
+interface ConfigSchema {
+  shape?: SchemaShape;
+}
 
 /**
  * Settings hook return type
@@ -20,7 +46,7 @@ interface UseSettingsResult {
   /**
    * Current settings
    */
-  settings: Record<string, any>;
+  settings: SettingsRecord;
   
   /**
    * Settings definitions with metadata
@@ -30,7 +56,7 @@ interface UseSettingsResult {
   /**
    * Save a setting
    */
-  saveSetting: (key: string, value: any) => void;
+  saveSetting: (key: string, value: SettingsValue) => void;
   
   /**
    * Save all settings
@@ -62,11 +88,11 @@ const USER_SETTINGS_PATH = path.join(os.homedir(), '.claude-code', 'settings.jso
  * Settings hook for managing user settings
  */
 export function useSettings(
-  initialSettings: Record<string, any> = {},
-  configSchema = appConfigSchema
+  initialSettings: SettingsRecord = {},
+  configSchema: ConfigSchema = appConfigSchema as unknown as ConfigSchema
 ): UseSettingsResult {
   // Settings state
-  const [settings, setSettings] = useState<Record<string, any>>(initialSettings);
+  const [settings, setSettings] = useState<SettingsRecord>(initialSettings);
   
   // Loading state
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -91,7 +117,7 @@ export function useSettings(
       // If settings file exists, load it
       if (existsSync(USER_SETTINGS_PATH)) {
         const content = await fs.readFile(USER_SETTINGS_PATH, 'utf-8');
-        const userSettings = JSON.parse(content);
+        const userSettings = JSON.parse(content) as SettingsRecord;
         
         // Merge with initial settings
         setSettings({
@@ -118,7 +144,7 @@ export function useSettings(
   }, [initialSettings]);
   
   // Save a single setting
-  const saveSetting = useCallback((key: string, value: any) => {
+  const saveSetting = useCallback((key: string, value: SettingsValue) => {
     setSettings(prev => ({
       ...prev,
       [key]: value
@@ -174,7 +200,7 @@ export function useSettings(
 /**
  * Save settings to file
  */
-async function saveSettingsToFile(settings: Record<string, any>): Promise<void> {
+async function saveSettingsToFile(settings: SettingsRecord): Promise<void> {
   try {
     // Ensure directory exists
     await fs.mkdir(path.dirname(USER_SETTINGS_PATH), { recursive: true });
@@ -194,7 +220,7 @@ async function saveSettingsToFile(settings: Record<string, any>): Promise<void> 
 /**
  * Generate setting definitions from schema
  */
-function generateSettingDefinitions(schema: any): SettingDefinition[] {
+function generateSettingDefinitions(schema: ConfigSchema): SettingDefinition[] {
   const definitions: SettingDefinition[] = [];
   
   // Process terminal settings

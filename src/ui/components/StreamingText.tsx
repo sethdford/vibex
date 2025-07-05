@@ -6,7 +6,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Text } from 'ink';
-import { Colors } from '../colors';
+import { Colors } from '../colors.js';
 
 /**
  * Streaming text props
@@ -115,7 +115,7 @@ export const StreamingText: React.FC<StreamingTextProps> = ({
   return (
     <Text 
       color={color} 
-      wrap={preserveWhitespace ? "preserve" : "wrap"}
+      wrap={preserveWhitespace ? "wrap" : "wrap"}
     >
       {visibleText}
       {isStreaming && cursorPos < text.length && (

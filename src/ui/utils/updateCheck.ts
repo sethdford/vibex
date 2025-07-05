@@ -25,8 +25,8 @@ const compareVersions = (version1: string, version2: string): number => {
   const parts2 = version2.split('.').map(Number);
   
   for (let i = 0; i < 3; i++) {
-    if (parts1[i] > parts2[i]) return 1;
-    if (parts1[i] < parts2[i]) return -1;
+    if (parts1[i] > parts2[i]) {return 1;}
+    if (parts1[i] < parts2[i]) {return -1;}
   }
   
   return 0;

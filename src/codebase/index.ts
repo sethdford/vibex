@@ -12,15 +12,18 @@ import {
   ProjectStructure,
   analyzeProjectDependencies,
   findFilesByContent
-} from './analyzer';
+} from './analyzer.js';
+import fs from 'fs/promises';
+import path from 'path';
+import { logger } from '../utils/logger.js';
 
 export {
   analyzeCodebase,
-  FileInfo,
-  DependencyInfo,
-  ProjectStructure,
+  type FileInfo,
+  type DependencyInfo,
+  type ProjectStructure,
   analyzeProjectDependencies,
-  findFilesByContent
+  findFilesByContent,
 };
 
 /**
@@ -59,14 +62,25 @@ const backgroundAnalysis: BackgroundAnalysisState = {
   workingDirectory: null
 };
 
+interface CodebaseConfig {
+  codebase?: {
+    maxDepth?: number;
+    includeTests?: boolean;
+    excludePatterns?: string[];
+    includePatterns?: string[];
+  };
+}
+
 /**
  * Initialize the codebase analysis subsystem
  * 
  * @param config Configuration options for the codebase analysis
  * @returns The initialized codebase analysis system
  */
-export function initCodebaseAnalysis(config: any = {}) {
-  const analysisConfig = config.codebase || {};
+export function initCodebaseAnalysis(config: unknown = {}) {
+  const analysisConfig = (config && typeof config === 'object' && 'codebase' in config) 
+    ? (config as { codebase?: Record<string, unknown> }).codebase || {}
+    : {};
   
   return {
     /**
@@ -83,26 +97,20 @@ export function initCodebaseAnalysis(config: any = {}) {
     /**
      * Analyze a specific directory
      */
-    analyzeDirectory: async (directoryPath: string, options = {}) => {
-      return analyzeCodebase(directoryPath, {
+    analyzeDirectory: async (directoryPath: string, options = {}) => analyzeCodebase(directoryPath, {
         ...analysisConfig,
         ...options
-      });
-    },
+      }),
     
     /**
      * Find files by content pattern
      */
-    findFiles: async (pattern: string, directoryPath: string = process.cwd(), options = {}) => {
-      return findFilesByContent(pattern, directoryPath, options);
-    },
+    findFiles: async (pattern: string, directoryPath: string = process.cwd(), options = {}) => findFilesByContent(pattern, directoryPath, options),
     
     /**
      * Analyze project dependencies
      */
-    analyzeDependencies: async (directoryPath: string = process.cwd()) => {
-      return analyzeProjectDependencies(directoryPath);
-    },
+    analyzeDependencies: async (directoryPath: string = process.cwd()) => analyzeProjectDependencies(directoryPath),
     
     /**
      * Start background analysis of the current directory
@@ -115,7 +123,6 @@ export function initCodebaseAnalysis(config: any = {}) {
       backgroundAnalysis.workingDirectory = process.cwd();
       
       // Check if the directory looks like a code project
-      const fs = await import('fs/promises');
       try {
         const files = await fs.readdir(backgroundAnalysis.workingDirectory);
         const hasCodeFiles = files.some(file => 
@@ -126,11 +133,11 @@ export function initCodebaseAnalysis(config: any = {}) {
         );
         
         if (!hasCodeFiles) {
-          console.log('No code files detected in current directory, skipping background analysis');
+          logger.info('No code files detected in current directory, skipping background analysis');
           return;
         }
       } catch (error: unknown) {
-        console.log('Cannot access current directory for analysis:', error instanceof Error ? error.message : String(error));
+        logger.warn('Cannot access current directory for analysis:', error instanceof Error ? error.message : String(error));
         return;
       }
       
@@ -141,7 +148,7 @@ export function initCodebaseAnalysis(config: any = {}) {
         const results = await analyzeCodebase(backgroundAnalysis.workingDirectory, analysisConfig);
         backgroundAnalysis.lastResults = results;
       } catch (err: unknown) {
-        console.log('Background analysis skipped:', err instanceof Error ? err.message : String(err));
+        logger.warn('Background analysis skipped:', err instanceof Error ? err.message : String(err));
         return;
       }
       
@@ -155,7 +162,7 @@ export function initCodebaseAnalysis(config: any = {}) {
           const results = await analyzeCodebase(backgroundAnalysis.workingDirectory, analysisConfig);
           backgroundAnalysis.lastResults = results;
         } catch (err: unknown) {
-          console.log('Background analysis error:', err instanceof Error ? err.message : String(err));
+          logger.error('Background analysis error:', err instanceof Error ? err.message : String(err));
         }
       }, interval);
     },
@@ -179,8 +186,6 @@ export function initCodebaseAnalysis(config: any = {}) {
     /**
      * Get the latest background analysis results
      */
-    getBackgroundAnalysisResults: () => {
-      return backgroundAnalysis.lastResults;
-    }
+    getBackgroundAnalysisResults: () => backgroundAnalysis.lastResults
   };
 } 

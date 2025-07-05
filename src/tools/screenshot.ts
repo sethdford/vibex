@@ -75,6 +75,13 @@ export interface ScreenshotResult {
 }
 
 /**
+ * Screenshot input interface
+ */
+export interface ScreenshotInput {
+  [key: string]: unknown;
+}
+
+/**
  * Take a screenshot
  */
 export async function takeScreenshot(options: ScreenshotOptions): Promise<ScreenshotResult> {
@@ -323,7 +330,7 @@ async function getImageDimensions(imagePath: string): Promise<{ width: number; h
 /**
  * Capture terminal output as text
  */
-export async function captureTerminalOutput(lines: number = 50): Promise<string> {
+export async function captureTerminalOutput(lines = 50): Promise<string> {
   const platform = os.platform();
   
   try {
@@ -388,13 +395,15 @@ export function createScreenshotTool() {
 /**
  * Execute screenshot tool
  */
-export async function executeScreenshot(input: any) {
+export async function executeScreenshot(input: ScreenshotInput) {
   try {
     const options: ScreenshotOptions = {
-      type: input.type || 'screen',
-      outputPath: input.outputPath,
-      delay: input.delay || 0,
-      quality: input.quality || 85,
+      type: (typeof input.type === 'string' && ['terminal', 'screen', 'window'].includes(input.type)) 
+        ? input.type as 'terminal' | 'screen' | 'window' 
+        : 'screen',
+      outputPath: typeof input.outputPath === 'string' ? input.outputPath : undefined,
+      delay: typeof input.delay === 'number' ? input.delay : 0,
+      quality: typeof input.quality === 'number' ? input.quality : 85,
       includeCursor: input.includeCursor !== false
     };
     

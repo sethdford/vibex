@@ -7,7 +7,7 @@
 // This module is currently not in use but is kept for future error handling enhancements.
 
 // import { ErrorManager, ErrorCategory, ErrorLevel } from './types';
-import { logger } from '../utils/logger';
+import { logger } from '../utils/logger.js';
 
 /**
  * Set up console error handling
@@ -19,7 +19,7 @@ export function setupConsoleErrorHandling(errorManager: ErrorManager): void {
   const originalConsoleWarn = console.warn;
   
   // Override console.error to track and handle errors
-  console.error = function(...args: any[]): void {
+  console.error = function(...args: readonly unknown[]): void {
     // Use the original console.error for output
     originalConsoleError.apply(console, args);
     
@@ -46,7 +46,7 @@ export function setupConsoleErrorHandling(errorManager: ErrorManager): void {
   };
   
   // Override console.warn to track warnings
-  console.warn = function(...args: any[]): void {
+  console.warn = function(...args: readonly unknown[]): void {
     // Use the original console.warn for output
     originalConsoleWarn.apply(console, args);
     
@@ -70,7 +70,7 @@ export function setupConsoleErrorHandling(errorManager: ErrorManager): void {
 /**
  * Extract an error from console arguments
  */
-function extractErrorFromArgs(args: any[]): Error | string | null {
+function extractErrorFromArgs(args: readonly unknown[]): Error | string | null {
   if (args.length === 0) {
     return null;
   }
@@ -103,4 +103,6 @@ function extractErrorFromArgs(args: any[]): Error | string | null {
     // If all else fails, return a generic message
     return 'Console error occurred';
   }
-} 
+}
+
+ 

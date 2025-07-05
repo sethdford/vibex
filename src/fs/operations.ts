@@ -6,11 +6,10 @@
  */
 
 import fs from 'fs/promises';
-import { Stats } from 'fs';
+import type { Stats} from 'fs';
+import { createReadStream, createWriteStream, constants, openSync, readSync, fstatSync, closeSync } from 'fs';
 import path from 'path';
-import { createReadStream, createWriteStream } from 'fs';
 import { pipeline } from 'stream/promises';
-import { constants } from 'fs';
 import { createUserError } from '../errors/formatter.js';
 import { ErrorCategory } from '../errors/types.js';
 import { logger } from '../utils/logger.js';
@@ -24,6 +23,60 @@ export async function fileExists(filePath: string): Promise<boolean> {
     const stats = await fs.stat(filePath);
     return stats.isFile();
   } catch (error) {
+    return false;
+  }
+}
+
+/**
+ * Determines if a file is likely a binary file based on content sampling
+ * 
+ * Examines the contents of a file by sampling the first 4KB (or the whole file if smaller)
+ * and checks for non-printable characters. Files with null bytes or a high percentage
+ * of non-printable characters are considered binary.
+ *
+ * @param filePath - Path to the file to check
+ * @returns True if the file appears to be binary
+ */
+export function isBinaryFile(filePath: string): boolean {
+  try {
+    // Open the file for reading
+    const fd = openSync(filePath, 'r');
+    
+    // Get file size
+    const fileSize = fstatSync(fd).size;
+    
+    // Empty files are not considered binary
+    if (fileSize === 0) {
+      closeSync(fd);
+      return false;
+    }
+    
+    // Read up to 4KB or file size, whichever is smaller
+    const bufferSize = Math.min(4096, fileSize);
+    const buffer = Buffer.alloc(bufferSize);
+    const bytesRead = readSync(fd, buffer, 0, buffer.length, 0);
+    closeSync(fd);
+    
+    if (bytesRead === 0) {return false;}
+    
+    // Count non-printable characters
+    let nonPrintableCount = 0;
+    for (let i = 0; i < bytesRead; i++) {
+      // Null byte is a strong indicator of binary file
+      if (buffer[i] === 0) {return true;}
+      
+      // Check for non-printable characters (excluding common control chars like CR, LF, tab)
+      if (buffer[i] < 9 || (buffer[i] > 13 && buffer[i] < 32)) {
+        nonPrintableCount++;
+      }
+    }
+    
+    // If >30% non-printable characters, consider it binary
+    return nonPrintableCount / bytesRead > 0.3;
+  } catch (error) {
+    // If any error occurs (e.g., file not found, permissions),
+    // treat as not binary and let higher-level functions handle existence/access errors
+    logger.warn(`Error checking if file is binary: ${filePath}`, error);
     return false;
   }
 }
@@ -75,6 +128,14 @@ export async function readTextFile(filePath: string, encoding: BufferEncoding = 
       throw createUserError(`File not found: ${filePath}`, {
         category: ErrorCategory.FILE_NOT_FOUND,
         resolution: 'Check the file path and try again.'
+      });
+    }
+    
+    // Check if file is binary before attempting to read as text
+    if (isBinaryFile(filePath)) {
+      throw createUserError(`File appears to be binary: ${filePath}`, {
+        category: ErrorCategory.INVALID_OPERATION,
+        resolution: 'Use readBinaryFile() for binary files or specify the correct encoding if this is a text file.'
       });
     }
 

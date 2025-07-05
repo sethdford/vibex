@@ -53,7 +53,7 @@ export function isImageFile(filePath: string): boolean {
 /**
  * Generate a unique filename for an image
  */
-export function generateImageFilename(originalName: string = ''): string {
+export function generateImageFilename(originalName = ''): string {
   const timestamp = Date.now();
   const random = crypto.randomBytes(8).toString('hex');
   const ext = path.extname(originalName) || '.png';
@@ -98,7 +98,7 @@ export async function downloadImage(url: string): Promise<string> {
  */
 export async function processImageData(
   data: string | Buffer,
-  format: string = 'png'
+  format = 'png'
 ): Promise<string> {
   try {
     // Create temp directory

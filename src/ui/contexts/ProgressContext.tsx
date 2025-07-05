@@ -5,9 +5,10 @@
  * Enhanced with step tracking, time estimation, and detailed progress information.
  */
 
-import React, { createContext, useState, useContext, useCallback, ReactNode, useEffect, useRef } from 'react';
-import { StatusType } from '../components/StatusIcon';
-import { ProgressStep } from '../components/DetailedProgressInfo';
+import type { ReactNode} from 'react';
+import React, { createContext, useState, useContext, useCallback, useEffect, useRef } from 'react';
+import type { StatusType } from '../components/StatusIcon.js';
+import type { ProgressStep } from '../components/DetailedProgressInfo.js';
 
 /**
  * Progress data structure
@@ -218,7 +219,7 @@ export const ProgressProvider: React.FC<ProgressProviderProps> = ({ children }) 
    */
   const updateProgress = useCallback((id: string, value: number, message?: string) => {
     setProgressItems(prevItems => {
-      if (!prevItems.has(id)) return prevItems;
+      if (!prevItems.has(id)) {return prevItems;}
       
       const newItems = new Map(prevItems);
       const item = prevItems.get(id)!;
@@ -267,7 +268,7 @@ export const ProgressProvider: React.FC<ProgressProviderProps> = ({ children }) 
    */
   const completeProgress = useCallback((id: string, message?: string) => {
     setProgressItems(prevItems => {
-      if (!prevItems.has(id)) return prevItems;
+      if (!prevItems.has(id)) {return prevItems;}
       
       const newItems = new Map(prevItems);
       const item = prevItems.get(id)!;
@@ -276,7 +277,7 @@ export const ProgressProvider: React.FC<ProgressProviderProps> = ({ children }) 
       // Complete any in-progress steps
       const updatedSteps = item.steps?.map(step => {
         if (step.status === 'running') {
-          return { ...step, status: 'success', endTime: now };
+          return { ...step, status: 'completed' as StatusType, endTime: now };
         }
         return step;
       });
@@ -288,7 +289,7 @@ export const ProgressProvider: React.FC<ProgressProviderProps> = ({ children }) 
         message: message ?? item.message,
         updateTime: now,
         endTime: now,
-        status: 'success',
+        status: 'completed',
         estimatedTimeRemaining: 0,
         steps: updatedSteps,
       });
@@ -313,7 +314,7 @@ export const ProgressProvider: React.FC<ProgressProviderProps> = ({ children }) 
    */
   const setIndeterminate = useCallback((id: string, indeterminate: boolean) => {
     setProgressItems(prevItems => {
-      if (!prevItems.has(id)) return prevItems;
+      if (!prevItems.has(id)) {return prevItems;}
       
       const newItems = new Map(prevItems);
       const item = prevItems.get(id)!;
@@ -331,23 +332,19 @@ export const ProgressProvider: React.FC<ProgressProviderProps> = ({ children }) 
   /**
    * Get a specific progress item
    */
-  const getProgress = useCallback((id: string) => {
-    return progressItems.get(id);
-  }, [progressItems]);
+  const getProgress = useCallback((id: string) => progressItems.get(id), [progressItems]);
   
   /**
    * Check if a progress item exists
    */
-  const hasProgress = useCallback((id: string) => {
-    return progressItems.has(id);
-  }, [progressItems]);
+  const hasProgress = useCallback((id: string) => progressItems.has(id), [progressItems]);
   
   /**
    * Update progress steps
    */
   const updateSteps = useCallback((id: string, steps: ProgressStep[]) => {
     setProgressItems(prevItems => {
-      if (!prevItems.has(id)) return prevItems;
+      if (!prevItems.has(id)) {return prevItems;}
       
       const newItems = new Map(prevItems);
       const item = prevItems.get(id)!;
@@ -367,7 +364,7 @@ export const ProgressProvider: React.FC<ProgressProviderProps> = ({ children }) 
    */
   const startStep = useCallback((id: string, stepName: string) => {
     setProgressItems(prevItems => {
-      if (!prevItems.has(id)) return prevItems;
+      if (!prevItems.has(id)) {return prevItems;}
       
       const newItems = new Map(prevItems);
       const item = prevItems.get(id)!;
@@ -383,7 +380,7 @@ export const ProgressProvider: React.FC<ProgressProviderProps> = ({ children }) 
       // Complete any currently running steps
       const updatedSteps = item.steps?.map(step => {
         if (step.status === 'running') {
-          return { ...step, status: 'success', endTime: now };
+          return { ...step, status: 'completed' as StatusType, endTime: now };
         }
         return step;
       }) || [];
@@ -409,9 +406,9 @@ export const ProgressProvider: React.FC<ProgressProviderProps> = ({ children }) 
   /**
    * Complete current step
    */
-  const completeStep = useCallback((id: string, status: StatusType = 'success') => {
+  const completeStep = useCallback((id: string, status: StatusType = 'completed') => {
     setProgressItems(prevItems => {
-      if (!prevItems.has(id)) return prevItems;
+      if (!prevItems.has(id)) {return prevItems;}
       
       const newItems = new Map(prevItems);
       const item = prevItems.get(id)!;
@@ -440,7 +437,7 @@ export const ProgressProvider: React.FC<ProgressProviderProps> = ({ children }) 
    */
   const setStatus = useCallback((id: string, status: StatusType) => {
     setProgressItems(prevItems => {
-      if (!prevItems.has(id)) return prevItems;
+      if (!prevItems.has(id)) {return prevItems;}
       
       const newItems = new Map(prevItems);
       const item = prevItems.get(id)!;
@@ -461,7 +458,7 @@ export const ProgressProvider: React.FC<ProgressProviderProps> = ({ children }) 
     estimationIntervalRef.current = setInterval(() => {
       setProgressItems(prevItems => {
         // Skip if no active items
-        if (![...prevItems.values()].some(item => item.active)) return prevItems;
+        if (![...prevItems.values()].some(item => item.active)) {return prevItems;}
         
         const newItems = new Map(prevItems);
         const now = Date.now();

@@ -33,7 +33,7 @@ export type JSONPrimitive = string | number | boolean | null;
 /**
  * JSON object type
  */
-export type JSONObject = { [key: string]: JSONValue };
+export interface JSONObject { [key: string]: JSONValue }
 
 /**
  * JSON array type
@@ -46,9 +46,9 @@ export type JSONArray = JSONValue[];
 export type JSONValue = JSONPrimitive | JSONObject | JSONArray;
 
 /**
- * Record with string keys and any values
+ * Record with string keys and unknown values (safer than any)
  */
-export type AnyRecord = Record<string, any>;
+export type AnyRecord = Record<string, unknown>;
 
 /**
  * Basic callback function type
@@ -58,7 +58,7 @@ export type Callback<T = void> = (error?: Error | null, result?: T) => void;
 /**
  * Async function that returns a Promise
  */
-export type AsyncFunction<T, A extends any[]> = (...args: A) => Promise<T>;
+export type AsyncFunction<T, A extends readonly unknown[]> = (...args: A) => Promise<T>;
 
 /**
  * Function with a timeout
@@ -97,18 +97,18 @@ export interface Result<T, E = Error> {
 /**
  * Success result
  */
-export type Success<T> = {
+export interface Success<T> {
   success: true;
   value: T;
-};
+}
 
 /**
  * Error result
  */
-export type Failure<E = Error> = {
+export interface Failure<E = Error> {
   success: false;
   error: E;
-};
+}
 
 /**
  * Either success or failure

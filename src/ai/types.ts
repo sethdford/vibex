@@ -7,7 +7,7 @@
 /**
  * Role for a message in a conversation
  */
-export type MessageRole = 'user' | 'assistant' | 'system';
+export type MessageRoleType = 'user' | 'assistant' | 'system';
 
 /**
  * Message in a conversation
@@ -16,7 +16,7 @@ export interface Message {
   /**
    * Role of the message sender
    */
-  role: MessageRole;
+  role: MessageRoleType;
   
   /**
    * Content of the message
@@ -56,7 +56,7 @@ export interface AIModel {
   /**
    * Default parameters for the model
    */
-  defaultParams?: Record<string, any>;
+  defaultParams?: Record<string, unknown>;
 }
 
 /**
@@ -162,7 +162,22 @@ export interface CompletionResponse {
 /**
  * Callback for streaming AI completions
  */
-export type StreamCallback = (event: any) => void;
+export type StreamCallbackType = (event: StreamingEvent) => void;
+
+/**
+ * Streaming event interface
+ */
+export interface StreamingEvent {
+  /**
+   * Event type
+   */
+  type: 'start' | 'content' | 'stop' | 'error';
+  
+  /**
+   * Event data
+   */
+  data?: unknown;
+}
 
 /**
  * AI client configuration
@@ -186,7 +201,17 @@ export interface AIClientConfig {
   /**
    * Authentication provider
    */
-  auth: any;
+  auth: AuthProvider;
+}
+
+/**
+ * Authentication provider interface
+ */
+export interface AuthProvider {
+  /**
+   * Get authentication headers
+   */
+  getAuthHeaders(): Promise<Record<string, string>>;
 }
 
 /**
@@ -201,7 +226,7 @@ export interface AIClientInterface {
   /**
    * Generate a streaming completion
    */
-  generateCompletionStream(request: CompletionRequest, callback: StreamCallback): Promise<void>;
+  generateCompletionStream(request: CompletionRequest, callback: StreamCallbackType): Promise<void>;
   
   /**
    * Test the connection to the AI service

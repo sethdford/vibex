@@ -13,8 +13,11 @@
  */
 export const Colors = {
   // Brand colors
-  Primary: '#7055FF',
-  Secondary: '#9580FF',
+  Primary: '#00A3FF',
+  Secondary: '#00CCFF',
+  
+  // Gradient colors for brand elements
+  GradientColors: ['#00A3FF', '#00CCFF', '#45B4FF'],
   
   // UI state colors
   Success: '#3EBD93',

@@ -6,10 +6,10 @@
 
 import React, { useMemo } from 'react';
 import { Box, Text } from 'ink';
-import { Colors } from '../colors';
-import { parseMarkdown, ParsedMarkdownDocument } from './markdownUtilities';
-import { colorizeCode } from './CodeColorizer';
-import { ImageDisplay } from '../components/image/ImageDisplay';
+import { Colors } from '../colors.js';
+import { parseMarkdown, ParsedMarkdownDocument } from './markdownUtilities.js';
+import { colorizeCode } from './CodeColorizer.js';
+import { ImageDisplay } from '../components/image/ImageDisplay.js';
 
 /**
  * Markdown display props
@@ -37,6 +37,25 @@ interface MarkdownDisplayProps {
 }
 
 /**
+ * Markdown node interface
+ */
+export interface MarkdownNode {
+  type: string;
+  children?: MarkdownNode[];
+  content?: string;
+  depth?: number;
+  lang?: string;
+  meta?: {
+    level?: number;
+    language?: string;
+    url?: string;
+    title?: string;
+    ordered?: boolean;
+  };
+  [key: string]: unknown;
+}
+
+/**
  * Markdown display component
  */
 export const MarkdownDisplay: React.FC<MarkdownDisplayProps> = ({
@@ -49,8 +68,8 @@ export const MarkdownDisplay: React.FC<MarkdownDisplayProps> = ({
   const parsedMarkdown = useMemo(() => parseMarkdown(markdown), [markdown]);
   
   // Render node based on type
-  const renderNode = (node: any): React.ReactNode => {
-    if (!node) return null;
+  const renderNode = (node: MarkdownNode): React.ReactNode => {
+    if (!node) {return null;}
     
     // Handle different node types
     switch (node.type) {
@@ -82,9 +101,9 @@ export const MarkdownDisplay: React.FC<MarkdownDisplayProps> = ({
   /**
    * Render heading node
    */
-  const renderHeading = (node: any) => {
-    const content = typeof node.content === 'string' ? node.content : '';
-    const level = node.meta?.level || 1;
+  const renderHeading = (node: MarkdownNode) => {
+    const value = typeof node.content === 'string' ? node.content : '';
+    const level = typeof node.meta === 'object' && node.meta?.level ? node.meta.level : 1;
     
     // Determine color and style based on heading level
     let color;
@@ -93,20 +112,20 @@ export const MarkdownDisplay: React.FC<MarkdownDisplayProps> = ({
         color = Colors.Primary;
         return (
           <Box marginBottom={1}>
-            <Text bold color={color}>{content}</Text>
+            <Text bold color={color}>{value}</Text>
           </Box>
         );
       case 2:
         color = Colors.Secondary;
         return (
           <Box marginBottom={1}>
-            <Text bold color={color}>{content}</Text>
+            <Text bold color={color}>{value}</Text>
           </Box>
         );
       default:
         return (
           <Box marginBottom={1}>
-            <Text bold>{content}</Text>
+            <Text bold>{value}</Text>
           </Box>
         );
     }
@@ -115,9 +134,9 @@ export const MarkdownDisplay: React.FC<MarkdownDisplayProps> = ({
   /**
    * Render code block
    */
-  const renderCodeBlock = (node: any) => {
-    const content = typeof node.content === 'string' ? node.content : '';
-    const language = node.meta?.language || '';
+  const renderCodeBlock = (node: MarkdownNode) => {
+    const value = typeof node.content === 'string' ? node.content : '';
+    const language = typeof node.meta === 'object' && node.meta?.language ? node.meta.language : '';
     
     return (
       <Box flexDirection="column" marginY={1}>
@@ -128,7 +147,7 @@ export const MarkdownDisplay: React.FC<MarkdownDisplayProps> = ({
         </Box>
         <Box paddingLeft={2}>
           {colorizeCode(
-            content,
+            value,
             language,
             20, // Max height
             Math.max(20, maxWidth - 4), // Max width accounting for padding
@@ -148,12 +167,12 @@ export const MarkdownDisplay: React.FC<MarkdownDisplayProps> = ({
   /**
    * Render paragraph
    */
-  const renderParagraph = (node: any) => {
-    const content = typeof node.content === 'string' ? node.content : '';
+  const renderParagraph = (node: MarkdownNode) => {
+    const value = typeof node.content === 'string' ? node.content : '';
     
     return (
       <Box marginBottom={1}>
-        <Text wrap="wrap">{content}</Text>
+        <Text wrap="wrap">{value}</Text>
       </Box>
     );
   };
@@ -161,9 +180,9 @@ export const MarkdownDisplay: React.FC<MarkdownDisplayProps> = ({
   /**
    * Render list item
    */
-  const renderListItem = (node: any) => {
-    const content = typeof node.content === 'string' ? node.content : '';
-    const ordered = node.meta?.ordered || false;
+  const renderListItem = (node: MarkdownNode) => {
+    const value = typeof node.content === 'string' ? node.content : '';
+    const ordered = typeof node.meta === 'object' && node.meta?.ordered ? node.meta.ordered : false;
     
     const bullet = ordered ? '1. ' : '• ';
     
@@ -172,7 +191,7 @@ export const MarkdownDisplay: React.FC<MarkdownDisplayProps> = ({
         <Box width={2}>
           <Text color={Colors.TextDim}>{bullet}</Text>
         </Box>
-        <Text wrap="wrap">{content}</Text>
+        <Text wrap="wrap">{value}</Text>
       </Box>
     );
   };
@@ -180,8 +199,8 @@ export const MarkdownDisplay: React.FC<MarkdownDisplayProps> = ({
   /**
    * Render blockquote
    */
-  const renderQuote = (node: any) => {
-    const content = typeof node.content === 'string' ? node.content : '';
+  const renderQuote = (node: MarkdownNode) => {
+    const value = typeof node.content === 'string' ? node.content : '';
     
     return (
       <Box marginBottom={1} flexDirection="row">
@@ -190,7 +209,7 @@ export const MarkdownDisplay: React.FC<MarkdownDisplayProps> = ({
         </Box>
         <Box flexGrow={1}>
           <Text color={Colors.Info} wrap="wrap">
-            {content}
+            {value}
           </Text>
         </Box>
       </Box>
@@ -200,15 +219,13 @@ export const MarkdownDisplay: React.FC<MarkdownDisplayProps> = ({
   /**
    * Render horizontal rule
    */
-  const renderHorizontalRule = () => {
-    return (
+  const renderHorizontalRule = () => (
       <Box marginY={1}>
         <Text color={Colors.TextDim}>
           ───────────────────────────────
         </Text>
       </Box>
     );
-  };
   
   /**
    * Render images
@@ -244,7 +261,7 @@ export const MarkdownDisplay: React.FC<MarkdownDisplayProps> = ({
       {/* Render text nodes */}
       {parsedMarkdown.nodes.map((node, index) => (
         <React.Fragment key={index}>
-          {renderNode(node)}
+          {renderNode(node as unknown as MarkdownNode)}
         </React.Fragment>
       ))}
       

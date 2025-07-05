@@ -17,19 +17,38 @@
 
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { logger } from '../utils/logger';
+import { logger } from '../utils/logger.js';
 
 const execAsync = promisify(exec);
+
+/**
+ * Ripgrep tool input parameters
+ */
+export interface RipgrepInput {
+  pattern: string;
+  path?: string;
+  case_sensitive?: boolean;
+  max_results?: number;
+}
+
+/**
+ * Ripgrep tool schema property
+ */
+export interface RipgrepSchemaProperty {
+  type: 'string' | 'number' | 'boolean';
+  description: string;
+  default?: string | number | boolean;
+}
 
 export interface RipgrepTool {
   name: string;
   description: string;
   input_schema: {
     type: 'object';
-    properties: Record<string, any>;
+    properties: Record<string, RipgrepSchemaProperty>;
     required: string[];
   };
-  handler: (input: any) => Promise<string>;
+  handler: (input: RipgrepInput) => Promise<string>;
 }
 
 /**
@@ -64,12 +83,7 @@ export function createRipgrepTool(): RipgrepTool {
       },
       required: ['pattern']
     },
-    handler: async (input: {
-      pattern: string;
-      path?: string;
-      case_sensitive?: boolean;
-      max_results?: number;
-    }) => {
+    handler: async (input: RipgrepInput) => {
       const {
         pattern,
         path: searchPath = '.',

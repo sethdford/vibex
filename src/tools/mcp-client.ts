@@ -6,7 +6,8 @@
  */
 
 import { EventEmitter } from 'events';
-import { spawn, ChildProcess } from 'child_process';
+import type { ChildProcess } from 'child_process';
+import { spawn } from 'child_process';
 import { logger } from '../utils/logger.js';
 import { createUserError } from '../errors/formatter.js';
 import { ErrorCategory } from '../errors/types.js';
@@ -22,12 +23,28 @@ export interface MCPServerConfig {
   description?: string;
 }
 
-export interface MCPTool {
+/**
+ * MCP tool schema property definition
+ */
+export interface MCPSchemaProperty {
+  type: 'string' | 'number' | 'boolean' | 'array' | 'object';
+  description?: string;
+  enum?: string[];
+  items?: MCPSchemaProperty;
+  properties?: Record<string, MCPSchemaProperty>;
+  required?: string[];
+  default?: string | number | boolean | string[];
+}
+
+/**
+ * MCP tool definition
+ */
+export interface MCPToolDefinition {
   name: string;
   description: string;
   input_schema: {
     type: 'object';
-    properties: Record<string, any>;
+    properties: Record<string, MCPSchemaProperty>;
     required?: string[];
   };
 }
@@ -39,9 +56,25 @@ export enum MCPServerStatus {
   ERROR = 'error'
 }
 
+/**
+ * MCP tool execution parameters
+ */
+export interface MCPToolParameters {
+  [key: string]: string | number | boolean | null | undefined;
+}
+
+/**
+ * MCP tool execution result
+ */
+export interface MCPToolResult {
+  success: boolean;
+  result?: unknown;
+  error?: string;
+}
+
 export class MCPClient extends EventEmitter {
-  private servers = new Map<string, MCPServerProcess>();
-  private tools = new Map<string, MCPTool>();
+  private readonly servers = new Map<string, MCPServerProcess>();
+  private readonly tools = new Map<string, MCPToolDefinition>();
   
   constructor() {
     super();
@@ -102,11 +135,11 @@ export class MCPClient extends EventEmitter {
     return new Map(this.servers);
   }
 
-  getAllTools(): Map<string, MCPTool> {
+  getAllTools(): Map<string, MCPToolDefinition> {
     return new Map(this.tools);
   }
 
-  async executeTool(toolName: string, parameters: any): Promise<any> {
+  async executeTool(toolName: string, parameters: MCPToolParameters): Promise<MCPToolResult> {
     const tool = this.tools.get(toolName);
     if (!tool) {
       throw createUserError(`MCP tool not found: ${toolName}`, {
@@ -127,7 +160,7 @@ export class MCPClient extends EventEmitter {
 
   async disconnectAll(): Promise<void> {
     const disconnectPromises = Array.from(this.servers.keys()).map(
-      serverName => this.disconnectServer(serverName)
+      async serverName => this.disconnectServer(serverName)
     );
     await Promise.all(disconnectPromises);
   }
@@ -137,7 +170,7 @@ class MCPServerProcess {
   private process: ChildProcess | null = null;
   private _status: MCPServerStatus = MCPServerStatus.DISCONNECTED;
   
-  constructor(private config: MCPServerConfig) {}
+  constructor(private readonly config: MCPServerConfig) {}
 
   get status(): MCPServerStatus {
     return this._status;
@@ -154,7 +187,7 @@ class MCPServerProcess {
       });
 
       // Set up error handling
-      this.process.on('error', (error) => {
+      this.process.on('error', error => {
         logger.error(`MCP server process error (${this.config.name}):`, error);
         this._status = MCPServerStatus.ERROR;
       });
@@ -190,7 +223,7 @@ class MCPServerProcess {
     this._status = MCPServerStatus.DISCONNECTED;
   }
 
-  async discoverTools(): Promise<MCPTool[]> {
+  async discoverTools(): Promise<MCPToolDefinition[]> {
     if (!this.process || this._status !== MCPServerStatus.CONNECTED) {
       throw new Error('Server not connected');
     }
@@ -207,11 +240,11 @@ class MCPServerProcess {
         reject(new Error('Tool discovery timeout'));
       }, this.config.timeout || 10000);
 
-      this.process!.stdout!.once('data', (data) => {
+      this.process!.stdout!.once('data', data => {
         clearTimeout(timeout);
         try {
           const response = JSON.parse(data.toString());
-          if (response.result && response.result.tools) {
+          if (response.result?.tools) {
             resolve(response.result.tools);
           } else {
             resolve([]);
@@ -221,11 +254,11 @@ class MCPServerProcess {
         }
       });
 
-      this.process!.stdin!.write(JSON.stringify(request) + '\n');
+      this.process!.stdin!.write(`${JSON.stringify(request)}\n`);
     });
   }
 
-  async executeToolCall(toolName: string, parameters: any): Promise<any> {
+  async executeToolCall(toolName: string, parameters: MCPToolParameters): Promise<MCPToolResult> {
     if (!this.process || this._status !== MCPServerStatus.CONNECTED) {
       throw new Error('Server not connected');
     }
@@ -245,21 +278,24 @@ class MCPServerProcess {
         reject(new Error('Tool execution timeout'));
       }, this.config.timeout || 30000);
 
-      this.process!.stdout!.once('data', (data) => {
+      this.process!.stdout!.once('data', data => {
         clearTimeout(timeout);
         try {
           const response = JSON.parse(data.toString());
           if (response.error) {
             reject(new Error(response.error.message));
           } else {
-            resolve(response.result);
+            resolve({
+              success: true,
+              result: response.result
+            });
           }
         } catch (error) {
           reject(error);
         }
       });
 
-      this.process!.stdin!.write(JSON.stringify(request) + '\n');
+      this.process!.stdin!.write(`${JSON.stringify(request)}\n`);
     });
   }
 }

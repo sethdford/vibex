@@ -16,7 +16,7 @@ import stringWidth from 'string-width';
  * @returns Truncated text with ellipsis if needed
  */
 export function truncateText(text: string, maxLength: number): string {
-  if (!text) return '';
+  if (!text) {return '';}
   
   if (stringWidth(text) <= maxLength) {
     return text;
@@ -37,7 +37,7 @@ export function truncateText(text: string, maxLength: number): string {
     currentWidth += charWidth;
   }
   
-  return result + '...';
+  return `${result}...`;
 }
 
 /**
@@ -117,7 +117,7 @@ export function formatNumber(value: number): string {
  * @returns Human-readable size string
  */
 export function formatBytes(bytes: number, decimals = 2): string {
-  if (bytes === 0) return '0 Bytes';
+  if (bytes === 0) {return '0 Bytes';}
   
   const k = 1024;
   const dm = decimals < 0 ? 0 : decimals;
@@ -125,7 +125,7 @@ export function formatBytes(bytes: number, decimals = 2): string {
   
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }
 
 /**
@@ -182,7 +182,7 @@ export function measureTextWidth(text: string): number {
  * @returns Array of wrapped lines
  */
 export function wrapText(text: string, maxWidth: number): string[] {
-  if (!text) return [];
+  if (!text) {return [];}
   
   const lines: string[] = [];
   const paragraphs = text.split('\n');

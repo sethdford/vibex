@@ -5,7 +5,7 @@
  * Supports multiple URLs, content extraction, and summarization.
  */
 
-import { ToolDefinition, InternalToolResult } from './index.js';
+import type { ToolDefinition, InternalToolResult } from './index.js';
 import { logger } from '../utils/logger.js';
 
 export function createWebFetchTool(): ToolDefinition {
@@ -35,70 +35,64 @@ export function createWebFetchTool(): ToolDefinition {
   };
 }
 
-export async function executeWebFetch(input: any): Promise<InternalToolResult> {
+/**
+ * Web fetch input interface
+ */
+export interface WebFetchInput {
+  prompt?: string;
+  max_urls?: number;
+  extract_text_only?: boolean;
+  url?: string;
+  [key: string]: unknown;
+}
+
+export async function executeWebFetch(input: WebFetchInput): Promise<InternalToolResult> {
   try {
-    const { prompt, max_urls = 5, extract_text_only = true } = input;
+    // Extract and validate input parameters with proper typing
+    const prompt = input.prompt as string;
+    const max_urls = typeof input.max_urls === 'number' ? input.max_urls : 5;
+    const extract_text_only = typeof input.extract_text_only === 'boolean' ? input.extract_text_only : true;
+    
+    if (!prompt || typeof prompt !== 'string') {
+      throw new Error('prompt parameter is required and must be a string');
+    }
     
     // Extract URLs from the prompt
-    const urlRegex = /https?:\/\/[^\s<>"{}|\\^`[\]]+/gi;
+    const urlRegex = /https?:\/\/[^\s<>"{}|\\^`[\]]+/g;
     const urls = prompt.match(urlRegex) || [];
     
     if (urls.length === 0) {
       return {
-        success: false,
-        error: 'No valid URLs found in the prompt. Please include at least one URL starting with http:// or https://'
+        success: true,
+        result: 'No URLs found in the prompt.'
       };
     }
     
-    // Limit URLs
+    // Limit the number of URLs to process
     const limitedUrls = urls.slice(0, Math.min(max_urls, 20));
     
     logger.info(`Fetching content from ${limitedUrls.length} URL(s)`);
     
-    // Fetch content from all URLs
-    const fetchPromises = limitedUrls.map((url: string) => fetchUrlContent(url, extract_text_only));
+    // Fetch content from each URL
+    const fetchPromises = limitedUrls.map(async (url: string) => fetchUrlContent(url, extract_text_only));
     const results = await Promise.allSettled(fetchPromises);
     
-    // Process results
-    const successfulFetches: Array<{ url: string; content: string; title?: string }> = [];
-    const failedFetches: Array<{ url: string; error: string }> = [];
-    
-    results.forEach((result, index) => {
+    let response = '';
+    results.forEach((result: PromiseSettledResult<string>, index: number) => {
       const url = limitedUrls[index];
       if (result.status === 'fulfilled') {
-        successfulFetches.push({ url, ...result.value });
+        response += `**${url}**\n${result.value}\n\n`;
       } else {
-        failedFetches.push({ url, error: result.reason.message });
+        response += `**${url}**\nError: ${result.reason}\n\n`;
       }
     });
     
-    // Format response
-    let response = `Fetched content from ${successfulFetches.length} of ${limitedUrls.length} URLs:\n\n`;
-    
-    // Add successful fetches
-    successfulFetches.forEach(({ url, content, title }, index) => {
-      response += `## Source ${index + 1}: ${title || 'Web Page'}\n`;
-      response += `**URL:** ${url}\n\n`;
-      response += `**Content:**\n${content}\n\n`;
-      response += '---\n\n';
-    });
-    
-    // Add failed fetches
-    if (failedFetches.length > 0) {
-      response += '## Failed to fetch:\n\n';
-      failedFetches.forEach(({ url, error }) => {
-        response += `- **${url}**: ${error}\n`;
-      });
-      response += '\n';
-    }
-    
-    // Add processing instruction
+    // Clean up the prompt by replacing URLs with [URL] placeholder
     response += `**Processing Instruction:** ${prompt.replace(urlRegex, '[URL]')}\n\n`;
-    response += 'Please process the above content according to the instructions in the prompt.';
     
     return {
       success: true,
-      result: response
+      result: response.trim()
     };
     
   } catch (error) {
@@ -110,7 +104,7 @@ export async function executeWebFetch(input: any): Promise<InternalToolResult> {
   }
 }
 
-async function fetchUrlContent(url: string, extractTextOnly: boolean): Promise<{ content: string; title?: string }> {
+async function fetchUrlContent(url: string, extractTextOnly: boolean): Promise<string> {
   try {
     // Import fetch dynamically to support both Node.js versions
     const fetch = (await import('node-fetch')).default;
@@ -137,7 +131,7 @@ async function fetchUrlContent(url: string, extractTextOnly: boolean): Promise<{
     if (extractTextOnly) {
       return extractTextFromHtml(html);
     } else {
-      return { content: html };
+      return html;
     }
     
   } catch (error) {
@@ -145,7 +139,7 @@ async function fetchUrlContent(url: string, extractTextOnly: boolean): Promise<{
   }
 }
 
-function extractTextFromHtml(html: string): { content: string; title?: string } {
+function extractTextFromHtml(html: string): string {
   // Simple HTML text extraction (in production, use a proper HTML parser like cheerio)
   
   // Extract title
@@ -162,8 +156,8 @@ function extractTextFromHtml(html: string): { content: string; title?: string } 
   
   // Limit content length
   if (text.length > 8000) {
-    text = text.substring(0, 8000) + '... [content truncated]';
+    text = `${text.substring(0, 8000)}... [content truncated]`;
   }
   
-  return { content: text, title };
+  return text;
 } 

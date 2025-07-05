@@ -4,8 +4,8 @@
  * Helper functions for progress tracking and time estimation
  */
 
-import { ProgressData } from '../contexts/ProgressContext';
-import { StatusType } from '../components/StatusIcon';
+import type { ProgressData } from '../contexts/ProgressContext.js';
+import type { StatusType } from '../components/StatusIcon.js';
 
 /**
  * Calculate estimated time remaining based on progress history
@@ -21,7 +21,7 @@ export function calculateEstimatedTimeRemaining(
   totalValue: number
 ): number | undefined {
   // Need at least two data points
-  if (progressHistory.length < 2) return undefined;
+  if (progressHistory.length < 2) {return undefined;}
   
   // Sort history by time
   const sortedHistory = [...progressHistory].sort((a, b) => a.time - b.time);
@@ -35,7 +35,7 @@ export function calculateEstimatedTimeRemaining(
   const progressMade = newest.value - oldest.value;
   
   // Cannot calculate if no progress has been made or time elapsed is too small
-  if (progressMade <= 0 || timeElapsedMs <= 0) return undefined;
+  if (progressMade <= 0 || timeElapsedMs <= 0) {return undefined;}
   
   // Calculate rate of progress (units per millisecond)
   const progressRate = progressMade / timeElapsedMs;
@@ -44,7 +44,7 @@ export function calculateEstimatedTimeRemaining(
   const remainingProgress = totalValue - currentValue;
   
   // If progress is complete or almost complete
-  if (remainingProgress <= 0) return 0;
+  if (remainingProgress <= 0) {return 0;}
   
   // Calculate estimated time remaining in milliseconds
   const estimatedTimeMs = remainingProgress / progressRate;
@@ -60,8 +60,8 @@ export function calculateEstimatedTimeRemaining(
  * @returns Formatted time string
  */
 export function formatTimeDuration(seconds: number): string {
-  if (seconds < 1) return 'less than a second';
-  if (seconds < 60) return `${Math.round(seconds)} second${seconds === 1 ? '' : 's'}`;
+  if (seconds < 1) {return 'less than a second';}
+  if (seconds < 60) {return `${Math.round(seconds)} second${seconds === 1 ? '' : 's'}`;}
   
   const minutes = Math.floor(seconds / 60);
   if (minutes < 60) {
@@ -86,12 +86,12 @@ export function formatTimeDuration(seconds: number): string {
  */
 export function determineProgressStatus(progress: ProgressData): StatusType {
   // If status is already set, use it
-  if (progress.status) return progress.status;
+  if (progress.status) {return progress.status;}
   
   // Determine status based on progress state
-  if (!progress.active) return 'success';
-  if (progress.value >= progress.total) return 'success';
-  if (progress.indeterminate) return 'running';
+  if (!progress.active) {return 'success';}
+  if (progress.value >= progress.total) {return 'success';}
+  if (progress.indeterminate) {return 'running';}
   
   return 'running';
 }

@@ -5,7 +5,8 @@
  * refresh, and authorization redirects.
  */
 
-import { AuthMethod, AuthState, AuthResult, AuthToken, OAuthConfig } from './types.js';
+import type { AuthResult, AuthToken, OAuthConfig } from './types.js';
+import { AuthMethod, AuthState } from './types.js';
 import { logger } from '../utils/logger.js';
 import { createUserError } from '../errors/formatter.js';
 import { ErrorCategory } from '../errors/types.js';
@@ -13,6 +14,7 @@ import { createDeferred } from '../utils/async.js';
 import open from 'open';
 import http from 'http';
 import { EventEmitter } from 'events';
+import crypto from 'crypto';  // Import crypto module properly
 
 /**
  * Default OAuth configuration for Anthropic API
@@ -146,7 +148,6 @@ function generatePkceParams(): { codeVerifier: string; codeChallenge: string } {
   const codeVerifier = generateRandomString(64);
   
   // Generate SHA256 hash of verifier for code challenge
-  const crypto = require('crypto');
   const codeChallenge = crypto
     .createHash('sha256')
     .update(codeVerifier)
@@ -278,4 +279,4 @@ async function exchangeCodeForToken(
   };
   
   return token;
-} 
+}

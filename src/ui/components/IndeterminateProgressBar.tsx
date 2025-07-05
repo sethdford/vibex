@@ -7,8 +7,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { Box, Text } from 'ink';
-import { Colors } from '../colors';
-import { StatusIcon, StatusType } from './StatusIcon';
+import { Colors } from '../colors.js';
+import type { StatusType } from './StatusIcon.js';
+import { StatusIcon } from './StatusIcon.js';
 
 /**
  * Indeterminate progress bar props
@@ -136,7 +137,7 @@ export const IndeterminateProgressBar: React.FC<IndeterminateProgressBarProps> =
   
   // Animation effect for bounce and slide
   useEffect(() => {
-    if (!active || animationStyle === 'pulse') return;
+    if (!active || animationStyle === 'pulse') {return;}
     
     const timer = setInterval(() => {
       setPosition(prevPos => {
@@ -163,16 +164,16 @@ export const IndeterminateProgressBar: React.FC<IndeterminateProgressBarProps> =
   
   // Animation effect for pulse
   useEffect(() => {
-    if (!active || animationStyle !== 'pulse') return;
+    if (!active || animationStyle !== 'pulse') {return;}
     
     const timer = setInterval(() => {
       setPulseOpacity(prev => {
-        if (prev <= 0.3) return 0.3;
-        if (prev >= 1) return 0.9;
+        if (prev <= 0.3) {return 0.3;}
+        if (prev >= 1) {return 0.9;}
         return reverse ? prev + 0.1 : prev - 0.1;
       });
       
-      setReverse(prev => pulseOpacity <= 0.31 || pulseOpacity >= 0.99 ? !prev : prev);
+      setReverse(prev => (pulseOpacity <= 0.31 || pulseOpacity >= 0.99 ? !prev : prev));
     }, speed);
     
     return () => clearInterval(timer);
@@ -202,14 +203,12 @@ export const IndeterminateProgressBar: React.FC<IndeterminateProgressBarProps> =
   
   // Calculate color with opacity for pulse animation
   const getColorWithOpacity = () => {
-    if (animationStyle !== 'pulse') return color;
+    if (animationStyle !== 'pulse') {return color;}
     
     // Convert hex to rgb with opacity
     const hexToRgb = (hex: string) => {
       const shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
-      const formattedHex = hex.replace(shorthandRegex, (_m, r, g, b) => {
-        return r + r + g + g + b + b;
-      });
+      const formattedHex = hex.replace(shorthandRegex, (_m, r, g, b) => r + r + g + g + b + b);
       
       const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(formattedHex);
       return result ? {
@@ -220,7 +219,7 @@ export const IndeterminateProgressBar: React.FC<IndeterminateProgressBarProps> =
     };
     
     const rgb = hexToRgb(color);
-    if (!rgb) return color;
+    if (!rgb) {return color;}
     
     return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${pulseOpacity})`;
   };

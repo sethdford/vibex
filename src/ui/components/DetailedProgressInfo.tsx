@@ -6,8 +6,9 @@
 
 import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
-import { Colors } from '../colors';
-import { StatusIcon, StatusType } from './StatusIcon';
+import { Colors } from '../colors.js';
+import type { StatusType } from './StatusIcon.js';
+import { StatusIcon } from './StatusIcon.js';
 
 /**
  * Progress step interface
@@ -118,14 +119,14 @@ interface DetailedProgressInfoProps {
  * Format time duration in a human-readable format
  */
 const formatDuration = (durationMs: number): string => {
-  if (durationMs < 1000) return `${durationMs}ms`;
+  if (durationMs < 1000) {return `${durationMs}ms`;}
   
   const seconds = Math.floor(durationMs / 1000);
-  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 60) {return `${seconds}s`;}
   
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
-  if (minutes < 60) return `${minutes}m ${remainingSeconds}s`;
+  if (minutes < 60) {return `${minutes}m ${remainingSeconds}s`;}
   
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
@@ -201,7 +202,7 @@ export const DetailedProgressInfo: React.FC<DetailedProgressInfoProps> = ({
         
         {showExpandControl && (
           <Box marginLeft={2}>
-            <Text dimColor role="button">
+            <Text color="gray">
               {expanded ? '[-]' : '[+]'} {expanded ? 'Hide' : 'Show'} Details
             </Text>
           </Box>

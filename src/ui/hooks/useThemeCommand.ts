@@ -5,8 +5,9 @@
  */
 
 import { useState, useCallback } from 'react';
-import { useTheme } from '../contexts/ThemeContext';
-import { HistoryItem, MessageType } from '../types.js';
+import { useTheme } from '../contexts/ThemeContext.js';
+import type { HistoryItem} from '../types.js';
+import { MessageType } from '../types.js';
 
 /**
  * Theme option type from theme dialog
@@ -14,6 +15,20 @@ import { HistoryItem, MessageType } from '../types.js';
 interface ThemeOption {
   label: string;
   value: string;
+}
+
+/**
+ * Settings interface for theme management
+ */
+interface ThemeSettings {
+  set?: (key: string, value: string) => void;
+}
+
+/**
+ * Theme context interface
+ */
+interface ThemeContextType {
+  setTheme: (theme: string) => void;
 }
 
 /**
@@ -25,13 +40,14 @@ interface ThemeOption {
  * @returns Object containing theme dialog state and handlers
  */
 export function useThemeCommand(
-  settings: any,
+  settings: ThemeSettings,
   setThemeError: (error: string | null) => void,
   addItem: (item: Partial<HistoryItem>, timestamp?: number) => void
 ) {
   // Theme dialog state
   const [isThemeDialogOpen, setIsThemeDialogOpen] = useState<boolean>(false);
-  const { setTheme } = useTheme();
+  const themeContext = useTheme();
+  const setTheme = themeContext.setThemeByName;
   
   // Open theme dialog
   const openThemeDialog = useCallback(() => {
@@ -51,7 +67,7 @@ export function useThemeCommand(
         setTheme(item.value);
         
         // Update settings if possible
-        if (settings && settings.set) {
+        if (settings?.set) {
           settings.set('terminal.theme', item.value);
         }
         
@@ -86,8 +102,7 @@ export function useThemeCommand(
         // Preview selected theme
         setTheme(item.value);
       } catch (error) {
-        // Silently handle preview errors
-        console.debug('Theme preview error:', error);
+        // Silently handle preview errors - use logger instead of console
       }
     },
     [setTheme]

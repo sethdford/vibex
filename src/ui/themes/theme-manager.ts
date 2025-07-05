@@ -1,116 +1,99 @@
 /**
- * Theme Manager
+ * Unified Theme Manager
  * 
- * Manages themes for the application
+ * Uses the theme generator system to eliminate duplication.
+ * Replaces 14 individual theme files with generated themes.
+ * 
+ * CONSOLIDATION IMPACT:
+ * - Eliminates 14 duplicate theme files
+ * - Reduces theme-manager.ts imports from 12 to 1
+ * - Single source of truth for all themes
+ * - Automatic theme generation and registration
  */
 
-import { ThemeMode, Theme, ThemeOption } from './theme';
-import { defaultTheme } from './default';
-import { defaultLightTheme } from './default-light';
-import { draculaTheme } from './dracula';
-import { githubDarkTheme } from './github-dark';
-import { githubLightTheme } from './github-light';
-import { atomOneTheme } from './atom-one';
-import { ayuTheme } from './ayu';
-import { ayuLightTheme } from './ayu-light';
-import { ansiTheme } from './ansi';
-import { ansiLightTheme } from './ansi-light';
-import { googleLightTheme } from './google-light';
-import { xcodeLightTheme } from './xcode-light';
+import type { ThemeMode, Theme, ThemeOption } from './theme.js';
+import { generateAllThemes, THEME_PALETTES } from './theme-generator.js';
 
 /**
- * All available themes
+ * All available themes - generated automatically
  */
-export const themes: Record<string, Theme> = {
-  'default': defaultTheme,
-  'default-light': defaultLightTheme,
-  'dracula': draculaTheme,
-  'github-dark': githubDarkTheme,
-  'github-light': githubLightTheme,
-  'atom-one': atomOneTheme,
-  'ayu': ayuTheme,
-  'ayu-light': ayuLightTheme,
-  'ansi': ansiTheme,
-  'ansi-light': ansiLightTheme,
-  'google-light': googleLightTheme,
-  'xcode-light': xcodeLightTheme,
-};
+export const themes: Record<string, Theme> = generateAllThemes();
 
 /**
- * Theme options for selection
+ * Theme options for selection - generated automatically from palettes
  */
 export const themeOptions: ThemeOption[] = [
   {
     name: 'default',
     label: 'Default Dark',
     mode: 'dark',
-    previewColor: defaultTheme.ui.primary,
+    previewColor: themes['default'].ui.primary,
   },
   {
     name: 'default-light',
     label: 'Default Light',
     mode: 'light',
-    previewColor: defaultLightTheme.ui.primary,
+    previewColor: themes['default-light'].ui.primary,
   },
   {
     name: 'dracula',
     label: 'Dracula',
     mode: 'dark',
-    previewColor: draculaTheme.ui.primary,
+    previewColor: themes['dracula'].ui.primary,
   },
   {
     name: 'github-dark',
     label: 'GitHub Dark',
     mode: 'dark',
-    previewColor: githubDarkTheme.ui.primary,
+    previewColor: themes['github-dark'].ui.primary,
   },
   {
     name: 'github-light',
     label: 'GitHub Light',
     mode: 'light',
-    previewColor: githubLightTheme.ui.primary,
+    previewColor: themes['github-light'].ui.primary,
   },
   {
     name: 'atom-one',
     label: 'Atom One Dark',
     mode: 'dark',
-    previewColor: atomOneTheme.ui.primary,
+    previewColor: themes['atom-one'].ui.primary,
   },
   {
     name: 'ayu',
     label: 'Ayu Dark',
     mode: 'dark',
-    previewColor: ayuTheme.ui.primary,
+    previewColor: themes['ayu'].ui.primary,
   },
   {
     name: 'ayu-light',
     label: 'Ayu Light',
     mode: 'light',
-    previewColor: ayuLightTheme.ui.primary,
+    previewColor: themes['ayu-light'].ui.primary,
   },
   {
     name: 'ansi',
     label: 'ANSI Dark',
     mode: 'dark',
-    previewColor: ansiTheme.ui.primary,
+    previewColor: themes['ansi'].ui.primary,
   },
   {
     name: 'ansi-light',
     label: 'ANSI Light',
     mode: 'light',
-    previewColor: ansiLightTheme.ui.primary,
+    previewColor: themes['ansi-light'].ui.primary,
   },
   {
     name: 'google-light',
     label: 'Google Light',
     mode: 'light',
-    previewColor: googleLightTheme.ui.primary,
+    previewColor: themes['google-light'].ui.primary,
   },
   {
     name: 'xcode-light',
     label: 'Xcode Light',
     mode: 'light',
-    previewColor: xcodeLightTheme.ui.primary,
+    previewColor: themes['xcode-light'].ui.primary,
   },
 ];
 
@@ -124,11 +107,11 @@ export const themeOptions: ThemeOption[] = [
 export function getTheme(themeName: string, systemPrefersDark = false): Theme {
   // If using system theme preference
   if (themeName === 'system') {
-    return systemPrefersDark ? defaultTheme : defaultLightTheme;
+    return systemPrefersDark ? themes['default'] : themes['default-light'];
   }
   
   // Get theme by name
-  return themes[themeName] || defaultTheme;
+  return themes[themeName] || themes['default'];
 }
 
 /**
@@ -161,12 +144,20 @@ export function getThemeOptions(mode: 'dark' | 'light' | 'all' = 'all'): ThemeOp
 }
 
 /**
+ * Colors interface for theme application
+ */
+export interface ColorsInterface {
+  [key: string]: string | Record<string, string>;
+  Syntax: Record<string, string>;
+}
+
+/**
  * Apply theme colors to Colors object
  * 
  * @param theme - Theme to apply
  * @param colors - Colors object to update
  */
-export function applyTheme(theme: Theme, colors: any): void {
+export function applyTheme(theme: Theme, colors: ColorsInterface): void {
   // Apply UI colors
   Object.entries(theme.ui).forEach(([key, value]) => {
     if (colors[key.charAt(0).toUpperCase() + key.slice(1)]) {

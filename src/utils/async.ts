@@ -59,18 +59,17 @@ export async function delay(ms: number): Promise<void> {
 }
 
 /**
- * Execute a function with a timeout
+ * Add timeout to a promise-returning function
  * 
- * @param fn Function to execute with timeout
+ * @param fn Function to wrap with timeout
  * @param timeoutMs Timeout in milliseconds
  * @returns A function that wraps the original function with timeout
  */
-export function withTimeout<T extends (...args: any[]) => Promise<any>>(
+export function withTimeout<T extends (...args: readonly unknown[]) => Promise<R>, R>(
   fn: T,
   timeoutMs: number
-): (...args: Parameters<T>) => Promise<ReturnType<T>> {
-  return async (...args: Parameters<T>): Promise<ReturnType<T>> => {
-    return new Promise((resolve, reject) => {
+): (...args: Parameters<T>) => Promise<R> {
+  return async (...args: Parameters<T>): Promise<R> => new Promise((resolve, reject) => {
       const timeoutId = setTimeout(() => {
         const error = new Error(`Operation timed out after ${timeoutMs}ms`);
         error.name = 'TimeoutError';
@@ -80,14 +79,13 @@ export function withTimeout<T extends (...args: any[]) => Promise<any>>(
       fn(...args)
         .then(result => {
           clearTimeout(timeoutId);
-          resolve(result);
+          resolve(result as R);
         })
         .catch(error => {
           clearTimeout(timeoutId);
           reject(error);
         });
     });
-  };
 }
 
 /**
@@ -97,10 +95,10 @@ export function withTimeout<T extends (...args: any[]) => Promise<any>>(
  * @param options Retry options 
  * @returns A function that wraps the original function with retry logic
  */
-export function withRetry<T extends (...args: any[]) => Promise<any>>(
+export function withRetry<T extends (...args: readonly unknown[]) => Promise<R>, R>(
   fn: T,
   options: Partial<RetryOptions> = {}
-): (...args: Parameters<T>) => Promise<ReturnType<T>> {
+): (...args: Parameters<T>) => Promise<R> {
   // Set default retry options
   const retryOptions: RetryOptions = {
     maxRetries: options.maxRetries ?? 3,
@@ -112,14 +110,14 @@ export function withRetry<T extends (...args: any[]) => Promise<any>>(
   };
   
   // Return a function that wraps the original function with retry logic
-  return async (...args: Parameters<T>): Promise<ReturnType<T>> => {
+  return async (...args: Parameters<T>): Promise<R> => {
     let lastError: Error = new Error('Unknown error');
     
     for (let attempt = 0; attempt <= retryOptions.maxRetries; attempt++) {
       try {
         // First attempt (attempt = 0) doesn't count as a retry
         if (attempt === 0) {
-          return await fn(...args);
+          return (await fn(...args)) as R;
         }
         
         // Wait before retry
@@ -132,7 +130,7 @@ export function withRetry<T extends (...args: any[]) => Promise<any>>(
         }
         
         // Execute the function
-        return await fn(...args);
+        return (await fn(...args)) as R;
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
         
@@ -178,9 +176,9 @@ function calculateRetryDelay(attempt: number, options: RetryOptions): number {
 export async function withConcurrency<T, R>(
   items: T[],
   fn: (item: T, index: number) => Promise<R>,
-  concurrency: number = 5
+  concurrency = 5
 ): Promise<R[]> {
-  if (!items.length) return [];
+  if (!items.length) {return [];}
   
   const results: R[] = new Array(items.length);
   let currentIndex = 0;
@@ -211,7 +209,7 @@ export async function withConcurrency<T, R>(
  * @param options Debounce options
  * @returns Debounced function
  */
-export function debounce<T extends (...args: any[]) => any>(
+export function debounce<T extends (...args: readonly unknown[]) => unknown>(
   fn: T,
   waitMs: number,
   options: { leading?: boolean; trailing?: boolean; maxWait?: number } = {}
@@ -334,7 +332,7 @@ export function debounce<T extends (...args: any[]) => any>(
  * @param options Throttle options
  * @returns Throttled function
  */
-export function throttle<T extends (...args: any[]) => any>(
+export function throttle<T extends (...args: readonly unknown[]) => unknown>(
   fn: T,
   waitMs: number,
   options: { leading?: boolean; trailing?: boolean } = {}
@@ -356,10 +354,10 @@ export function throttle<T extends (...args: any[]) => any>(
 export function createDeferred<T>(): {
   promise: Promise<T>;
   resolve: (value: T) => void;
-  reject: (reason?: any) => void;
+  reject: (reason?: unknown) => void;
 } {
   let resolve!: (value: T) => void;
-  let reject!: (reason?: any) => void;
+  let reject!: (reason?: unknown) => void;
   
   const promise = new Promise<T>((res, rej) => {
     resolve = res;

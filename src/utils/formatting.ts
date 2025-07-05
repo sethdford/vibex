@@ -10,7 +10,7 @@ import chalk from 'chalk';
 /**
  * Truncate a string to a maximum length
  */
-export function truncate(text: string, maxLength: number, suffix: string = '...'): string {
+export function truncate(text: string, maxLength: number, suffix = '...'): string {
   if (!text || text.length <= maxLength) {
     return text;
   }
@@ -36,7 +36,7 @@ export function formatDate(date: Date): string {
  * Format a file size in bytes to a human-readable string
  */
 export function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 Bytes';
+  if (bytes === 0) {return '0 Bytes';}
   
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB'];
   const i = Math.floor(Math.log(bytes) / Math.log(1024));
@@ -81,7 +81,7 @@ export function formatDuration(ms: number): string {
 /**
  * Indent a string with a specified number of spaces
  */
-export function indent(text: string, spaces: number = 2): string {
+export function indent(text: string, spaces = 2): string {
   const prefix = ' '.repeat(spaces);
   return text.split('\n').map(line => prefix + line).join('\n');
 }
@@ -96,7 +96,7 @@ export function stripAnsi(text: string): string {
 /**
  * Wrap text to a specified width
  */
-export function wrapText(text: string, width: number = 80): string {
+export function wrapText(text: string, width = 80): string {
   const lines = text.split('\n');
   return lines.map(line => {
     if (line.length <= width) {
@@ -138,7 +138,7 @@ export function wrapText(text: string, width: number = 80): string {
 /**
  * Pad a string to a fixed width
  */
-export function padString(text: string, width: number, padChar: string = ' ', padRight: boolean = true): string {
+export function padString(text: string, width: number, padChar = ' ', padRight = true): string {
   if (text.length >= width) {
     return text;
   }
@@ -150,7 +150,7 @@ export function padString(text: string, width: number, padChar: string = ' ', pa
 /**
  * Center a string within a fixed width
  */
-export function centerString(text: string, width: number, padChar: string = ' '): string {
+export function centerString(text: string, width: number, padChar = ' '): string {
   if (text.length >= width) {
     return text;
   }
@@ -186,9 +186,7 @@ export function createTextTable(rows: string[][], headers?: string[]): string {
   }
   
   // Format rows
-  const formattedRows = allRows.map(row => {
-    return row.map((cell, i) => padString(String(cell), columnWidths[i])).join(' | ');
-  });
+  const formattedRows = allRows.map(row => row.map((cell, i) => padString(String(cell), columnWidths[i])).join(' | '));
   
   // Add separator after headers if provided
   if (headers) {
@@ -202,7 +200,7 @@ export function createTextTable(rows: string[][], headers?: string[]): string {
 /**
  * Format a key-value object as a string
  */
-export function formatKeyValue(obj: Record<string, any>, options: { 
+export function formatKeyValue(obj: Record<string, unknown>, options: { 
   indent?: number; 
   keyValueSeparator?: string;
   includeEmpty?: boolean;
@@ -235,7 +233,7 @@ export function formatKeyValue(obj: Record<string, any>, options: {
  * Convert camelCase to Title Case
  */
 export function camelToTitleCase(text: string): string {
-  if (!text) return text;
+  if (!text) {return text;}
   
   // Insert a space before all uppercase letters
   const spaceSeparated = text.replace(/([A-Z])/g, ' $1');
@@ -257,7 +255,7 @@ export function formatErrorDetails(error: Error): string {
   // Add any additional properties that might be present
   for (const key of Object.keys(error)) {
     if (!['name', 'message', 'stack'].includes(key)) {
-      const value = (error as any)[key];
+      const value = (error as unknown as Record<string, unknown>)[key];
       if (value !== undefined && value !== null) {
         details += `\n${key}: ${typeof value === 'object' ? JSON.stringify(value) : value}`;
       }
@@ -278,7 +276,11 @@ export function clearScreen(): void {
   process.stdout.write('\x1B[2J\x1B[0f');
 }
 
-export function formatOutput(text: string, options: any = {}): string {
+interface FormatOptions {
+  color?: string;
+}
+
+export function formatOutput(text: string, options: FormatOptions = {}): string {
   if (options.color) {
     return chalk.hex(options.color)(text);
   }
@@ -294,7 +296,7 @@ export function wordWrap(text: string, maxWidth: number): string {
     const words = line.split(' ');
 
     for (const word of words) {
-      if ((currentLine + ' ' + word).length > maxWidth) {
+      if ((`${currentLine} ${word}`).length > maxWidth) {
         wrappedLines.push(currentLine);
         currentLine = word;
       } else {
@@ -307,8 +309,8 @@ export function wordWrap(text: string, maxWidth: number): string {
   return wrappedLines.join('\n');
 }
 
-export function getErrorDetails(error: any): Record<string, any> {
-    const details: Record<string, any> = {};
+export function getErrorDetails(error: unknown): Record<string, unknown> {
+    const details: Record<string, unknown> = {};
     if (error instanceof Error) {
         details.name = error.name;
         details.message = error.message;
@@ -317,7 +319,7 @@ export function getErrorDetails(error: any): Record<string, any> {
         }
         for (const key in error) {
             if (!['name', 'message', 'stack'].includes(key)) {
-                details[key] = (error as any)[key];
+                details[key] = (error as unknown as Record<string, unknown>)[key];
             }
         }
     } else if (typeof error === 'object' && error !== null) {

@@ -4,6 +4,8 @@
  * Type definitions for the terminal interface module.
  */
 
+import type { PromptValue } from './prompt.js';
+
 /**
  * Terminal theme options
  */
@@ -111,12 +113,12 @@ export interface BasePromptOptions {
   /**
    * Default value
    */
-  default?: any;
+  default?: string | number | boolean | string[];
   
   /**
    * Validation function
    */
-  validate?: (input: any) => boolean | string | Promise<boolean | string>;
+  validate?: (input: unknown) => boolean | string | Promise<boolean | string>;
   
   /**
    * Whether the prompt is required
@@ -129,7 +131,7 @@ export interface BasePromptOptions {
  */
 export interface InputPromptOptions extends BasePromptOptions {
   type: 'input';
-  filter?: (input: string) => any;
+  filter?: (input: string) => string | number | boolean;
   transformer?: (input: string) => string;
 }
 
@@ -153,7 +155,7 @@ export interface ConfirmPromptOptions extends BasePromptOptions {
  */
 export interface ListPromptOptions extends BasePromptOptions {
   type: 'list' | 'rawlist';
-  choices: Array<string | { name: string; value: any; short?: string }>;
+  choices: Array<string | { name: string; value: string | number | boolean; short?: string }>;
   pageSize?: number;
 }
 
@@ -162,7 +164,7 @@ export interface ListPromptOptions extends BasePromptOptions {
  */
 export interface CheckboxPromptOptions extends BasePromptOptions {
   type: 'checkbox';
-  choices: Array<string | { name: string; value: any; checked?: boolean; disabled?: boolean | string }>;
+  choices: Array<string | { name: string; value: string | number | boolean; checked?: boolean; disabled?: boolean | string }>;
   pageSize?: number;
 }
 
@@ -237,12 +239,12 @@ export interface TerminalInterface {
   /**
    * Display a table of data
    */
-  table(data: any[][], options?: { header?: string[]; border?: boolean }): void;
+  table(data: unknown[][], options?: { header?: string[]; border?: boolean }): void;
   
   /**
    * Prompt user for input
    */
-  prompt<T>(options: PromptOptions): Promise<T>;
+  prompt<T extends PromptValue>(options: PromptOptions): Promise<T>;
   
   /**
    * Create a spinner for showing progress

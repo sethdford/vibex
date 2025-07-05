@@ -8,10 +8,15 @@ import React, { useState, useCallback } from 'react';
 import { Box, Text } from 'ink';
 import SelectInput from 'ink-select-input';
 import TextInput from 'ink-text-input';
-import { Colors } from '../colors';
+import { Colors } from '../colors.js';
 
 /**
- * Setting definition interface
+ * Setting value type
+ */
+export type SettingValue = string | number | boolean;
+
+/**
+ * Setting definition
  */
 export interface SettingDefinition {
   /**
@@ -37,19 +42,19 @@ export interface SettingDefinition {
   /**
    * Current setting value
    */
-  value: any;
+  value: SettingValue;
   
   /**
    * Default setting value
    */
-  default?: any;
+  default?: SettingValue;
   
   /**
    * Options for select type
    */
   options?: Array<{
     label: string;
-    value: any;
+    value: SettingValue;
   }>;
   
   /**
@@ -70,7 +75,7 @@ interface SettingsDialogProps {
   /**
    * Handler for saving settings
    */
-  onSave: (key: string, value: any) => void;
+  onSave: (key: string, value: SettingValue) => void;
   
   /**
    * Handler for closing dialog
@@ -144,7 +149,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   // Handle save
   const handleSave = useCallback(() => {
     if (editingSetting) {
-      let parsedValue: any = editValue;
+      let parsedValue: SettingValue = editValue;
       
       // Parse value based on type
       if (editingSetting.type === 'number') {
@@ -162,7 +167,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({
   }, [editingSetting, editValue, onSave]);
   
   // Format value for display
-  const formatValue = (value: any): string => {
+  const formatValue = (value: SettingValue): string => {
     if (value === undefined || value === null) {
       return '(not set)';
     }

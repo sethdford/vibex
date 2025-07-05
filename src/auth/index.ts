@@ -1,35 +1,70 @@
 /**
- * Auth Module
- *
- * This module provides a unified interface for handling all authentication-related
- * functionality in the application. Key features include:
- *
- * - Singleton auth manager for consistent state
- * - Support for multiple authentication methods (API Key, OAuth)
- * - Secure token storage using keytar or file-based credentials
- * - Automatic token refreshing for long-lived sessions
- * - Type-safe interfaces for all auth operations
- * - Centralized authentication state management
- *
- * The module exports a pre-configured `authManager` instance for use throughout
- * the application, ensuring consistent and secure authentication handling.
+ * Authentication Module
+ * 
+ * Central export for all authentication functionality.
  */
 
-import { AuthManager } from './manager.js';
-import {
-  TokenStorage,
-  AuthResult,
-  AuthState,
-  AuthMethod,
-  AuthToken,
-  OAuthConfig
-} from './types.js';
-import { performOAuthFlow, refreshOAuthToken } from './oauth.js';
-import { createTokenStorage, isTokenExpired } from './tokens.js';
-import config from '../config/index.js';
+// Legacy authentication system
+export { AuthManager } from './manager.js';
+export { authManager } from './instance.js';
+export { createTokenStorage, isTokenExpired } from './tokens.js';
+export { performOAuthFlow, refreshOAuthToken, DEFAULT_OAUTH_CONFIG } from './oauth.js';
+export { AuthMethod, AuthState } from './types.js';
+export type { AuthToken, AuthResult, TokenStorage, OAuthConfig } from './types.js';
 
-export const authManager = new AuthManager(config.get());
+// Multi-provider authentication system
+export { 
+  MultiProviderAuth,
+  AuthProviderType, 
+  AuthEvent,
+  createMultiProviderAuth,
+  // Legacy exports for backward compatibility
+  EnhancedAuthSystem,
+  EnhancedAuthEvent,
+  createEnhancedAuth
+} from './enhanced-auth.js';
+export type { 
+  AuthProvider, 
+  AuthConfig,
+  // Legacy type export
+  EnhancedAuthConfig
+} from './enhanced-auth.js';
 
-export * from './types.js';
-export * from './oauth.js';
-export * from './tokens.js'; 
+// Auth session management
+export {
+  AuthSessionManager,
+  SessionEvent,
+  createAuthSession
+} from './auth-session.js';
+export type {
+  SessionConfig,
+  SessionInfo
+} from './auth-session.js';
+
+// Initialize multi-provider auth system
+import { createMultiProviderAuth, AuthProviderType } from './enhanced-auth.js';
+import { createAuthSession } from './auth-session.js';
+
+/**
+ * Multi-provider auth system singleton
+ */
+export const multiProviderAuth = createMultiProviderAuth();
+
+// Legacy export for backward compatibility
+export const enhancedAuth = multiProviderAuth;
+
+/**
+ * Auth session singleton
+ */
+export const authSession = createAuthSession({
+  defaultProvider: AuthProviderType.ANTHROPIC,
+  authConfig: {
+    defaultProvider: AuthProviderType.ANTHROPIC,
+    autoRefresh: true
+  }
+});
+
+// Initialize auth session
+authSession.initialize().catch(error => {
+  console.error('Failed to initialize auth session', error);
+});

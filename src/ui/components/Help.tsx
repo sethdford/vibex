@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { Box, Text } from 'ink';
-import { Colors } from '../colors';
+import { Colors } from '../colors.js';
 
 /**
  * Command type
@@ -122,13 +122,13 @@ export const Help: React.FC<HelpProps> = ({ commands }) => {
         </Text>
       </Box>
       
-      {sortedCategories.map((category) => (
+      {sortedCategories.map(category => (
         <Box key={category} flexDirection="column" marginBottom={1}>
           <Text bold underline>
             {category}
           </Text>
           
-          {groupedCommands[category].map((command) => (
+          {groupedCommands[category].map(command => (
             <Box key={command.name}>
               <Box width={20}>
                 <Text bold color={Colors.Info}>
@@ -147,6 +147,56 @@ export const Help: React.FC<HelpProps> = ({ commands }) => {
         </Box>
       ))}
       
+      <Box flexDirection="column" marginTop={1}>
+        <Text bold underline>
+          🌳 Enhanced Conversation Features
+        </Text>
+        
+        <Box>
+          <Box width={20}>
+            <Text bold color={Colors.Success}>
+              Tree Branching
+            </Text>
+          </Box>
+          <Box>
+            <Text>Create conversation branches to explore different paths</Text>
+          </Box>
+        </Box>
+        
+        <Box>
+          <Box width={20}>
+            <Text bold color={Colors.Success}>
+              Branch Merging
+            </Text>
+          </Box>
+          <Box>
+            <Text>Merge branches with intelligent conflict resolution</Text>
+          </Box>
+        </Box>
+        
+        <Box>
+          <Box width={20}>
+            <Text bold color={Colors.Success}>
+              Tree Navigation
+            </Text>
+          </Box>
+          <Box>
+            <Text>Interactive tree browser with keyboard shortcuts</Text>
+          </Box>
+        </Box>
+        
+        <Box>
+          <Box width={20}>
+            <Text bold color={Colors.Success}>
+              Visual Tree Display
+            </Text>
+          </Box>
+          <Box>
+            <Text>ASCII art tree visualization with real-time updates</Text>
+          </Box>
+        </Box>
+      </Box>
+
       <Box flexDirection="column" marginTop={1}>
         <Text bold underline>
           Keyboard Shortcuts

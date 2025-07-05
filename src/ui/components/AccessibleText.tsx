@@ -7,8 +7,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { Box, Text } from 'ink';
-import { Colors } from '../colors';
-import { formatForScreenReader, generateAriaLabel } from '../utils/accessibilityUtils';
+import { Colors } from '../colors.js';
+import { formatForScreenReader, generateAriaLabel } from '../utils/accessibilityUtils.js';
 
 /**
  * Accessible text props
@@ -76,7 +76,7 @@ export const AccessibleText: React.FC<AccessibleTextProps> = ({
 }) => {
   // Convert children to string if possible
   const textContent = React.Children.toArray(children)
-    .map(child => (typeof child === 'string' || typeof child === 'number') ? String(child) : '')
+    .map(child => ((typeof child === 'string' || typeof child === 'number') ? String(child) : ''))
     .join(' ');
   
   // Format text for screen readers if enabled
@@ -119,9 +119,9 @@ export const Heading: React.FC<AccessibleTextProps & { level?: 1 | 2 | 3 }> = ({
   // Choose color based on heading level
   let headingColor = color;
   if (!headingColor) {
-    if (level === 1) headingColor = Colors.Primary;
-    else if (level === 2) headingColor = Colors.Secondary;
-    else headingColor = Colors.Info;
+    if (level === 1) {headingColor = Colors.Primary;}
+    else if (level === 2) {headingColor = Colors.Secondary;}
+    else {headingColor = Colors.Info;}
   }
   
   return (

@@ -6,7 +6,16 @@
 
 import React from 'react';
 import { Box, Text } from 'ink';
-import { Colors } from '../colors';
+import { Colors } from '../colors.js';
+
+/**
+ * MCP Server interface
+ */
+export interface MCPServerInfo {
+  name?: string;
+  status?: string;
+  [key: string]: unknown;
+}
 
 /**
  * Context summary display props
@@ -30,7 +39,7 @@ interface ContextSummaryDisplayProps {
   /**
    * Available MCP servers (optional)
    */
-  mcpServers?: Record<string, any>;
+  mcpServers?: Record<string, MCPServerInfo>;
 }
 
 /**

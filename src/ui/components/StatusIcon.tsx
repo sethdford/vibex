@@ -6,12 +6,12 @@
 
 import React from 'react';
 import { Text, Box } from 'ink';
-import { Colors } from '../colors';
+import { Colors } from '../colors.js';
 
 /**
  * Status types
  */
-export type StatusType = 'running' | 'success' | 'error' | 'warning' | 'info' | 'waiting' | 'paused';
+export type StatusType = 'running' | 'success' | 'completed' | 'error' | 'failed' | 'warning' | 'info' | 'waiting' | 'paused';
 
 /**
  * Status icon props
@@ -44,7 +44,9 @@ export interface StatusIconProps {
 const icons: Record<StatusType, { icon: string; color: string; label: string }> = {
   running: { icon: '⏳', color: Colors.AccentBlue, label: 'Running' },
   success: { icon: '✓', color: Colors.Success, label: 'Success' },
+  completed: { icon: '✓', color: Colors.Success, label: 'Completed' },
   error: { icon: '✗', color: Colors.Error, label: 'Error' },
+  failed: { icon: '✗', color: Colors.Error, label: 'Failed' },
   warning: { icon: '⚠', color: Colors.Warning, label: 'Warning' },
   info: { icon: 'ℹ', color: Colors.Info, label: 'Information' },
   waiting: { icon: '…', color: Colors.TextMuted, label: 'Waiting' },
@@ -95,10 +97,9 @@ export const StatusIcon: React.FC<StatusIconProps> = ({
   
   return (
     <Box>
-      <Text 
+      <Text
         color={displayColor}
         aria-label={accessibilityLabel}
-        role="img"
       >
         {displayIcon}
       </Text>

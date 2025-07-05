@@ -7,7 +7,7 @@
 import React from 'react';
 import { Box, Text } from 'ink';
 import SelectInput from 'ink-select-input';
-import { Colors } from '../colors';
+import { Colors } from '../colors.js';
 
 /**
  * Theme option type
@@ -22,6 +22,17 @@ interface ThemeOption {
    * Option value
    */
   value: string;
+}
+
+/**
+ * User settings interface
+ */
+export interface UserSettings {
+  terminal?: {
+    theme?: string;
+    [key: string]: unknown;
+  };
+  [key: string]: unknown;
 }
 
 /**
@@ -41,7 +52,7 @@ interface ThemeDialogProps {
   /**
    * User settings
    */
-  settings: any;
+  settings: UserSettings;
   
   /**
    * Available terminal height

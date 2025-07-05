@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { Box, Text } from 'ink';
-import { Colors } from '../colors';
+import { Colors } from '../colors.js';
 import * as diff from 'diff';
 
 /**
@@ -101,14 +101,14 @@ function parseDiff(oldText: string, newText: string, contextLines: number): Diff
   let newLineCounter = 1;
   
   // Process each change
-  changes.forEach((change) => {
+  changes.forEach(change => {
     const lines = change.value.split('\n');
     // Remove empty line at the end if the last line ended with a newline
     if (lines[lines.length - 1] === '') {
       lines.pop();
     }
     
-    lines.forEach((line) => {
+    lines.forEach(line => {
       if (change.added) {
         // Added line
         diffLines.push({
@@ -147,8 +147,8 @@ function parseDiff(oldText: string, newText: string, contextLines: number): Diff
  * Limit diff context to a specific number of unchanged lines
  */
 function limitDiffContext(lines: DiffLine[], contextLines: number): DiffLine[] {
-  if (contextLines < 0) return lines;
-  if (lines.length === 0) return [];
+  if (contextLines < 0) {return lines;}
+  if (lines.length === 0) {return [];}
   
   const result: DiffLine[] = [];
   let lastChangedIndex = -1;
@@ -197,7 +197,7 @@ function limitDiffContext(lines: DiffLine[], contextLines: number): DiffLine[] {
  * Get color for line type
  */
 function getLineColor(type: LineType, useColors: boolean): string | undefined {
-  if (!useColors) return undefined;
+  if (!useColors) {return undefined;}
   
   switch (type) {
     case 'added':

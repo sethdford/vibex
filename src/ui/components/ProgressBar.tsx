@@ -6,8 +6,9 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { Box, Text } from 'ink';
-import { Colors } from '../colors';
-import { StatusIcon, StatusType } from './StatusIcon';
+import { Colors } from '../colors.js';
+import type { StatusType } from './StatusIcon.js';
+import { StatusIcon } from './StatusIcon.js';
 
 /**
  * Progress bar props
@@ -153,7 +154,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
     const startValue = animatedValue;
     
     const animate = (timestamp: number) => {
-      if (!startTime) startTime = timestamp;
+      if (!startTime) {startTime = timestamp;}
       const elapsed = timestamp - startTime;
       const progress = Math.min(elapsed / duration, 1);
       
@@ -188,7 +189,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   
   // Format time remaining
   const formatTimeRemaining = (seconds: number): string => {
-    if (seconds < 60) return `${Math.round(seconds)}s`;
+    if (seconds < 60) {return `${Math.round(seconds)}s`;}
     if (seconds < 3600) {
       const mins = Math.floor(seconds / 60);
       const secs = Math.round(seconds % 60);

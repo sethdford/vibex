@@ -6,14 +6,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { Box, Text } from 'ink';
-import { Colors } from '../../colors';
-import { ImageRenderer } from './ImageRenderer';
+import { Colors } from '../../colors.js';
+import { ImageRenderer } from './ImageRenderer.js';
 import { 
-  downloadImage, 
+  downloadImage,
   processImageData, 
   isImageFile,
-  cleanupTempImages
-} from '../../utils/imageUtils';
+  cleanupTempImages,
+  getImageDimensions
+} from '../../utils/imageUtils.js';
 import { logger } from '../../../utils/logger.js';
 
 /**

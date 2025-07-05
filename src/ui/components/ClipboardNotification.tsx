@@ -6,7 +6,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Box, Text } from 'ink';
-import { Colors } from '../colors';
+import { Colors } from '../colors.js';
 
 /**
  * Notification types
@@ -61,7 +61,7 @@ export const ClipboardNotification: React.FC<ClipboardNotificationProps> = ({
     return () => clearTimeout(timer);
   }, [duration, onDismiss]);
   
-  if (!visible) return null;
+  if (!visible) {return null;}
   
   // Determine text color based on type
   let color = Colors.Success;

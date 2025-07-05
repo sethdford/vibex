@@ -1,220 +1,209 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { render, Box, Text, useInput, useApp } from 'ink';
+
+import { Header } from './components/Header.js';
+import { Footer } from './components/Footer.js';
+import { ConversationHistory, type HistoryMessage } from './components/ConversationHistory.js';
+import { ErrorDisplay } from './components/ErrorDisplay.js';
+import { SlashCommandBar } from './components/SlashCommandBar.js';
+import { useSlashCommands, type SlashCommand } from './hooks/useSlashCommands.js';
+
 import { Colors } from './colors.js';
+import type { AppConfigType } from '../config/schema.js';
 
 interface CLIAppProps {
+  config: AppConfigType;
+  onExit: () => void;
   startupWarnings?: string[];
-  theme?: string;
-  onCommand?: (command: string) => Promise<void>;
-  onExit?: () => void;
+  updateMessage?: string | null;
 }
 
-interface Message {
-  id: string;
-  type: 'user' | 'assistant' | 'system' | 'error';
-  content: string;
-  timestamp: Date;
-}
+const initialCommands: SlashCommand[] = [
+  { id: 'help', name: 'help', description: 'Show help', handler: async () => {} },
+  { id: 'exit', name: 'exit', description: 'Exit the application', handler: async () => {} },
+  { id: 'quit', name: 'quit', description: 'Exit the application', handler: async () => {} },
+];
 
-export const CLIApp: React.FC<CLIAppProps> = ({ 
-  startupWarnings = [], 
-  theme = 'dark',
-  onCommand,
-  onExit 
-}) => {
-  const [messages, setMessages] = useState<Message[]>([]);
+export const CLIApp: React.FC<CLIAppProps> = ({ config, onExit, startupWarnings = [], updateMessage = null }) => {
+  const [messages, setMessages] = useState<HistoryMessage[]>([]);
   const [input, setInput] = useState('');
+  const [error, setError] = useState<Error | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const { exit } = useApp();
 
-  // Add startup messages
+  const { commands, getSuggestions, executeCommandString } = useSlashCommands({ initialCommands });
+  
+  const suggestions = getSuggestions(input);
+  const commandList = commands.filter(cmd => suggestions.some(s => s.startsWith(`/${cmd.name}`)));
+
+
+  // Add welcome message and system notifications
   useEffect(() => {
-    const welcomeMessage: Message = {
-      id: 'welcome',
-      type: 'system',
-      content: `Welcome to Vibex! Type /help to see available commands.\nYou can ask Claude to explain code, fix issues, or perform tasks.`,
-      timestamp: new Date()
-    };
-
-    setMessages([welcomeMessage]);
-
-    if (startupWarnings.length > 0) {
-      const warningMessage: Message = {
-        id: 'warnings',
-        type: 'system',
-        content: `Startup warnings:\n${startupWarnings.map(w => `• ${w}`).join('\n')}`,
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, warningMessage]);
-    }
-  }, [startupWarnings]);
-
-  // Handle user input
-  useInput(useCallback((input, key) => {
-    if (key.return) {
-      handleSubmit();
-    } else if (key.backspace) {
-      setInput(prev => prev.slice(0, -1));
-    } else if (key.ctrl && input === 'c') {
-      if (onExit) {
-        onExit();
-      } else {
-        exit();
-      }
-    } else if (input && !key.ctrl && !key.meta) {
-      setInput(prev => prev + input);
-    }
-  }, [input, onExit, exit]));
-
-  const handleSubmit = async () => {
-    if (!input.trim()) return;
-
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      type: 'user',
-      content: input.trim(),
-      timestamp: new Date()
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    const command = input.trim();
-    setInput('');
-
-    // Handle exit commands
-    if (['exit', 'quit', '/exit', '/quit'].includes(command.toLowerCase())) {
-      if (onExit) {
-        onExit();
-      } else {
-        exit();
-      }
-      return;
-    }
-
-    setIsProcessing(true);
-
-    try {
-      if (onCommand) {
-        await onCommand(command);
-      } else {
-        // Default command handling
-        if (command.startsWith('/')) {
-          const responseMessage: Message = {
-            id: (Date.now() + 1).toString(),
-            type: 'system',
-            content: `Command "${command}" executed.`,
-            timestamp: new Date()
-          };
-          setMessages(prev => [...prev, responseMessage]);
-        } else {
-          const responseMessage: Message = {
-            id: (Date.now() + 1).toString(),
-            type: 'assistant',
-            content: `I received your message: "${command}". AI functionality will be available once authentication is set up.`,
-            timestamp: new Date()
-          };
-          setMessages(prev => [...prev, responseMessage]);
+    const initialMessages: HistoryMessage[] = [
+      {
+        id: 'welcome',
+        role: 'system' as const,
+        content: `Welcome to VibeX - AI-powered development workflow orchestration.\n\nVibeX helps you build, test, and optimize your applications with the power of AI.\n\nType a message to get started or use slash commands for specific actions.`,
+        timestamp: new Date(),
+        metadata: {
+          type: 'welcome',
         }
       }
-    } catch (error) {
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        type: 'error',
-        content: `Error: ${error instanceof Error ? error.message : String(error)}`,
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMessage]);
-    } finally {
-      setIsProcessing(false);
+    ];
+    
+    // Add any startup warnings
+    if (startupWarnings && startupWarnings.length > 0) {
+      startupWarnings.forEach((warning, i) => {
+        initialMessages.push({
+          id: `warning-${i}`,
+          role: 'system',
+          content: `⚠️ ${warning}`,
+          timestamp: new Date(),
+          metadata: {
+            type: 'warning',
+          }
+        });
+      });
     }
-  };
+    
+    // Add update notification if present
+    if (updateMessage) {
+      initialMessages.push({
+        id: 'update',
+        role: 'system',
+        content: `🔔 ${updateMessage}`,
+        timestamp: new Date(),
+        metadata: {
+          type: 'update',
+        }
+      });
+    }
+    
+    // Add tip about slash commands
+    initialMessages.push({
+      id: 'tip',
+      role: 'system',
+      content: 'TIP: Use /help to see available commands and /exit to quit.',
+      timestamp: new Date(),
+      metadata: {
+        type: 'tip',
+      }
+    });
+    
+    setMessages(initialMessages);
+  }, [config?.ai?.model, startupWarnings, updateMessage]);
 
-  const getMessageColor = (type: Message['type']) => {
-    switch (type) {
-      case 'user': return Colors.Primary;
-      case 'assistant': return Colors.Secondary;
-      case 'system': return Colors.Info;
-      case 'error': return Colors.Error;
-      default: return Colors.Text;
-    }
-  };
+  const handleSubmit = useCallback(async (submittedInput: string) => {
+    const command = submittedInput.trim();
+    if (!command) {return;}
 
-  const getMessagePrefix = (type: Message['type']) => {
-    switch (type) {
-      case 'user': return 'You';
-      case 'assistant': return 'Claude';
-      case 'system': return 'System';
-      case 'error': return 'Error';
-      default: return '';
+    // Add user message to history
+    setMessages(prev => [...prev, {
+      id: Date.now().toString(),
+      role: 'user',
+      content: command,
+      timestamp: new Date()
+    }]);
+    
+    setInput('');
+    setIsProcessing(true);
+    setError(null);
+
+    if (command.startsWith('/')) {
+        if(command === '/exit' || command === '/quit') {
+            onExit();
+            return;
+        }
+      const result = await executeCommandString(command);
+      if(!result.success) {
+        setError(new Error(result.message || 'Unknown command error'));
+      }
+    } else {
+        // TODO: Handle natural language submission to AI
+        setTimeout(() => {
+          setMessages(prev => [...prev, {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: `(Placeholder) AI response to: "${command}"`,
+            timestamp: new Date()
+          }]);
+        }, 500);
     }
-  };
+    
+    setIsProcessing(false);
+
+  }, [executeCommandString, onExit]);
+
+
+  useInput(
+    useCallback(
+      (char, key) => {
+        if (key.return) {
+          handleSubmit(input);
+          return;
+        }
+
+        if (key.backspace || key.delete) {
+          setInput(prev => prev.slice(0, -1));
+          return;
+        }
+
+        if (key.ctrl && char === 'c') {
+          onExit();
+          return;
+        }
+        
+        if (char && !key.ctrl && !key.meta) {
+          setInput(prev => prev + char);
+        }
+      },
+      [input, onExit, handleSubmit]
+    )
+  );
 
   return (
-    <Box flexDirection="column" height="100%">
-      {/* Header */}
-      <Box borderStyle="round" borderColor={Colors.Primary} paddingX={1} marginBottom={1}>
-        <Text color={Colors.Primary} bold>
-          🚀 Vibex - AI-Powered Development Assistant
-        </Text>
+    <Box flexDirection="column" height="100%" width="100%">
+      <Header terminalWidth={process.stdout.columns || 80} />
+      
+      <Box flexGrow={1} flexDirection="column" paddingX={1}>
+        <ConversationHistory messages={messages} />
+        {error && <ErrorDisplay error={error} />}
       </Box>
 
-      {/* Messages */}
-      <Box flexDirection="column" flexGrow={1} paddingX={1}>
-        {messages.map((message) => (
-          <Box key={message.id} marginBottom={1} flexDirection="column">
-            <Box>
-              <Text color={getMessageColor(message.type)} bold>
-                {getMessagePrefix(message.type)}
-              </Text>
-              <Text color={Colors.TextDim}>
-                {' '}({message.timestamp.toLocaleTimeString()})
-              </Text>
-            </Box>
-            <Box paddingLeft={2}>
-              <Text color={message.type === 'error' ? Colors.Error : Colors.Text}>
-                {message.content}
-              </Text>
-            </Box>
-          </Box>
-        ))}
-        
-        {isProcessing && (
-          <Box marginBottom={1}>
-            <Text color={Colors.TextDim}>
-              Processing...
-            </Text>
-          </Box>
-        )}
+      <SlashCommandBar 
+        commands={commandList}
+      />
+
+      <Box borderStyle="round" borderColor={Colors.Primary} paddingX={1}>
+        <Text color={Colors.Primary}>❯ </Text>
+        <Text>{input}</Text>
+        {isProcessing && <Text color={Colors.TextDim}> (Processing...)</Text>}
       </Box>
 
-      {/* Input */}
-      <Box borderStyle="round" borderColor={Colors.Secondary} paddingX={1}>
-        <Text color={Colors.Secondary}>❯ </Text>
-        <Text color={Colors.Text}>{input}</Text>
-        <Text color={Colors.TextDim}>_</Text>
-      </Box>
-
-      {/* Help text */}
-      <Box paddingX={1} paddingY={0}>
-        <Text color={Colors.TextDim}>
-          Type your message and press Enter. Use Ctrl+C to exit.
-        </Text>
-      </Box>
+      <Footer
+        model={config?.ai?.model || 'default'}
+        targetDir={process.cwd()}
+        debugMode={config?.ai?.enableBetaFeatures || false}
+        errorCount={error ? 1 : 0}
+        showErrorDetails={!!error}
+      />
     </Box>
   );
 };
 
 export function startUI(options: { 
-  startupWarnings?: string[]; 
-  theme?: string;
-  onCommand?: (command: string) => Promise<void>;
-  onExit?: () => void;
+  config: AppConfigType;
+  onExit: () => void;
+  startupWarnings?: string[];
+  updateMessage?: string | null;
 }) {
-  return render(
+  const app = render(
     <CLIApp 
-      startupWarnings={options.startupWarnings}
-      theme={options.theme}
-      onCommand={options.onCommand}
+      config={options.config}
       onExit={options.onExit}
+      startupWarnings={options.startupWarnings}
+      updateMessage={options.updateMessage}
     />
   );
-} 
+  return app;
+}

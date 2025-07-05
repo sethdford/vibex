@@ -6,7 +6,7 @@
  */
 
 // import { ErrorManager } from './types';
-import { logger } from '../utils/logger';
+import { logger } from '../utils/logger.js';
 
 /**
  * Set up Sentry error reporting
@@ -48,7 +48,7 @@ export function reportErrorToSentry(
   options: {
     level?: string;
     tags?: Record<string, string>;
-    extra?: Record<string, any>;
+    extra?: Record<string, unknown>;
     user?: {
       id?: string;
       username?: string;

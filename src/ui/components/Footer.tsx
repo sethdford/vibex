@@ -1,13 +1,16 @@
 /**
  * Footer Component
  * 
- * Displays application status and information at the bottom of the UI.
+ * Displays application status, system metrics, and useful information
+ * at the bottom of the UI, including model details, token counts,
+ * and resource usage metrics.
  */
 
 import React, { useState, useEffect } from 'react';
 import { Box, Text } from 'ink';
-import { Colors } from '../colors';
+import { Colors } from '../colors.js';
 import path from 'path';
+import os from 'os';
 
 /**
  * Footer component props
@@ -76,7 +79,8 @@ interface FooterProps {
  * @returns Shortened path for display
  */
 const formatDirectory = (dirPath: string): string => {
-  const homedir = require('os').homedir();
+  // Using imported os module
+  const homedir = os.homedir();
   
   // Replace home directory with ~
   if (dirPath.startsWith(homedir)) {
@@ -139,10 +143,20 @@ export const Footer: React.FC<FooterProps> = ({
   }, [showMemoryUsage]);
   
   // Format model name for display
-  const displayModel = model.replace(/claude-/g, '');
+  const displayModel = model
+    .replace(/claude-/g, '')
+    .replace(/sonnet-4-.*/, '4 Sonnet')
+    .replace(/haiku-4-.*/, '4 Haiku') 
+    .replace(/opus-4-.*/, '4 Opus')
+    .replace(/4-sonnet.*/, '4 Sonnet')
+    .replace(/4-haiku.*/, '4 Haiku')
+    .replace(/4-opus.*/, '4 Opus')
+    .replace(/3-5-sonnet.*/, '3.5 Sonnet')
+    .replace(/3-haiku.*/, '3 Haiku')
+    .replace(/3-opus.*/, '3 Opus');
   
   return (
-    <Box flexDirection="column" marginTop={1}>
+    <Box flexDirection="column" marginTop={1} borderStyle="single" borderColor={Colors.Gray700}>
       <Box>
         <Box flexGrow={1}>
           <Text color={Colors.TextDim}>

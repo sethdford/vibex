@@ -6,16 +6,19 @@
 
 import React from 'react';
 import { Text, Box } from 'ink';
-import { lowlight } from 'lowlight';
-import { common } from 'lowlight/common';
 import type { Root, Element, Text as HastText, ElementContent, RootContent } from 'hast';
-import { Colors } from '../colors';
-import { themes } from '../themes/theme-manager';
-import { ShowMoreLines } from '../components/ShowMoreLines';
-import { useTheme } from '../contexts/ThemeContext';
+import { Colors } from '../colors.js';
+import { themes } from '../themes/theme-manager.js';
+import { ShowMoreLines } from '../components/ShowMoreLines.js';
+import { useTheme } from '../contexts/ThemeContext.js';
+import { highlightCode } from './highlighter.js';
 
-// Register common languages
-lowlight.register(common);
+/**
+ * Theme interface for code colorization
+ */
+export interface CodeTheme {
+  [className: string]: string | undefined;
+}
 
 /**
  * Code colorizer props
@@ -57,12 +60,12 @@ interface CodeColorizerProps {
  * 
  * Maps syntax highlighting tokens to theme colors
  */
-function getColorForToken(className: string, theme: any): string | undefined {
+function getColorForToken(className: string, theme: CodeTheme): string | undefined {
   // Extract token type from class name (e.g., "hljs-keyword" -> "keyword")
   const token = className.replace(/^hljs-/, '');
   
   // Map token types to theme color properties
-  const tokenToColorMap: Record<string, keyof typeof theme.syntax> = {
+  const tokenToColorMap: Record<string, keyof typeof theme> = {
     keyword: 'keyword',
     built_in: 'builtin',
     type: 'type',
@@ -89,7 +92,7 @@ function getColorForToken(className: string, theme: any): string | undefined {
   
   // Get the theme color for this token type
   const colorKey = tokenToColorMap[token];
-  return colorKey ? theme.syntax[colorKey] : undefined;
+  return colorKey ? theme[colorKey] : undefined;
 }
 
 /**
@@ -97,7 +100,7 @@ function getColorForToken(className: string, theme: any): string | undefined {
  */
 function renderHastNode(
   node: Root | Element | HastText | RootContent,
-  theme: any,
+  theme: CodeTheme,
   inheritedColor?: string
 ): React.ReactNode {
   // Text nodes just use the inherited color
@@ -181,16 +184,9 @@ export const CodeColorizer: React.FC<CodeColorizerProps> = ({
   try {
     // Helper function to highlight a single line
     const highlightLine = (line: string) => {
-      // Use language-specific highlighting if available
-      const highlighted = language && lowlight.registered(language)
-        ? lowlight.highlight(language, line)
-        : lowlight.highlightAuto(line);
-      
-      // Render the highlighted line
-      const renderedNode = renderHastNode(highlighted, theme);
-      
-      // Return the highlighted content or plain text as fallback
-      return renderedNode !== null ? renderedNode : line;
+      // Use the simple highlighter
+      const highlighted = highlightCode(line, language);
+      return highlighted.join('\n');
     };
     
     return (
@@ -267,8 +263,8 @@ export function colorizeCode(
   language?: string,
   maxHeight?: number,
   maxWidth?: number,
-  showLineNumbers: boolean = true,
-  wrap: boolean = false,
+  showLineNumbers = true,
+  wrap = false,
 ): React.ReactNode {
   return (
     <CodeColorizer

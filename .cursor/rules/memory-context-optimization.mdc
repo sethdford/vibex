@@ -1,0 +1,444 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Memory Management & Context Optimization Rules
+
+## 🧠 CONTEXT WINDOW EFFICIENCY
+
+### Token Usage Optimization
+- **Minimize redundant information** - never repeat what's already established
+- **Use precise technical language** - avoid verbose explanations
+- **Reference existing patterns** instead of re-explaining them
+- **Batch related operations** to reduce context switching overhead
+- **Prioritize actionable information** over background context
+
+### AI Interaction Patterns
+```typescript
+// ✅ REQUIRED - Efficient AI collaboration
+// Be specific: "Fix the memory leak in UserCache.ts line 45"
+// Not: "There might be some issues with memory management"
+
+// ✅ REQUIRED - Structured requests
+// 1. State the exact problem
+// 2. Show the relevant code snippet  
+// 3. Specify the desired outcome
+// 4. Request tests if needed
+
+// ✅ REQUIRED - Context-aware prompting
+// "In the authentication module, add rate limiting to prevent brute force attacks"
+// Include: module context + specific action + security reasoning
+```
+
+### Chat Organization (Vibe Coding Pattern)
+- **Open new chats** for distinct tasks to maintain clarity
+- **Keep agent chats short** and focused (max 10 exchanges)
+- **Label chats clearly** with purpose ("Feature X", "Bug Fix Y")
+- **Reference previous chats** when building on past work
+- **Document effective prompts** for reuse
+
+### Memory-Conscious Development
+```typescript
+// ✅ REQUIRED - Bounded data structures
+class ConversationHistory {
+  private readonly maxEntries = 100;
+  private entries: ConversationEntry[] = [];
+  
+  addEntry(entry: ConversationEntry): void {
+    this.entries.push(entry);
+    if (this.entries.length > this.maxEntries) {
+      this.entries.shift(); // Remove oldest
+    }
+  }
+  
+  // Use computed properties instead of storing derived data
+  get recentEntries(): ConversationEntry[] {
+    return this.entries.slice(-10);
+  }
+}
+
+// ❌ FORBIDDEN - Unbounded growth
+class BadHistory {
+  private entries: ConversationEntry[] = []; // Grows forever
+  private cache = new Map(); // No cleanup strategy
+  private allUserActions: UserAction[] = []; // Memory leak
+}
+```
+
+## 🔄 MEMORY LIFECYCLE MANAGEMENT
+
+### Resource Cleanup Patterns
+```typescript
+// ✅ REQUIRED - Proper cleanup with WeakMap/WeakSet
+class ResourceManager {
+  private resources = new Map<string, WeakRef<Resource>>();
+  private cleanupCallbacks = new Map<string, () => void>();
+
+  register(id: string, resource: Resource, cleanup?: () => void): void {
+    this.resources.set(id, new WeakRef(resource));
+    if (cleanup) this.cleanupCallbacks.set(id, cleanup);
+  }
+
+  cleanup(): void {
+    for (const [id, ref] of this.resources) {
+      if (!ref.deref()) {
+        this.resources.delete(id);
+        this.cleanupCallbacks.get(id)?.();
+        this.cleanupCallbacks.delete(id);
+      }
+    }
+  }
+}
+
+// ❌ FORBIDDEN - Memory leaks (Gemini CLI pattern)
+class BadResourceManager {
+  private resources: Map<string, any> = new Map(); // Never cleaned up
+  private globalCache: any = {}; // Grows forever
+}
+```
+
+### Event Listener Management
+```typescript
+// ✅ REQUIRED - Proper event cleanup
+class ComponentManager {
+  private abortController = new AbortController();
+
+  setupListeners(): void {
+    window.addEventListener('resize', this.handleResize, {
+      signal: this.abortController.signal
+    });
+    
+    process.on('SIGINT', this.handleShutdown, {
+      signal: this.abortController.signal
+    });
+  }
+
+  destroy(): void {
+    this.abortController.abort(); // Cleans up all listeners
+  }
+}
+
+// ❌ FORBIDDEN - Listener leaks
+class BadComponent {
+  setupListeners(): void {
+    window.addEventListener('resize', this.handleResize);
+    // No cleanup - memory leak!
+  }
+}
+```
+
+### Stream and File Handle Management
+```typescript
+// ✅ REQUIRED - Automatic resource cleanup
+async function processLargeFile(filePath: string): Promise<void> {
+  const fileHandle = await fs.open(filePath, 'r');
+  try {
+    const stream = fileHandle.createReadStream();
+    
+    // Use for-await to ensure cleanup
+    for await (const chunk of stream) {
+      await processChunk(chunk);
+    }
+  } finally {
+    await fileHandle.close(); // Always cleanup
+  }
+}
+
+// ❌ FORBIDDEN - Resource leaks
+async function badProcessFile(filePath: string): Promise<void> {
+  const fileHandle = await fs.open(filePath, 'r');
+  const stream = fileHandle.createReadStream();
+  // No cleanup - file handle leak!
+}
+```
+
+## 🚀 PERFORMANCE MEMORY PATTERNS
+
+### Bounded Collections
+```typescript
+// ✅ REQUIRED - Size-limited caches
+class BoundedCache<T> {
+  private readonly maxSize: number;
+  private readonly items = new Map<string, T>();
+
+  constructor(maxSize: number = 1000) {
+    this.maxSize = maxSize;
+  }
+
+  set(key: string, value: T): void {
+    // Remove oldest item if at capacity
+    if (this.items.size >= this.maxSize) {
+      const firstKey = this.items.keys().next().value;
+      this.items.delete(firstKey);
+    }
+    this.items.set(key, value);
+  }
+
+  get(key: string): T | undefined {
+    const value = this.items.get(key);
+    if (value !== undefined) {
+      // Move to end (LRU behavior)
+      this.items.delete(key);
+      this.items.set(key, value);
+    }
+    return value;
+  }
+}
+
+// ❌ FORBIDDEN - Unbounded growth (Gemini pattern)
+const globalCache = new Map(); // Grows forever
+const eventHistory: Event[] = []; // Memory bomb
+```
+
+### Streaming Data Processing
+```typescript
+// ✅ REQUIRED - Memory-efficient streaming
+async function* processLargeDataset(source: AsyncIterable<DataChunk>): AsyncGenerator<ProcessedData> {
+  for await (const chunk of source) {
+    // Process chunk without loading entire dataset
+    const processed = await processChunk(chunk);
+    yield processed;
+    // Chunk is garbage collected after yield
+  }
+}
+
+// ❌ FORBIDDEN - Loading everything into memory
+async function badProcessLargeDataset(source: AsyncIterable<DataChunk>): Promise<ProcessedData[]> {
+  const allData: DataChunk[] = [];
+  for await (const chunk of source) {
+    allData.push(chunk); // Memory explosion!
+  }
+  return allData.map(processChunk);
+}
+```
+
+### Object Pool Pattern
+```typescript
+// ✅ REQUIRED - Reuse expensive objects
+class ObjectPool<T> {
+  private available: T[] = [];
+  private inUse = new Set<T>();
+
+  constructor(
+    private factory: () => T,
+    private reset: (obj: T) => void,
+    initialSize: number = 10
+  ) {
+    for (let i = 0; i < initialSize; i++) {
+      this.available.push(this.factory());
+    }
+  }
+
+  acquire(): T {
+    let obj = this.available.pop();
+    if (!obj) {
+      obj = this.factory();
+    }
+    this.inUse.add(obj);
+    return obj;
+  }
+
+  release(obj: T): void {
+    if (this.inUse.has(obj)) {
+      this.inUse.delete(obj);
+      this.reset(obj);
+      this.available.push(obj);
+    }
+  }
+}
+
+// ❌ FORBIDDEN - Creating expensive objects repeatedly
+function badExpensiveOperation(): ExpensiveObject {
+  return new ExpensiveObject(); // New allocation every time
+}
+```
+
+## 🔄 CONTEXT SWITCHING OPTIMIZATION
+
+### Task Batching
+```typescript
+// ✅ REQUIRED - Batch related operations
+class TaskBatcher {
+  private pendingTasks: Task[] = [];
+  private batchTimer: NodeJS.Timeout | null = null;
+
+  addTask(task: Task): void {
+    this.pendingTasks.push(task);
+    
+    if (!this.batchTimer) {
+      this.batchTimer = setTimeout(() => {
+        this.processBatch();
+        this.batchTimer = null;
+      }, 10); // Small delay to collect more tasks
+    }
+  }
+
+  private async processBatch(): void {
+    const tasks = this.pendingTasks.splice(0);
+    if (tasks.length === 0) return;
+
+    // Process all tasks together for efficiency
+    await this.processTasksBatch(tasks);
+  }
+}
+
+// ❌ FORBIDDEN - Processing tasks individually
+class BadTaskProcessor {
+  async addTask(task: Task): Promise<void> {
+    await this.processTask(task); // Immediate processing, no batching
+  }
+}
+```
+
+### Lazy Loading and Code Splitting
+```typescript
+// ✅ REQUIRED - Dynamic imports for optional features
+class FeatureManager {
+  private loadedFeatures = new Map<string, any>();
+
+  async loadFeature(name: string): Promise<any> {
+    if (this.loadedFeatures.has(name)) {
+      return this.loadedFeatures.get(name);
+    }
+
+    // Dynamic import reduces initial bundle size
+    const feature = await import(`../features/${name}.js`);
+    this.loadedFeatures.set(name, feature);
+    return feature;
+  }
+}
+
+// ❌ FORBIDDEN - Loading everything upfront (Gemini pattern)
+import './features/feature1.js';  // Always loaded
+import './features/feature2.js';  // Always loaded
+import './features/feature3.js';  // Always loaded
+```
+
+## 📊 MEMORY MONITORING
+
+### Development Memory Tracking
+```typescript
+// ✅ REQUIRED - Memory usage monitoring
+class MemoryMonitor {
+  private static instance: MemoryMonitor;
+  private measurements: MemoryMeasurement[] = [];
+
+  static getInstance(): MemoryMonitor {
+    if (!this.instance) {
+      this.instance = new MemoryMonitor();
+    }
+    return this.instance;
+  }
+
+  measure(label: string): void {
+    const usage = process.memoryUsage();
+    this.measurements.push({
+      label,
+      timestamp: Date.now(),
+      heapUsed: usage.heapUsed,
+      heapTotal: usage.heapTotal,
+      external: usage.external,
+      rss: usage.rss
+    });
+
+    // Keep only recent measurements
+    if (this.measurements.length > 1000) {
+      this.measurements.splice(0, 500);
+    }
+  }
+
+  getReport(): MemoryReport {
+    return {
+      current: process.memoryUsage(),
+      history: this.measurements.slice(-100),
+      leaks: this.detectPotentialLeaks()
+    };
+  }
+
+  private detectPotentialLeaks(): string[] {
+    const leaks: string[] = [];
+    const recent = this.measurements.slice(-10);
+    
+    if (recent.length >= 10) {
+      const trend = this.calculateTrend(recent.map(m => m.heapUsed));
+      if (trend > 1024 * 1024) { // Growing by 1MB+ consistently
+        leaks.push('Potential memory leak detected in heap usage');
+      }
+    }
+    
+    return leaks;
+  }
+}
+
+// ❌ FORBIDDEN - No memory monitoring
+// Running blind without tracking memory usage
+```
+
+### Performance Profiling Integration
+```typescript
+// ✅ REQUIRED - Integrated performance monitoring
+class PerformanceProfiler {
+  private markers = new Map<string, number>();
+
+  startMeasure(name: string): void {
+    this.markers.set(name, performance.now());
+    MemoryMonitor.getInstance().measure(`${name}_start`);
+  }
+
+  endMeasure(name: string): number {
+    const start = this.markers.get(name);
+    if (!start) throw new Error(`No start marker for ${name}`);
+    
+    const duration = performance.now() - start;
+    MemoryMonitor.getInstance().measure(`${name}_end`);
+    
+    this.markers.delete(name);
+    return duration;
+  }
+
+  async profileAsync<T>(name: string, fn: () => Promise<T>): Promise<T> {
+    this.startMeasure(name);
+    try {
+      return await fn();
+    } finally {
+      const duration = this.endMeasure(name);
+      logger.debug(`${name} completed in ${duration.toFixed(2)}ms`);
+    }
+  }
+}
+
+// ❌ FORBIDDEN - No performance tracking
+async function badOperation(): Promise<void> {
+  // No timing, no memory tracking, no insights
+  await doExpensiveWork();
+}
+```
+
+## 🎯 OPTIMIZATION STRATEGIES
+
+### Context Window Management
+- **Hierarchical information structure** - most important first
+- **Use markdown headers** to help AI navigate context
+- **Eliminate redundant explanations** across rule files
+- **Reference patterns by name** instead of repeating code
+- **Keep examples concise** but complete
+
+### Memory Optimization Checklist
+- [ ] All event listeners properly cleaned up
+- [ ] File handles and streams closed
+- [ ] Caches have size limits
+- [ ] WeakMap/WeakSet used for temporary references
+- [ ] No global variables that grow unbounded
+- [ ] Streaming used for large data processing
+- [ ] Object pools for expensive allocations
+- [ ] Memory monitoring in development
+
+### AI Collaboration Efficiency
+- [ ] Prompts are specific and actionable
+- [ ] Context is provided without redundancy
+- [ ] Related operations are batched
+- [ ] Chat organization prevents context pollution
+- [ ] Effective prompts are documented for reuse
+
+Remember: Efficient memory management and context optimization are key differentiators that keep Vibex CLI performing 6x better than Gemini CLI while providing superior AI-assisted development experience.

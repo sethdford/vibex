@@ -6,7 +6,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Box, Text } from 'ink';
-import { Colors } from '../colors';
+import { Colors } from '../colors.js';
 
 /**
  * Tips data
@@ -187,7 +187,7 @@ export const Tips: React.FC<TipsProps> = ({
     }
     
     const interval = setInterval(() => {
-      setCurrentTipIndex((prev) => (prev + 1) % filteredTips.length);
+      setCurrentTipIndex(prev => (prev + 1) % filteredTips.length);
     }, rotateInterval);
     
     return () => clearInterval(interval);

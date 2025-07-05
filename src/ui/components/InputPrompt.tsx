@@ -6,11 +6,21 @@
  */
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useClipboard } from '../hooks/useClipboard';
+import { useClipboard } from '../hooks/useClipboard.js';
 import { Box, Text, useInput } from 'ink';
-import { Colors } from '../colors';
-import { Command } from './Help';
-import { TextBuffer } from './shared/text-buffer';
+import { Colors } from '../colors.js';
+import type { Command } from './Help.js';
+import type { TextBuffer } from './shared/text-buffer.js';
+import fs from 'fs';
+import path from 'path';
+import { logger } from '../../utils/logger.js';
+
+/**
+ * Application configuration interface
+ */
+export interface AppConfig {
+  [key: string]: unknown;
+}
 
 /**
  * Input prompt props
@@ -49,7 +59,7 @@ interface InputPromptProps {
   /**
    * Application configuration
    */
-  config: any;
+  config: AppConfig;
   
   /**
    * Available slash commands
@@ -66,6 +76,49 @@ interface InputPromptProps {
    */
   setShellModeActive?: (active: boolean) => void;
 }
+
+// File path detection utilities (based on Gemini CLI implementation)
+const isFilePath = (text: string): boolean => {
+  // Check for common file path patterns
+  const patterns = [
+    /^\/[^\s]+/,                    // Unix absolute path
+    /^~\/[^\s]+/,                   // Unix home path  
+    /^[A-Z]:\\[^\s]+/,              // Windows absolute path
+    /^\.\/[^\s]+/,                  // Relative path starting with ./
+    /^\.\.\/[^\s]+/,                // Relative path starting with ../
+    /^[^\s]+\.[a-zA-Z0-9]{1,10}$/,  // File with extension
+    /^[^\s]*\/[^\s]*$/,             // Path with slash
+  ];
+  
+  return patterns.some(pattern => pattern.test(text.trim()));
+};
+
+const isValidPath = (filePath: string): boolean => {
+  try {
+    // Resolve path to handle relative paths
+    const resolvedPath = path.resolve(filePath);
+    
+    // Check if file or directory exists
+    return fs.existsSync(resolvedPath);
+  } catch (error) {
+    return false;
+  }
+};
+
+const unescapePath = (pathStr: string): string => {
+  // Handle @ prefix
+  if (pathStr.startsWith('@')) {
+    pathStr = pathStr.substring(1);
+  }
+  
+  // Unescape spaces and other characters
+  return pathStr.replace(/\\(.)/g, '$1');
+};
+
+const stripUnsafeCharacters = (str: string): string => {
+  // Remove control characters but keep newlines and tabs
+  return str.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+};
 
 /**
  * Input prompt component
@@ -131,12 +184,12 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
       if (text.startsWith('/')) {
         const commandText = text.slice(1).toLowerCase();
         const filtered = slashCommands
-          .filter((cmd) => 
+          .filter(cmd => 
             !cmd.hidden && 
             (cmd.name.toLowerCase().includes(commandText) || 
-             (cmd.altName && cmd.altName.toLowerCase().includes(commandText)))
+             (cmd.altName?.toLowerCase().includes(commandText)))
           )
-          .map((cmd) => `/${cmd.name}`);
+          .map(cmd => `/${cmd.name}`);
         
         setSuggestions(filtered);
         setSelectedSuggestion(filtered.length > 0 ? 0 : -1);
@@ -176,20 +229,54 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
   const handlePaste = useCallback(async () => {
     const text = await pasteFromClipboard();
     if (text) {
-      // Get current cursor position
-      const cursorPosition = buffer.cursorOffset;
+      // Auto-detect file paths and prefix with @ (Gemini CLI feature)
+      let processedText = text;
       
-      // Insert pasted text at cursor position
+      // Arbitrary threshold to avoid false positives on normal key presses
+      // while still detecting virtually all reasonable length file paths.
+      const minLengthToInferAsDragDrop = 3;
+      
+      if (text.length >= minLengthToInferAsDragDrop) {
+        // Possible drag and drop of a file path.
+        let potentialPath = text;
+        
+        // Handle quoted paths
+        if (
+          potentialPath.length > 2 &&
+          potentialPath.startsWith("'") &&
+          potentialPath.endsWith("'")
+        ) {
+          potentialPath = text.slice(1, -1);
+        }
+        
+        potentialPath = potentialPath.trim();
+        
+        // Be conservative and only add an @ if the path is valid.
+        if (isValidPath(unescapePath(potentialPath))) {
+          processedText = `@${potentialPath}`;
+          logger.debug('Auto-detected file path and added @ prefix', { 
+            original: text, 
+            processed: processedText 
+          });
+        }
+      }
+      
+      // Get current cursor position - use text length as fallback
+      const cursorPosition = (buffer as any).cursorOffset || buffer.text.length;
+      
+      // Insert processed text at cursor position
       const currentText = buffer.text;
       const newText = 
         currentText.substring(0, cursorPosition) +
-        text +
+        processedText +
         currentText.substring(cursorPosition);
       
       buffer.setText(newText);
       
-      // Move cursor after the pasted text
-      buffer.setCursorOffset(cursorPosition + text.length);
+      // Move cursor after the pasted text - if setCursorOffset exists
+      if (typeof (buffer as any).setCursorOffset === 'function') {
+        (buffer as any).setCursorOffset(cursorPosition + processedText.length);
+      }
     }
   }, [pasteFromClipboard, buffer]);
   
@@ -219,8 +306,8 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
       } else if (key.upArrow) {
         if (suggestions.length > 0) {
           // Navigate suggestions
-          setSelectedSuggestion((prev) =>
-            prev > 0 ? prev - 1 : suggestions.length - 1
+          setSelectedSuggestion(prev =>
+            (prev > 0 ? prev - 1 : suggestions.length - 1)
           );
         } else {
           // Navigate history
@@ -229,8 +316,8 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
       } else if (key.downArrow) {
         if (suggestions.length > 0) {
           // Navigate suggestions
-          setSelectedSuggestion((prev) =>
-            prev < suggestions.length - 1 ? prev + 1 : 0
+          setSelectedSuggestion(prev =>
+            (prev < suggestions.length - 1 ? prev + 1 : 0)
           );
         } else {
           // Navigate history
@@ -245,7 +332,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
         onClearScreen();
       } else if (key.ctrl && input === 'v') {
         handlePaste();
-      } else if (key.ctrl && input === 'c' && !window.getSelection()?.toString()) {
+      } else if (key.ctrl && input === 'c' && !(typeof window !== 'undefined' && window.getSelection()?.toString())) {
         // Only copy if no text is selected (to avoid interfering with terminal selection)
         handleCopy();
       } else if (key.ctrl && input === 'x') {

@@ -2,7 +2,10 @@
  * CLI Application UI Module
  *
  * This module exports the React/Ink UI application that powers the interactive CLI.
- * It serves as the bridge between cli-app.tsx and the main application.
+ * It serves as the bridge between the main UI components and the CLI.
  */
 
-export { CLIApp, startUI } from './cli-app.tsx';
+// Export the full-featured startUI from index.tsx that supports initialContext
+export { startUI, type StartUIOptions } from './index.tsx';
+// Keep the basic CLIApp for backward compatibility
+export { CLIApp } from './cli-app.tsx';

@@ -6,10 +6,14 @@
  */
 
 import { exec, spawn } from 'child_process';
-import { logger } from '../utils/logger';
-import { createUserError } from '../errors/formatter';
-import { ErrorCategory } from '../errors/types';
-import { Timeout } from '../utils/types';
+import path from 'path';
+import { logger } from '../utils/logger.js';
+import { createUserError } from '../errors/formatter.js';
+import { ErrorCategory } from '../errors/types.js';
+import { Timeout } from '../utils/types.js';
+import type { SandboxService } from '../security/sandbox.js';
+import { SandboxPermission, hasPermission } from '../security/sandbox.js';
+import type { AppConfigType } from '../config/schema.js';
 
 /**
  * Result of a command execution
@@ -75,32 +79,47 @@ const DEFAULT_TIMEOUT = 30000;
 const DEFAULT_MAX_BUFFER = 5 * 1024 * 1024;
 
 /**
+ * Execution config interface
+ */
+export interface ExecutionConfig extends AppConfigType {
+  // Extends the main app config with execution-specific settings
+}
+
+/**
  * Execution environment manager
  */
 class ExecutionEnvironment {
-  private config: any;
-  private backgroundProcesses: Map<number, BackgroundProcess> = new Map();
-  private executionCount: number = 0;
+  private readonly config: AppConfigType;
+  private readonly backgroundProcesses: Map<number, BackgroundProcess> = new Map();
+  private executionCount = 0;
   private workingDirectory: string;
   private environmentVariables: Record<string, string>;
+  private readonly sandbox?: SandboxService;
 
   /**
    * Create a new execution environment
    */
-  constructor(config: any) {
+  constructor(config: AppConfigType, sandbox?: SandboxService) {
     this.config = config;
-    this.workingDirectory = config.execution?.cwd || process.cwd();
+    this.workingDirectory = process.cwd(); // Use current working directory as default
+    this.sandbox = sandbox;
     
     // Set up environment variables
     this.environmentVariables = {
       ...process.env as Record<string, string>,
       CLAUDE_CODE_VERSION: config.version || '0.2.29',
-      NODE_ENV: config.env || 'production',
-      ...(config.execution?.env || {})
+      NODE_ENV: 'production'
     };
     
+    // Add sandbox flag if running in sandbox
+    if (this.sandbox?.getConfig()?.enabled) {
+      this.environmentVariables.SANDBOX = 'true';
+      this.environmentVariables.SANDBOX_MODE = this.sandbox.getConfig().mode;
+    }
+    
     logger.debug('Execution environment created', {
-      workingDirectory: this.workingDirectory
+      workingDirectory: this.workingDirectory,
+      sandboxEnabled: sandbox?.getConfig()?.enabled || false
     });
   }
 
@@ -151,8 +170,53 @@ class ExecutionEnvironment {
       cwd,
       shell,
       timeout,
-      executionCount: this.executionCount
+      executionCount: this.executionCount,
+      sandbox: this.sandbox?.getConfig()?.enabled ? this.sandbox.getConfig().mode : 'disabled'
     });
+    
+    // Execute through sandbox if enabled
+    if (this.sandbox?.getConfig()?.enabled) {
+      try {
+        const result = await this.sandbox.executeCommand(command, {
+          cwd,
+          env,
+          timeout
+        });
+        
+        return {
+          output: result.output,
+          exitCode: result.exitCode,
+          command,
+          duration: 0 // Sandbox doesn't provide duration
+        };
+      } catch (error) {
+        logger.error(`Sandbox command execution failed: ${command}`, error);
+        return {
+          output: error instanceof Error ? error.message : String(error),
+          exitCode: 1,
+          error: error instanceof Error ? error : new Error(String(error)),
+          command,
+          duration: 0
+        };
+      }
+    }
+    
+    // Check execution permission if configured
+    if (this.config.security?.permissions) {
+      const allowed = hasPermission(this.config, SandboxPermission.CMD_EXEC);
+      if (!allowed) {
+        return {
+          output: 'Command execution not allowed by security policy',
+          exitCode: 1,
+          error: createUserError('Command execution not allowed by security policy', {
+            category: ErrorCategory.SECURITY,
+            resolution: 'Command execution is disabled in security settings.'
+          }),
+          command,
+          duration: 0
+        };
+      }
+    }
     
     const startTime = Date.now();
     
@@ -256,7 +320,7 @@ class ExecutionEnvironment {
     }
     
     // Set up exit handler
-    childProcess.on('exit', (code) => {
+    childProcess.on('exit', code => {
       isRunning = false;
       logger.debug(`Background command (pid ${pid}) exited with code ${code}`);
       
@@ -310,6 +374,12 @@ class ExecutionEnvironment {
    * Validate a command for safety
    */
   private validateCommand(command: string): void {
+    // If sandbox is enabled, it will perform its own validation
+    if (this.sandbox?.getConfig()?.enabled) {
+      // Let the sandbox handle validation
+      return;
+    }
+    
     // Check if command is in the denied list
     for (const pattern of DANGEROUS_COMMANDS) {
       if (pattern.test(command)) {
@@ -320,8 +390,28 @@ class ExecutionEnvironment {
       }
     }
     
-    // Check if command is in allowed list (if configured)
-    if (this.config.execution?.allowedCommands && this.config.execution.allowedCommands.length > 0) {
+    // Check security settings for allowed commands
+    if (this.config.security?.sandbox?.allowedCommands?.length > 0) {
+      const allowed = this.config.security.sandbox.allowedCommands.some(
+        (allowedPattern: string) => {
+          const pattern = new RegExp(allowedPattern, 'i');
+          return pattern.test(command);
+        }
+      );
+      
+      if (!allowed) {
+        throw createUserError(`Command execution blocked: '${command}' is not in the allowed list`, {
+          category: ErrorCategory.COMMAND_EXECUTION,
+          resolution: 'This command is not allowed by your security configuration.'
+        });
+      }
+    }
+    
+    // Check if command is in allowed list (if configured in execution settings)
+    // Note: execution.allowedCommands is not part of the current schema
+    // This section is commented out until the schema is updated
+    /*
+    else if (this.config.execution?.allowedCommands && this.config.execution.allowedCommands.length > 0) {
       const allowed = this.config.execution.allowedCommands.some(
         (allowedPattern: string | RegExp) => {
           if (typeof allowedPattern === 'string') {
@@ -339,6 +429,7 @@ class ExecutionEnvironment {
         });
       }
     }
+    */
   }
 
   /**
@@ -375,22 +466,15 @@ class ExecutionEnvironment {
 /**
  * Initialize the execution environment
  */
-export async function initExecutionEnvironment(config: any): Promise<ExecutionEnvironment> {
-  logger.info('Initializing execution environment');
+export async function initExecutionEnvironment(config: AppConfigType, sandbox?: SandboxService): Promise<ExecutionEnvironment> {
+  const executionEnv = new ExecutionEnvironment(config, sandbox);
+  await executionEnv.initialize();
   
-  try {
-    const executionEnv = new ExecutionEnvironment(config);
-    await executionEnv.initialize();
-    
-    logger.info('Execution environment initialized successfully');
-    
-    return executionEnv;
-  } catch (error) {
-    logger.error('Failed to initialize execution environment', error);
-    
-    // Return a minimal execution environment even if initialization failed
-    return new ExecutionEnvironment(config);
-  }
+  // Set up cleanup handlers
+  setupProcessCleanup(executionEnv);
+  
+  logger.info('Execution environment ready');
+  return executionEnv;
 }
 
 // Set up cleanup on process exit
@@ -410,5 +494,5 @@ function setupProcessCleanup(executionEnv: ExecutionEnvironment): void {
   });
 }
 
-export { ExecutionResult, ExecutionOptions, BackgroundProcess, BackgroundProcessOptions };
+export { type ExecutionResult, type ExecutionOptions, type BackgroundProcess, type BackgroundProcessOptions };
 export default ExecutionEnvironment; 

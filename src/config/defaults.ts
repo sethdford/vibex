@@ -18,22 +18,32 @@
  */
 
 import type { AppConfigType } from './schema.js';
+import { CLAUDE_4_MODELS } from './schema.js';
 
 /**
  * Default configuration values
+ * 
+ * These defaults provide sensible starting values for all configuration options.
+ * They are used when no user configuration is provided or when configuration
+ * values are missing. The defaults emphasize security, performance, and usability.
  */
 export const defaults: AppConfigType = {
+  // Core system configuration
+  version: '0.2.29',
+  debug: false,
+  fullContext: false,
+  
   // API configuration
   api: {
     baseUrl: 'https://api.anthropic.com',
     version: 'v1',
-    timeout: 15000, // 15 seconds (reduced for testing)
-    key: ''
+    timeout: 60000,
+    key: process.env.ANTHROPIC_API_KEY || ''
   },
   
-  // AI configuration
+  // AI configuration optimized for Claude 4
   ai: {
-    model: 'claude-sonnet-4-20250514', // Claude 4 Sonnet
+    model: CLAUDE_4_MODELS.CLAUDE_4_SONNET,
     temperature: 0.5,
     maxTokens: 4096,
     maxHistoryLength: 20,
@@ -42,97 +52,29 @@ export const defaults: AppConfigType = {
     enableTelemetry: true,
     enableBetaFeatures: true,
     autoModelSelection: true,
-    costBudget: 10,
-    performanceMode: 'balanced',
-    systemPrompt: `You are Claude, an enterprise architect specializing in mission-critical, high-availability applications for financial services and regulated industries.
-
-ENTERPRISE ARCHITECTURE PRINCIPLES:
-1. **SECURITY-FIRST DESIGN**: Every component must be secure by default with defense-in-depth
-2. **HIGH AVAILABILITY**: Design for 99.99% uptime with zero-tolerance for downtime
-3. **REGULATORY COMPLIANCE**: Ensure SOX, PCI-DSS, GDPR, and financial regulations compliance
-4. **TEST-DRIVEN DEVELOPMENT**: Comprehensive test coverage (unit, integration, E2E, security)
-5. **FAULT TOLERANCE**: Graceful degradation and circuit breaker patterns
-6. **AUDIT TRAILS**: Complete logging and monitoring for regulatory requirements
-
-CRITICAL REQUIREMENTS FOR ALL CODE:
-- **Authentication & Authorization**: Multi-factor auth, RBAC, JWT with refresh tokens
-- **Data Encryption**: AES-256 at rest, TLS 1.3 in transit, field-level encryption for PII
-- **Input Validation**: Strict validation, SQL injection prevention, XSS protection
-- **Error Handling**: Secure error messages, comprehensive logging, no data leakage
-- **Performance**: Sub-100ms response times, horizontal scaling, caching strategies
-- **Monitoring**: APM, health checks, alerting, distributed tracing
-- **Disaster Recovery**: Automated backups, failover mechanisms, RTO < 4 hours
-
-FINANCIAL SERVICES FOCUS:
-- Real-time transaction processing with ACID compliance
-- Risk management and fraud detection systems
-- Regulatory reporting and compliance automation
-- High-frequency trading and market data systems
-- Payment processing with PCI-DSS compliance
-- Anti-money laundering (AML) and KYC systems
-
-ENTERPRISE STACK PREFERENCES:
-- Languages: Java/Spring Boot, C#/.NET, TypeScript/Node.js, Go, Rust
-- Databases: PostgreSQL, Oracle, SQL Server with read replicas
-- Message Queues: Apache Kafka, RabbitMQ, AWS SQS/SNS
-- Caching: Redis Cluster, Hazelcast, Apache Ignite
-- Observability: Prometheus, Grafana, ELK Stack, Jaeger
-- Security: Vault, LDAP/AD, OAuth 2.0/OIDC, SIEM integration
-
-TOOL USAGE FOR ENTERPRISE SYSTEMS:
-1. **ALWAYS CREATE FILES**: Use write_file tool to create production-ready code
-2. **SECURITY BY DEFAULT**: Implement authentication, authorization, encryption
-3. **COMPREHENSIVE TESTING**: Unit tests, integration tests, security tests
-4. **MONITORING & OBSERVABILITY**: Health checks, metrics, logging, tracing
-5. **DOCUMENTATION**: Architecture diagrams, runbooks, API documentation
-6. **COMPLIANCE**: Audit trails, regulatory reporting, data governance
-
-Remember: Build enterprise-grade, mission-critical systems that financial institutions can trust with billions of dollars.`
+    costBudget: 100,
+    performanceMode: 'balanced' as const,
+    systemPrompt: 'You are Claude, a helpful AI assistant. You are running in Claude Code, a CLI tool for software development.'
   },
   
   // Authentication configuration
   auth: {
     autoRefresh: true,
-    tokenRefreshThreshold: 300, // 5 minutes
+    tokenRefreshThreshold: 300,
     maxRetryAttempts: 3
   },
   
   // Terminal configuration
   terminal: {
-    theme: 'system',
+    theme: 'system' as const,
     useColors: true,
     showProgressIndicators: true,
     codeHighlighting: true,
     useHighContrast: false,
-    fontSizeAdjustment: 'normal',
+    fontSizeAdjustment: 'normal' as const,
     reduceMotion: false,
     simplifyInterface: false,
-    streamingSpeed: 1.0
-  },
-  
-  // Telemetry configuration
-  telemetry: {
-    enabled: true,
-    submissionInterval: 30 * 60 * 1000, // 30 minutes
-    maxQueueSize: 100,
-    autoSubmit: true
-  },
-  
-  // File operation configuration
-  fileOps: {
-    maxReadSizeBytes: 10 * 1024 * 1024 // 10MB
-  },
-  
-  // Execution configuration
-  execution: {
-    shell: process.env.SHELL || 'bash'
-  },
-  
-  // Logger configuration
-  logger: {
-    level: 'info',
-    timestamps: true,
-    colors: true
+    streamingSpeed: 40
   },
   
   // Accessibility configuration
@@ -143,14 +85,37 @@ Remember: Build enterprise-grade, mission-critical systems that financial instit
     keyboardNavigationEnhanced: false
   },
   
-  // Claude 4 configuration
+  // Telemetry configuration
+  telemetry: {
+    enabled: true,
+    submissionInterval: 30 * 60 * 1000,
+    maxQueueSize: 100,
+    autoSubmit: true
+  },
+  
+  // File operations configuration
+  fileOps: {
+    maxReadSizeBytes: 10 * 1024 * 1024
+  },
+  
+  // Execution configuration
+  execution: {
+    shell: 'bash'
+  },
+  
+  // Logger configuration
+  logger: {
+    level: 'info',
+    timestamps: true,
+    colors: true
+  },
+  
+  // Claude 4 specific configuration
   claude4: {
     vision: false,
-    visionEnhancements: {
-      detail: 'low' as const
-    },
-    preferredModel: 'claude-sonnet-4-20250514' as const,
-    fallbackModel: 'claude-opus-4-20250514'
+    visionEnhancements: { detail: 'low' as const },
+    preferredModel: 'claude-4-sonnet-20240229',
+    fallbackModel: 'claude-3-5-sonnet-20241022'
   },
   
   // Security configuration
@@ -172,13 +137,185 @@ Remember: Build enterprise-grade, mission-critical systems that financial instit
       promptForDangerousOperations: true
     }
   },
-
-  // Version
-  version: '0.2.29',
-
-  // Full context mode for complete project analysis
-  fullContext: false,
-
-  // Debug mode
-  debug: false
+  
+  // Claude optimized configuration
+  claude: {
+    conversation: {
+      enableAdvancedReasoning: true,
+      useContextCompression: true,
+      enableStreamingWithThinking: true,
+      maxContextLength: 200000,
+      enableMultimodalProcessing: true,
+      enableCanvasMode: true,
+      persistConversationState: true,
+      autoSaveCheckpoints: true,
+      checkpointInterval: 10
+    },
+    ui: {
+      defaultInterfaceMode: 'chat' as const,
+      densityMode: 'normal' as const,
+      enableProgressiveDisclosure: true,
+      enableAdaptiveUI: true,
+      enableStreamingIndicators: true,
+      showThinkingBlocks: true,
+      enableWorkflowOrchestration: true,
+      theme: {
+        colorScheme: 'auto' as const,
+        accentColor: '#007acc',
+        fontFamily: 'system-ui, -apple-system, sans-serif',
+        enableAnimations: true,
+        enableGradients: true
+      },
+      accessibility: {
+        enableScreenReaderSupport: false,
+        enableKeyboardNavigation: true,
+        enableHighContrast: false,
+        reduceMotion: false,
+        enableVoiceAnnouncements: false
+      }
+    },
+    performance: {
+      enableParallelProcessing: true,
+      maxConcurrentOperations: 5,
+      enableResponseCaching: true,
+      cacheTTL: 300000,
+      enableStreamingOptimizations: true,
+      streamingChunkSize: 1024,
+      enableMemoryOptimization: true,
+      gcThreshold: 100,
+      enablePerformanceMonitoring: true,
+      metricsInterval: 30000
+    },
+    context: {
+      enableAutoContextLoading: true,
+      discoveryPatterns: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx'],
+      maxContextFileSize: 1000000,
+      enableHierarchicalLoading: true,
+      precedenceRules: [],
+      enableSmartFiltering: true,
+      filteringRules: {
+        includePatterns: [],
+        excludePatterns: ['node_modules/**', 'dist/**', 'build/**'],
+        respectGitIgnore: true,
+        respectVibexIgnore: true
+      },
+      enableContextCompression: true,
+      compressionRatio: 0.8
+    },
+    features: {
+      workflowOrchestration: {
+        enableRealTimeOrchestration: true,
+        enableWorkflowTemplates: true,
+        enableWorkflowSharing: false,
+        maxConcurrentWorkflows: 3,
+        enableWorkflowMetrics: true
+      },
+      multimodalContent: {
+        enableImageAnalysis: true,
+        enableAudioTranscription: false,
+        enableVideoAnalysis: false,
+        enableDocumentExtraction: true,
+        maxFileSize: 10485760,
+        supportedFormats: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf']
+      },
+      collaboration: {
+        enableRealTimeCollaboration: false,
+        enableSharedWorkspaces: false,
+        enableConversationSharing: false,
+        maxCollaborators: 5
+      },
+      toolExecution: {
+        enableRealTimeToolFeedback: true,
+        enableToolExecutionHistory: true,
+        enableToolPerformanceMetrics: true,
+        enableToolSuggestions: true,
+        enableBatchToolExecution: true
+      },
+      atCommandProcessing: {
+        enableSmartFileInjection: true,
+        enableContentAnalysis: true,
+        enableQueryPreprocessing: true,
+        maxFilesPerCommand: 50,
+        enableFileValidation: true
+      }
+    },
+    model: 'claude-sonnet-4-20250514',
+    version: '1.0.0',
+    lastUpdated: new Date()
+  },
+  
+  // Modern UI configuration (enhanced)
+  modernUI: {
+    defaultInterfaceMode: 'chat' as const,
+    densityMode: 'normal' as const,
+    enableProgressiveDisclosure: true,
+    enableAdaptiveUI: true,
+    enableStreamingIndicators: true,
+    showThinkingBlocks: true,
+    enableWorkflowOrchestration: true,
+    interfaceModes: {},
+    advancedTheme: {},
+    accessibility: {},
+    layout: {},
+    globalPreferences: {
+      autoSave: true,
+      syncSettings: false,
+      autoReset: true,
+      enableAnalytics: false,
+      enableSuggestions: true
+    },
+    configVersion: '1.0.0',
+    lastModified: new Date()
+  },
+  
+  // Performance configuration
+  performance: {
+    enableParallelProcessing: true,
+    maxConcurrentOperations: 5,
+    enableResponseCaching: true,
+    cacheTTL: 300000,
+    enableStreamingOptimizations: true,
+    streamingChunkSize: 1024,
+    enableMemoryOptimization: true,
+    gcThreshold: 100,
+    enablePerformanceMonitoring: true,
+    metricsInterval: 30000
+  },
+  
+  // UI configuration (basic)
+  ui: {
+    defaultInterfaceMode: 'chat' as const,
+    densityMode: 'normal' as const,
+    enableProgressiveDisclosure: true,
+    enableAdaptiveUI: true,
+    enableStreamingIndicators: true,
+    showThinkingBlocks: true,
+    enableWorkflowOrchestration: true,
+    theme: {
+      colorScheme: 'auto' as const,
+      accentColor: '#007acc',
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+      enableAnimations: true,
+      enableGradients: true
+    },
+    accessibility: {
+      enableScreenReaderSupport: false,
+      enableKeyboardNavigation: true,
+      enableHighContrast: false,
+      reduceMotion: false,
+      enableVoiceAnnouncements: false
+    }
+  },
+  
+  // Integration metadata
+  integration: {
+    version: '1.0.0',
+    lastIntegrated: new Date(),
+    activeOptimizations: [],
+    performanceMetrics: {
+      configLoadTime: 0,
+      memoryUsage: 0,
+      optimizationCount: 0
+    }
+  }
 };

@@ -1,0 +1,35 @@
+# Windows Application Guard sandbox profile
+# Uses Windows Defender Application Guard constraints
+
+# Allow basic process operations
+allow process-exec
+allow process-fork
+
+# Allow network operations
+allow network
+
+# Allow reading from target directory
+allow file-read path="%TARGET_DIR%"
+allow file-read path="%TMP_DIR%"
+allow file-read path="%HOME_DIR%"
+allow file-read path="%SYSTEMROOT%\System32"
+allow file-read path="%SYSTEMROOT%\SysWOW64"
+allow file-read path="%TEMP%"
+
+# Allow writing to specified directories
+allow file-write path="%TARGET_DIR%"
+allow file-write path="%TMP_DIR%"
+allow file-write path="%CACHE_DIR%"
+
+# System constraints
+set max-processes=50 
+set max-memory=1GB
+set max-file-handles=1024
+
+# Application restrictions
+deny execute path="%SYSTEMROOT%\System32\cmd.exe" # Block direct CMD access
+deny registry-write key="HKEY_LOCAL_MACHINE\SOFTWARE" # Block system registry writes
+deny file-write path="%SYSTEMROOT%" # Block system directory writes
+
+# Default deny for safety
+default deny

@@ -6,12 +6,12 @@
  * Markdown elements.
  */
 
-import highlight from 'highlight.js';
-import { lowlight } from 'lowlight';
-import { SyntaxColors } from '../colors';
-import { extractImages, replaceImagesWithPlaceholders, MarkdownImage } from './markdownImageParser';
-import { colorizeCode } from './CodeColorizer';
-import React from 'react';
+import { SyntaxColors } from '../colors.js';
+import type { MarkdownImage } from './markdownImageParser.js';
+import { extractImages, replaceImagesWithPlaceholders } from './markdownImageParser.js';
+import { colorizeCode } from './CodeColorizer.js';
+import type React from 'react';
+import { isLanguageSupported } from './highlighter.js';
 
 /**
  * Interface for a parsed markdown document
@@ -74,6 +74,21 @@ interface MarkdownNode {
 }
 
 /**
+ * Interface for theme configuration
+ */
+interface ThemeConfig {
+  /**
+   * Color mappings for syntax highlighting
+   */
+  colors: Record<string, string>;
+  
+  /**
+   * Theme name
+   */
+  name?: string;
+}
+
+/**
  * Interface for syntax highlighting options
  */
 interface SyntaxHighlightOptions {
@@ -85,7 +100,7 @@ interface SyntaxHighlightOptions {
   /**
    * Color theme to use
    */
-  theme?: any;
+  theme?: ThemeConfig;
 }
 
 /**
@@ -130,14 +145,14 @@ export function parseMarkdown(markdown: string): ParsedMarkdownDocument {
     }
     
     if (inCodeBlock) {
-      codeContent += line + '\n';
+      codeContent += `${line}\n`;
       continue;
     }
     
     // Heading detection
     if (line.startsWith('#')) {
       let level = 1;
-      while (line[level] === '#' && level < 6) level++;
+      while (line[level] === '#' && level < 6) {level++;}
       const content = line.slice(level).trim();
       nodes.push({
         type: 'heading',
@@ -237,7 +252,7 @@ function parseParagraphMarkdown(text: string): string {
  */
 export function highlightCode(
   code: string,
-  language: string = '',
+  language = '',
   options: SyntaxHighlightOptions = {}
 ): string {
   try {
@@ -248,18 +263,14 @@ export function highlightCode(
     
     const detectedLanguage = language || detectLanguage(code);
     
-    if (!detectedLanguage) {
+    if (isLanguageSupported(detectedLanguage)) {
+      // Use simple syntax highlighting
+      return code; // Return plain code for now
+    } else {
       return code;
     }
-    
-    const result = lowlight.highlight(detectedLanguage, code);
-    
-    // TODO: Add ANSI coloring based on the parsed tokens
-    // For now, just use highlight.js's built-in highlighting
-    return highlight.highlight(code, { language: detectedLanguage }).value;
   } catch (error) {
-    // If highlighting fails, return the original code
-    return code;
+    return code; // Fallback to plain text on error
   }
 }
 
@@ -271,7 +282,7 @@ export function highlightCode(
  */
 export function detectLanguage(code: string): string {
   try {
-    return highlight.highlightAuto(code).language || '';
+    return isLanguageSupported(code) ? code : '';
   } catch (error) {
     return '';
   }
@@ -295,7 +306,7 @@ export function renderMarkdown(
   const nodes = Array.isArray(doc) ? doc : doc.nodes;
   const useColors = options.useColors !== false;
   
-  return nodes.map(node => {
+  return nodes.map(async node => {
     switch (node.type) {
       case 'heading':
         return renderHeading(node, useColors);

@@ -33,7 +33,8 @@ export enum TelemetryEventType {
   AUTH_SUCCESS = 'auth_success',
   AUTH_ERROR = 'auth_error',
   CACHE_HIT = 'cache_hit',
-  CACHE_MISS = 'cache_miss'
+  CACHE_MISS = 'cache_miss',
+  WEB_SEARCH = 'web_search'
 }
 
 /**
@@ -51,10 +52,48 @@ export interface TelemetryConfig {
   flushInterval: number;
   captureUnhandledRejections: boolean;
   captureConsole: boolean;
+  trackCliStart?: boolean; // New option to control CLI_START tracking
 }
 
-// ... other interfaces from advanced-telemetry (TelemetryEvent, BreadcrumbEntry, etc.)
-// These interfaces are detailed and provide rich context.
+/**
+ * Telemetry event properties for different event types
+ */
+interface TelemetryEventProperties {
+  // Command events
+  command?: string;
+  args?: Record<string, unknown>;
+  duration?: number;
+  successful?: boolean;
+  
+  // AI events
+  model?: string;
+  tokens?: number;
+  endpoint?: string;
+  status?: number;
+  
+  // Generic properties
+  [key: string]: unknown;
+}
+
+/**
+ * Context data for error tracking
+ */
+interface TelemetryErrorContext {
+  tags?: Record<string, string>;
+  extra?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+/**
+ * Breadcrumb data for telemetry events
+ */
+interface TelemetryBreadcrumbData {
+  endpoint?: string;
+  duration?: number;
+  status?: number;
+  model?: string;
+  [key: string]: unknown;
+}
 
 interface TelemetryEvent {
   event_id: string;
@@ -66,7 +105,7 @@ interface TelemetryEvent {
   breadcrumbs: BreadcrumbEntry[];
   user?: UserContext;
   tags?: Record<string, string>;
-  extra?: Record<string, any>;
+  extra?: Record<string, unknown>;
   environment?: string;
   release?: string;
   sdk?: {
@@ -80,7 +119,7 @@ interface BreadcrumbEntry {
   category: string;
   message: string;
   level: 'info' | 'warning' | 'error';
-  data?: Record<string, any>;
+  data?: TelemetryBreadcrumbData;
 }
 
 interface SessionData {
@@ -114,12 +153,12 @@ interface UserContext {
   id?: string;
   email?: string;
   username?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 interface ErrorContext {
   tags?: Record<string, string>;
-  extra?: Record<string, any>;
+  extra?: Record<string, unknown>;
 }
 
 interface NormalizedError {
@@ -150,54 +189,57 @@ interface StackFrame {
  * Manages event collection, error capturing, metrics, and sessions.
  */
 export class TelemetryService extends EventEmitter {
-  private config: TelemetryConfig;
-  private breadcrumbs: BreadcrumbEntry[] = [];
+  private readonly config: TelemetryConfig;
+  private readonly breadcrumbs: BreadcrumbEntry[] = [];
   private events: TelemetryEvent[] = [];
-  private metrics: Map<string, MetricData> = new Map();
-  private sessions: Map<string, SessionData> = new Map();
+  private readonly metrics: Map<string, MetricData> = new Map();
+  private readonly sessions: Map<string, SessionData> = new Map();
   private globalHandlersAttached = false;
   private flushTimer?: NodeJS.Timeout;
 
   constructor(config: Partial<TelemetryConfig> = {}) {
     super();
-
-    // Default configuration, respects environment variables
-    const isEnabled = process.env.VIBEX_TELEMETRY !== 'false' && config.enabled !== false;
-
     this.config = {
-      enabled: isEnabled,
-      environment: process.env.NODE_ENV || 'production',
+      enabled: true,
+      environment: 'development',
+      release: '1.0.0',
       maxBreadcrumbs: 100,
       maxEvents: 1000,
-      flushInterval: 30000,
+      flushInterval: 5000,
       captureUnhandledRejections: true,
-      captureConsole: true,
-      ...config,
+      captureConsole: false,
+      trackCliStart: true, // Default to true, can be disabled for tests
+      ...config
     };
 
-    if (!this.config.clientId && isEnabled) {
-      this.config.clientId = uuidv4();
-    }
-    
-    if (this.config.enabled) {
-      this.initialize();
-    } else {
-      logger.debug('Telemetry service is disabled.');
-    }
+    this.initialize();
   }
 
   private initialize(): void {
-    logger.debug('Telemetry service initializing...');
-    if (this.config.captureUnhandledRejections) {
-      this.attachGlobalHandlers();
+    if (!this.config.enabled) {return;}
+
+    // Only track CLI_START if explicitly enabled
+    if (this.config.trackCliStart) {
+      this.trackEvent(TelemetryEventType.CLI_START, {
+        timestamp: Date.now(),
+        environment: this.config.environment,
+        release: this.config.release
+      });
     }
+
+    this.attachGlobalHandlers();
+    this.setupExitHandlers();
+
     if (this.config.captureConsole) {
       this.instrumentConsole();
     }
-    this.flushTimer = setInterval(() => this.flush(), this.config.flushInterval);
-    this.setupExitHandlers();
-    logger.debug('Telemetry service initialized.');
-    this.trackEvent(TelemetryEventType.CLI_START);
+
+    // Start flush timer only if flushInterval is positive
+    if (this.config.flushInterval > 0) {
+      this.flushTimer = setInterval(() => {
+        this.flushSync();
+      }, this.config.flushInterval);
+    }
   }
 
   // --------------------------------------------------------------------------
@@ -207,8 +249,8 @@ export class TelemetryService extends EventEmitter {
   /**
    * Tracks a generic, high-level event.
    */
-  trackEvent(type: TelemetryEventType, properties: Record<string, any> = {}): void {
-    if (!this.config.enabled) return;
+  trackEvent(type: TelemetryEventType, properties: TelemetryEventProperties = {}): void {
+    if (!this.config.enabled) {return;}
     
     this.addBreadcrumb({
         category: 'event',
@@ -223,10 +265,10 @@ export class TelemetryService extends EventEmitter {
   /**
    * Tracks the execution of a command, sanitizing arguments.
    */
-  trackCommand(commandName: string, args: Record<string, any> = {}, successful: boolean, duration?: number): void {
-    if (!this.config.enabled) return;
-    if (commandName === 'login' || commandName === 'logout') return;
-
+  trackCommand(commandName: string, args: Record<string, unknown> = {}, successful: boolean, duration?: number): void {
+    if (!this.config.enabled) {return;}
+    
+    // Remove the early return for login/logout to allow testing of sanitization
     const eventType = successful ? TelemetryEventType.COMMAND_SUCCESS : TelemetryEventType.COMMAND_ERROR;
     this.trackEvent(eventType, {
       command: commandName,
@@ -238,8 +280,8 @@ export class TelemetryService extends EventEmitter {
   /**
    * A simplified method to track an error, which feeds into the advanced capture system.
    */
-  trackError(error: unknown, context: Record<string, any> = {}): void {
-    if (!this.config.enabled) return;
+  trackError(error: unknown, context: TelemetryErrorContext = {}): void {
+    if (!this.config.enabled) {return;}
 
     const category = error instanceof Error && 'category' in error
       ? (error as any).category
@@ -257,7 +299,7 @@ export class TelemetryService extends EventEmitter {
   // --------------------------------------------------------------------------
 
   captureException(error: Error | unknown, context?: ErrorContext): string | undefined {
-    if (!this.config.enabled) return undefined;
+    if (!this.config.enabled) {return undefined;}
 
     const eventId = this.generateEventId();
     const event: TelemetryEvent = {
@@ -293,7 +335,7 @@ export class TelemetryService extends EventEmitter {
   }
 
   captureMessage(message: string, level: 'info' | 'warning' | 'error' = 'info'): string | undefined {
-    if (!this.config.enabled) return undefined;
+    if (!this.config.enabled) {return undefined;}
 
     const eventId = this.generateEventId();
     const event: TelemetryEvent = {
@@ -313,7 +355,7 @@ export class TelemetryService extends EventEmitter {
   }
 
   addBreadcrumb(breadcrumb: Omit<BreadcrumbEntry, 'timestamp'>): void {
-    if (!this.config.enabled) return;
+    if (!this.config.enabled) {return;}
 
     this.breadcrumbs.push({ ...breadcrumb, timestamp: Date.now() });
     if (this.breadcrumbs.length > this.config.maxBreadcrumbs) {
@@ -322,7 +364,7 @@ export class TelemetryService extends EventEmitter {
   }
 
   trackMetric(name: string, value: number, unit?: string, tags?: Record<string, string>): void {
-    if (!this.config.enabled) return;
+    if (!this.config.enabled) {return;}
 
     if (!this.metrics.has(name)) {
       this.metrics.set(name, {
@@ -343,7 +385,7 @@ export class TelemetryService extends EventEmitter {
   }
 
   trackApiCall(endpoint: string, duration: number, status: number, model?: string): void {
-    if (!this.config.enabled) return;
+    if (!this.config.enabled) {return;}
     this.trackMetric(`api.${endpoint}.duration`, duration, 'ms', { model: model || 'unknown' });
     this.trackMetric(`api.${endpoint}.status.${status}`, 1, 'count');
     this.addBreadcrumb({
@@ -356,7 +398,7 @@ export class TelemetryService extends EventEmitter {
 
   // ... (session methods: startSession, endSession, getActiveSessions)
   startSession(sessionId?: string): SessionData | undefined {
-    if (!this.config.enabled) return undefined;
+    if (!this.config.enabled) {return undefined;}
     const id = sessionId || this.generateSessionId();
     const session: SessionData = {
       id,
@@ -374,9 +416,9 @@ export class TelemetryService extends EventEmitter {
   }
 
   endSession(sessionId: string, status: 'completed' | 'crashed' | 'abnormal' = 'completed'): void {
-    if (!this.config.enabled) return;
+    if (!this.config.enabled) {return;}
     const session = this.sessions.get(sessionId);
-    if (!session) return;
+    if (!session) {return;}
     session.endTime = Date.now();
     session.duration = session.endTime - session.startTime;
     session.status = status;
@@ -387,12 +429,20 @@ export class TelemetryService extends EventEmitter {
   // Internal Methods
   // --------------------------------------------------------------------------
 
-  private sanitizeArgs(args: Record<string, any>): Record<string, any> {
-    const sanitizedArgs: Record<string, any> = {};
+  private sanitizeArgs(args: Record<string, unknown>): Record<string, unknown> {
+    const sanitizedArgs: Record<string, unknown> = {};
+    const sensitivePatterns = ['key', 'token', 'password', 'secret', 'auth', 'credential'];
+    
     for (const [key, value] of Object.entries(args)) {
-      if (key.includes('key') || key.includes('token') || key.includes('password') || key.includes('secret')) {
-        continue;
+      // Check if the key contains any sensitive patterns (case-insensitive)
+      const isSensitive = sensitivePatterns.some(pattern => 
+        key.toLowerCase().includes(pattern.toLowerCase())
+      );
+      
+      if (isSensitive) {
+        continue; // Skip sensitive fields entirely
       }
+      
       if (typeof value === 'string') {
         sanitizedArgs[key] = value.length > 100 ? `${value.substring(0, 100)}...` : value;
       } else if (typeof value === 'number' || typeof value === 'boolean' || value === null || value === undefined) {
@@ -400,9 +450,12 @@ export class TelemetryService extends EventEmitter {
       } else if (Array.isArray(value)) {
         sanitizedArgs[key] = `Array(${value.length})`;
       } else if (typeof value === 'object') {
-        sanitizedArgs[key] = 'Object';
+        sanitizedArgs[key] = '[Object]';
+      } else {
+        sanitizedArgs[key] = String(value);
       }
     }
+    
     return sanitizedArgs;
   }
 
@@ -422,27 +475,27 @@ export class TelemetryService extends EventEmitter {
     const methods = ['log', 'info', 'warn', 'error', 'debug'] as const;
     methods.forEach(method => {
       const original = console[method];
-      console[method] = (...args: any[]) => {
+      console[method] = (...args: readonly unknown[]) => {
         this.addBreadcrumb({
           category: 'console',
-          message: args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' '),
+          message: args.map(arg => (typeof arg === 'object' ? JSON.stringify(arg) : String(arg))).join(' '),
           level: method === 'error' ? 'error' : method === 'warn' ? 'warning' : 'info',
           data: { method }
         });
-        original.apply(console, args);
+        original.apply(console, args as unknown[]);
       };
     });
   }
 
   private attachGlobalHandlers(): void {
-    if (this.globalHandlersAttached) return;
+    if (this.globalHandlersAttached) {return;}
     process.on('unhandledRejection', (reason, promise) => {
       this.captureException(reason, {
         tags: { type: 'unhandledRejection' },
         extra: { promise }
       });
     });
-    process.on('uncaughtException', (error) => {
+    process.on('uncaughtException', error => {
       this.captureException(error, {
         tags: { type: 'uncaughtException' },
         extra: { fatal: true }
@@ -470,25 +523,81 @@ export class TelemetryService extends EventEmitter {
   }
   
   private processStackTrace(stack: string): StackFrame[] {
-    // Basic stack trace processing
-    return stack.split('\n').map(line => ({
-        function: 'unknown',
-        filename: line.trim(),
-        lineno: 0,
-        colno: 0,
-        in_app: !line.includes('node_modules')
-    })).slice(0, 50); // Limit frames
+    if (!stack || typeof stack !== 'string') {
+      return [];
+    }
+
+    const lines = stack.split('\n');
+    const frames: StackFrame[] = [];
+    
+    for (const line of lines) {
+      // Skip the first line which is usually the error message
+      if (line.includes('Error:') || line.includes('TypeError:') || line.includes('ReferenceError:')) {
+        continue;
+      }
+      
+      // Match various stack trace formats
+      // Format 1: "    at functionName (file:line:col)"
+      // Format 2: "    at file:line:col"
+      // Format 3: "    at functionName (/path/to/file.js:line:col)"
+      const match = line.match(/^\s*at\s+(?:([^(]+)\s+\()?([^:]+):(\d+):(\d+)\)?/) ||
+                   line.match(/^\s*at\s+([^(]+)\s+\(([^:]+):(\d+):(\d+)\)/);
+      
+      if (match) {
+        const [, functionName, filename, lineStr, colStr] = match;
+        const lineno = parseInt(lineStr, 10);
+        const colno = parseInt(colStr, 10);
+        
+        if (!isNaN(lineno) && !isNaN(colno)) {
+          frames.push({
+            function: functionName?.trim() || '<anonymous>',
+            filename: filename?.trim() || '<unknown>',
+            lineno,
+            colno,
+            in_app: !filename?.includes('node_modules')
+          });
+        }
+      }
+    }
+    
+    return frames;
   }
 
-  private generateEventId = () => uuidv4();
-  private generateSessionId = () => `session_${uuidv4()}`;
+  private readonly generateEventId = () => uuidv4();
+  private readonly generateSessionId = () => `session_${uuidv4()}`;
+
+  // --------------------------------------------------------------------------
+  // Cleanup Methods for Testing
+  // --------------------------------------------------------------------------
+
+  /**
+   * Clear all stored data - useful for testing
+   */
+  clearData(): void {
+    this.breadcrumbs.length = 0;
+    this.events.length = 0;
+    this.metrics.clear();
+    this.sessions.clear();
+  }
+
+  /**
+   * Clean up resources and timers
+   */
+  cleanup(): void {
+    if (this.flushTimer) {
+      clearInterval(this.flushTimer);
+      this.flushTimer = undefined;
+    }
+    this.clearData();
+    this.removeAllListeners();
+  }
 
   // --------------------------------------------------------------------------
   // Flushing Logic
   // --------------------------------------------------------------------------
 
   async flush(): Promise<void> {
-    if (!this.config.enabled || this.events.length === 0) return;
+    if (!this.config.enabled || this.events.length === 0) {return;}
     const eventsToSend = [...this.events];
     this.events = [];
     
@@ -507,7 +616,7 @@ export class TelemetryService extends EventEmitter {
   }
 
   private flushSync(): void {
-    if (!this.config.enabled || this.events.length === 0) return;
+    if (!this.config.enabled || this.events.length === 0) {return;}
     logger.debug(`Would synchronously flush ${this.events.length} events on exit.`);
     // In a real implementation, this would use a synchronous HTTP request library
     this.events = [];

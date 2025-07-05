@@ -20,7 +20,7 @@
  * troubleshooting and machine-readable for log aggregation systems.
  */
 
-import { ErrorLevel } from '../errors/types';
+import { ErrorLevel } from '../errors/types.js';
 
 /**
  * Log levels
@@ -60,7 +60,7 @@ export interface LoggerConfig {
   /**
    * Custom output destination (defaults to console)
    */
-  destination?: (message: string, level: LogLevel, metadata?: any) => void;
+  destination?: (message: string, level: LogLevel, metadata?: unknown) => void;
 }
 
 /**
@@ -133,35 +133,35 @@ export class Logger {
   /**
    * Log a debug message
    */
-  debug(message: string, metadata?: any): void {
+  debug(message: string, metadata?: unknown): void {
     this.log(message, LogLevel.DEBUG, metadata);
   }
   
   /**
    * Log an info message
    */
-  info(message: string, metadata?: any): void {
+  info(message: string, metadata?: unknown): void {
     this.log(message, LogLevel.INFO, metadata);
   }
   
   /**
    * Log a warning message
    */
-  warn(message: string, metadata?: any): void {
+  warn(message: string, metadata?: unknown): void {
     this.log(message, LogLevel.WARN, metadata);
   }
   
   /**
    * Log an error message
    */
-  error(message: string, metadata?: any): void {
+  error(message: string, metadata?: unknown): void {
     this.log(message, LogLevel.ERROR, metadata);
   }
   
   /**
    * Log a message with level
    */
-  log(message: string, level: LogLevel, metadata?: any): void {
+  log(message: string, level: LogLevel, metadata?: unknown): void {
     // Check if this log level should be displayed
     if (level < this.config.level) {
       return;
@@ -181,7 +181,7 @@ export class Logger {
   /**
    * Format a message for logging
    */
-  formatMessage(message: string, level: LogLevel, metadata?: any, options?: LogFormatOptions): string {
+  formatMessage(message: string, level: LogLevel, metadata?: unknown, options?: LogFormatOptions): string {
     // Default options
     const opts = {
       timestamp: this.config.timestamps,
@@ -233,11 +233,11 @@ export class Logger {
   /**
    * Helper function for handling circular references in JSON.stringify
    */
-  private replacer(key: string, value: any): any {
+  private replacer(key: string, value: unknown): unknown {
     if (value instanceof Error) {
       // Spread the error object first, then override with specific properties
       // This avoids duplicate property issues
-      const errorObj: any = { ...value };
+      const errorObj: Record<string, unknown> = { ...value };
       errorObj.message = value.message;
       errorObj.stack = value.stack;
       errorObj.name = value.name;
@@ -277,22 +277,23 @@ export class Logger {
   }
   
   /**
-   * Log to console
+   * Log to console using process streams to avoid circular dependencies
    */
   private logToConsole(message: string, level: LogLevel): void {
-    switch (level) {
-      case LogLevel.DEBUG:
-        console.debug(message);
-        break;
-      case LogLevel.INFO:
-        console.info(message);
-        break;
-      case LogLevel.WARN:
-        console.warn(message);
-        break;
-      case LogLevel.ERROR:
-        console.error(message);
-        break;
+    try {
+      switch (level) {
+        case LogLevel.DEBUG:
+        case LogLevel.INFO:
+          process.stdout.write(`${message}\n`);
+          break;
+        case LogLevel.WARN:
+        case LogLevel.ERROR:
+          process.stderr.write(`${message}\n`);
+          break;
+      }
+    } catch {
+      // Fallback to stderr if output fails
+      process.stderr.write(`[LOGGER] Failed to output message\n`);
     }
   }
   
@@ -327,13 +328,15 @@ export class Logger {
         return LogLevel.INFO;
     }
   }
+
+
 }
 
 /**
  * Create a standard log context object
  */
-export function createLogContext(category: string, data?: any): Record<string, any> {
-  const context: Record<string, any> = { category };
+export function createLogContext(category: string, data?: unknown): Record<string, unknown> {
+  const context: Record<string, unknown> = { category };
   
   if (data) {
     if (typeof data === 'object' && data !== null) {

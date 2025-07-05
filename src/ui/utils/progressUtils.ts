@@ -6,7 +6,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import { useProgressBar } from '../hooks/useProgressBar';
+import { useProgressBar, ProgressBarResult } from '../hooks/useProgressBar.js';
 
 /**
  * Hook for tracking file upload progress

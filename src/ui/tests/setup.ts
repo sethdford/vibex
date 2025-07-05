@@ -4,15 +4,15 @@
  * Configures the test environment for UI component tests.
  */
 
+import '@testing-library/jest-dom';
 import { jest } from '@jest/globals';
 
 // Mock for Ink's useStdout hook
 jest.mock('ink', () => {
-  const originalModule = jest.requireActual('ink');
+  // Don't requireActual here as it will try to load ESM
   
   return {
     __esModule: true,
-    ...originalModule,
     useStdout: () => ({
       stdout: {
         columns: 80,
@@ -26,15 +26,15 @@ jest.mock('ink', () => {
       stdin: {
         on: jest.fn(),
         removeListener: jest.fn(),
-        setRawMode: jest.fn(),
+        setRawMode: jest.fn<() => void>(),
         isTTY: true,
       },
       setRawMode: jest.fn(),
       isRawModeSupported: true,
     }),
     render: jest.fn().mockReturnValue({
-      waitUntilExit: jest.fn().mockResolvedValue(undefined),
-      cleanup: jest.fn(),
+      waitUntilExit: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
+      cleanup: jest.fn<() => void>(),
     }),
   };
 });
@@ -43,9 +43,9 @@ jest.mock('ink', () => {
 jest.mock('fs', () => ({
   existsSync: jest.fn().mockReturnValue(true),
   promises: {
-    readFile: jest.fn().mockResolvedValue('{"test": true}'),
-    writeFile: jest.fn().mockResolvedValue(undefined),
-    mkdir: jest.fn().mockResolvedValue(undefined),
+    readFile: jest.fn<() => Promise<string>>().mockResolvedValue('{"test": true}'),
+    writeFile: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
+    mkdir: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
   },
   readFileSync: jest.fn().mockReturnValue('{"test": true}'),
   statSync: jest.fn().mockReturnValue({
@@ -66,7 +66,7 @@ jest.mock('../../utils/logger.js', () => ({
 
 // Mock for config
 jest.mock('../../config/index.js', () => ({
-  loadConfig: jest.fn().mockResolvedValue({
+  loadConfig: jest.fn<() => Promise<any>>().mockResolvedValue({
     terminal: {
       theme: 'dark',
       useColors: true,
@@ -97,7 +97,7 @@ jest.mock('../../config/index.js', () => ({
 // Mock for AI client
 jest.mock('../../ai/index.js', () => ({
   getAIClient: jest.fn().mockReturnValue({
-    query: jest.fn().mockResolvedValue({
+    query: jest.fn<() => Promise<any>>().mockResolvedValue({
       message: {
         content: [
           {
@@ -117,20 +117,44 @@ jest.mock('../../ai/index.js', () => ({
         tokensPerSecond: 50,
         cost: 0.000125
       }
-    })
+    }),
   }),
-  initAI: jest.fn().mockResolvedValue({})
+  initAI: jest.fn<() => Promise<any>>().mockResolvedValue({} as any)
 }));
 
 // Mock for auth manager
 jest.mock('../../auth/index.js', () => ({
   authManager: {
-    initialize: jest.fn().mockResolvedValue(undefined),
+    initialize: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
     isAuthenticated: jest.fn().mockReturnValue(true),
     getToken: jest.fn().mockReturnValue({ 
       accessToken: 'mock-token', 
       expiresAt: Date.now() + 3600000 
     }),
+  }
+}));
+
+// Mock for ink-select-input (ESM compatibility issue)
+jest.mock('ink-select-input', () => ({
+  __esModule: true,
+  default: ({ items, onSelect }: any) => {
+    return {
+      type: 'div',
+      props: {
+        'data-testid': 'ink-select-input',
+        children: items.map((item: any, i: number) => (
+          {
+            type: 'div',
+            key: i,
+            props: {
+              'data-testid': `select-item-${i}`,
+              onClick: () => onSelect(item),
+              children: item.label
+            }
+          }
+        ))
+      }
+    };
   }
 }));
 
@@ -140,7 +164,7 @@ global.process.stdin.isTTY = true;
 global.process.exit = jest.fn() as any;
 
 // Mock for performance.now()
-global.performance = {
+(global.performance as any) = {
   now: jest.fn().mockReturnValue(1000),
   mark: jest.fn(),
   measure: jest.fn(),

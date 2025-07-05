@@ -6,12 +6,12 @@
  */
 
 import React, { createContext, useContext } from 'react';
-import { StreamingState } from '../types';
+import { StreamingState } from '../components/ModernInterface.js';
 
 /**
  * Create the streaming context with a default value
  */
-export const StreamingContext = createContext<StreamingState>(StreamingState.Idle);
+export const StreamingContext = createContext<StreamingState>(StreamingState.IDLE);
 
 /**
  * Props for the StreamingProvider component
@@ -34,13 +34,11 @@ interface StreamingProviderProps {
 export const StreamingProvider: React.FC<StreamingProviderProps> = ({
   streamingState,
   children,
-}) => {
-  return (
+}) => (
     <StreamingContext.Provider value={streamingState}>
       {children}
     </StreamingContext.Provider>
   );
-};
 
 /**
  * Hook to use streaming state in components
@@ -58,13 +56,9 @@ export const useStreaming = (): StreamingState => {
 /**
  * Utility function to check if streaming is active
  */
-export const isStreamingActive = (state: StreamingState): boolean => {
-  return state === StreamingState.Responding || state === StreamingState.WaitingForConfirmation;
-};
+export const isStreamingActive = (state: StreamingState): boolean => state === StreamingState.RESPONDING || state === StreamingState.TOOL_EXECUTING;
 
 /**
  * Utility function to check if UI should be disabled during streaming
  */
-export const shouldDisableInput = (state: StreamingState): boolean => {
-  return state === StreamingState.Responding;
-};
+export const shouldDisableInput = (state: StreamingState): boolean => state === StreamingState.RESPONDING;

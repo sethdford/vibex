@@ -9,10 +9,50 @@
  * - Multi-language support
  */
 
-import { ToolDefinition, InternalToolResult } from './index.js';
+import type { ToolDefinition, InternalToolResult } from './index.js';
 import { logger } from '../utils/logger.js';
 import { fileExists, readTextFile } from '../fs/operations.js';
 import path from 'path';
+
+interface AnalysisResults {
+  file_path: string;
+  language: string;
+  file_size: number;
+  line_count: number;
+  timestamp: string;
+  structure: {
+    functions: number;
+    classes: number;
+    interfaces: number;
+    imports: number;
+    comments: number;
+    complexity_score: number;
+  };
+  quality: {
+    score: number;
+    issues: string[];
+    metrics: {
+      avg_line_length: number;
+      long_lines: number;
+      comment_ratio: number;
+    };
+  };
+  security: {
+    score: number;
+    vulnerabilities: string[];
+    warnings: string[];
+  };
+  suggestions?: string[];
+}
+
+/**
+ * Code analysis input parameters
+ */
+export interface CodeAnalysisInput {
+  file_path: string;
+  analysis_type?: string;
+  include_suggestions?: boolean;
+}
 
 export function createCodeAnalyzerTool(): ToolDefinition {
   return {
@@ -41,7 +81,7 @@ export function createCodeAnalyzerTool(): ToolDefinition {
   };
 }
 
-export async function executeCodeAnalysis(input: any): Promise<InternalToolResult> {
+export async function executeCodeAnalysis(input: CodeAnalysisInput): Promise<InternalToolResult> {
   try {
     const { file_path, analysis_type = 'full', include_suggestions = true } = input;
     
@@ -61,7 +101,7 @@ export async function executeCodeAnalysis(input: any): Promise<InternalToolResul
     logger.info(`Analyzing ${language} code: ${file_path}`);
     
     // Perform basic analysis
-    const analysisResults: any = {
+    const analysisResults: AnalysisResults = {
       file_path,
       language,
       file_size: content.length,
@@ -114,7 +154,7 @@ function detectLanguage(extension: string): string {
   return languageMap[extension] || 'Unknown';
 }
 
-function analyzeStructure(content: string, language: string): any {
+function analyzeStructure(content: string, language: string): AnalysisResults['structure'] {
   const structure = {
     functions: 0,
     classes: 0,
@@ -139,9 +179,9 @@ function analyzeStructure(content: string, language: string): any {
       if (trimmed.match(/^(function|const\s+\w+\s*=|=>)/)) {
         structure.functions++;
       }
-      if (trimmed.startsWith('class')) structure.classes++;
-      if (trimmed.startsWith('interface')) structure.interfaces++;
-      if (trimmed.startsWith('import')) structure.imports++;
+      if (trimmed.startsWith('class')) {structure.classes++;}
+      if (trimmed.startsWith('interface')) {structure.interfaces++;}
+      if (trimmed.startsWith('import')) {structure.imports++;}
     }
     
     // Complexity indicators
@@ -153,7 +193,7 @@ function analyzeStructure(content: string, language: string): any {
   return structure;
 }
 
-function analyzeQuality(content: string, language: string): any {
+function analyzeQuality(content: string, language: string): AnalysisResults['quality'] {
   const quality = {
     score: 100,
     issues: [] as string[],
@@ -171,7 +211,7 @@ function analyzeQuality(content: string, language: string): any {
   
   for (const line of lines) {
     totalLength += line.length;
-    if (line.length > 120) longLines++;
+    if (line.length > 120) {longLines++;}
     if (line.trim().startsWith('//') || line.trim().startsWith('#')) {
       commentLines++;
     }
@@ -199,7 +239,7 @@ function analyzeQuality(content: string, language: string): any {
   return quality;
 }
 
-function analyzeSecurity(content: string, language: string): any {
+function analyzeSecurity(content: string, language: string): AnalysisResults['security'] {
   const security = {
     score: 100,
     vulnerabilities: [] as string[],
@@ -225,7 +265,7 @@ function analyzeSecurity(content: string, language: string): any {
   return security;
 }
 
-function generateSuggestions(analysisResults: any, content: string, language: string): string[] {
+function generateSuggestions(analysisResults: AnalysisResults, content: string, language: string): string[] {
   const suggestions: string[] = [];
   
   if (analysisResults.structure.functions > 20) {
@@ -243,7 +283,7 @@ function generateSuggestions(analysisResults: any, content: string, language: st
   return suggestions;
 }
 
-function formatAnalysisResults(results: any): string {
+function formatAnalysisResults(results: AnalysisResults): string {
   let output = `# Code Analysis Report\n\n`;
   output += `**File:** ${results.file_path}\n`;
   output += `**Language:** ${results.language}\n`;

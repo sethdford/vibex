@@ -163,7 +163,32 @@ export enum ErrorCategory {
   /**
    * Command not found errors
    */
-  COMMAND_NOT_FOUND = 23
+  COMMAND_NOT_FOUND = 23,
+  
+  /**
+   * Security-related errors
+   */
+  SECURITY = 24,
+  
+  /**
+   * System-related errors
+   */
+  SYSTEM = 25,
+  
+  /**
+   * User input errors
+   */
+  USER_INPUT = 26,
+  
+  /**
+   * External service errors
+   */
+  EXTERNAL_SERVICE = 27,
+  
+  /**
+   * Invalid operation errors
+   */
+  INVALID_OPERATION = 28
 }
 
 /**
@@ -183,7 +208,7 @@ export interface ErrorOptions {
   /**
    * Additional context for the error
    */
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
   
   /**
    * Whether to report the error to monitoring systems

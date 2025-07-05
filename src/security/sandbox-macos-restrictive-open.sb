@@ -1,0 +1,50 @@
+;;
+;; MacOS Seatbelt profile: restrictive-open
+;; 
+;; A restrictive sandbox profile that limits operations to necessary files
+;; and blocks most system access while allowing network connectivity.
+;;
+
+;; Allow basic process operations
+(allow process-exec)
+(allow process-fork)
+
+;; Allow network operations (all)
+(allow network*)
+
+;; Allow reading from target directory
+(allow file-read* 
+  (subpath (param "TARGET_DIR"))
+  (subpath (param "TMP_DIR"))
+  (subpath (param "HOME_DIR"))
+  (subpath "/usr/lib")
+  (subpath "/System/Library/Frameworks")
+  (subpath "/dev/urandom")
+  (subpath "/private/tmp")
+  (literal "/etc/localtime")
+  (literal "/etc/passwd")
+  (literal "/etc/resolv.conf"))
+
+;; Allow writing to specified directories
+(allow file-write* 
+  (subpath (param "TARGET_DIR"))
+  (subpath (param "TMP_DIR"))
+  (subpath (param "CACHE_DIR")))
+
+;; Allow basic system calls
+(allow syscall-unix)
+
+;; Mach-related permissions
+(allow mach-lookup
+  (global-name "com.apple.system.notification_center")
+  (global-name "com.apple.system.logger"))
+
+;; Allow signals
+(allow signal (target self))
+
+;; Logging
+(allow file-write*
+  (literal "/dev/dtracehelper"))
+
+;; Required for some apps
+(allow ipc-posix-shm*)

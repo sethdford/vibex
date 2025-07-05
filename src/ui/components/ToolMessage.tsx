@@ -6,7 +6,14 @@
 
 import React from 'react';
 import { Box, Text } from 'ink';
-import { Colors } from '../colors';
+import { Colors } from '../colors.js';
+
+/**
+ * Tool input parameters interface
+ */
+export interface ToolInputParameters {
+  [key: string]: string | number | boolean | null | undefined;
+}
 
 /**
  * Tool use props
@@ -20,7 +27,7 @@ interface ToolUseProps {
   /**
    * Tool input parameters
    */
-  input: any;
+  input: ToolInputParameters;
   
   /**
    * Tool ID
@@ -79,7 +86,7 @@ interface ToolMessageProps {
  * @param input - Tool input object
  * @returns Formatted string representation
  */
-const formatToolInput = (input: any): string => {
+const formatToolInput = (input: ToolInputParameters): string => {
   try {
     return JSON.stringify(input, null, 2);
   } catch (error) {
@@ -96,7 +103,7 @@ export const ToolMessage: React.FC<ToolMessageProps> = ({
   isFocused = true,
 }) => {
   // Determine the status and colors
-  let statusText = toolResult 
+  const statusText = toolResult 
     ? (toolResult.isError ? 'Error' : 'Success') 
     : (toolUse.pending ? 'Pending' : 'Running');
   

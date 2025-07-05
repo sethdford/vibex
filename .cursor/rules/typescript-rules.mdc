@@ -1,0 +1,474 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# TypeScript Rules: Zero Tolerance for Type Errors + Community Wisdom
+
+## 🚨 CRITICAL TYPE SAFETY RULES
+
+### NEVER Use These (Auto-Reject)
+```typescript
+// ❌ FORBIDDEN - Will break our type safety
+any
+@ts-ignore  // without detailed explanation
+@ts-expect-error  // without test case
+as any
+<any>
+Function  // Use proper function signatures
+Object    // Use proper object types
+{}        // Use proper interface/type
+```
+
+### ALWAYS Use These Patterns
+```typescript
+// ✅ REQUIRED - Proper type definitions
+interface UserData {
+  readonly id: string;
+  readonly name: string;
+  readonly email: string;
+  readonly createdAt: Date;
+}
+
+// ✅ REQUIRED - Proper error types
+type ApiError = {
+  readonly code: string;
+  readonly message: string;
+  readonly details?: Record<string, unknown>;
+};
+
+// ✅ REQUIRED - Proper function signatures
+type ProcessUser = (user: UserData) => Promise<ProcessResult>;
+type ValidateInput = <T>(input: unknown, schema: Schema<T>) => T;
+```
+
+## 📝 COMMUNITY-PROVEN PATTERNS
+
+### 1. Functional Programming with Types
+```typescript
+// ✅ REQUIRED - Functional and declarative patterns
+// From cursor.directory research: "Use functional and declarative programming patterns; avoid classes"
+
+// ❌ FORBIDDEN - Classes
+class UserProcessor {
+  process(user: User): Result { /* ... */ }
+}
+
+// ✅ REQUIRED - Functional approach with proper types
+type UserProcessor = (user: User) => Result;
+type ProcessResult<T> = {
+  readonly success: boolean;
+  readonly data?: T;
+  readonly error?: string;
+};
+
+const processUser: UserProcessor = (user) => {
+  // Process functionally
+  return { success: true, data: transformedUser };
+};
+```
+
+### 2. Interface over Types (Community Standard)
+```typescript
+// ✅ REQUIRED - Use interfaces for object shapes
+// From research: "Use TypeScript for all code; prefer interfaces over types"
+
+interface ComponentProps {
+  readonly title: string;
+  readonly onComplete: (result: CompletionResult) => void;
+  readonly isLoading?: boolean;
+}
+
+interface ApiResponse<T> {
+  readonly data: T;
+  readonly status: number;
+  readonly message: string;
+}
+
+// ✅ REQUIRED - Types for unions and computations
+type Status = 'idle' | 'loading' | 'success' | 'error';
+type EventHandler<T> = (event: T) => void;
+```
+
+### 3. Strict Naming Conventions
+```typescript
+// ✅ REQUIRED - Component props naming
+// From research: "Use component name as interface name. Example: Account component should have AccountProps interface"
+
+// Component: AuthWizard
+interface AuthWizardProps {
+  readonly onComplete: (token: string) => void;
+  readonly initialStep?: AuthStep;
+}
+
+// Component: UserProfile  
+interface UserProfileProps {
+  readonly user: User;
+  readonly onEdit: () => void;
+  readonly isEditable?: boolean;
+}
+
+// ✅ REQUIRED - Event handler naming
+// From research: "Start each function with a verb, Example: handleClick, handleKeyDown, handleChange"
+interface ButtonProps {
+  readonly onClick: () => void;
+  readonly onKeyDown?: (event: KeyboardEvent) => void;
+  readonly onFocus?: () => void;
+}
+```
+
+### 4. Boolean Variable Patterns
+```typescript
+// ✅ REQUIRED - Use verbs for boolean variables
+// From research: "Use verbs for boolean variables. Example: isLoading, hasError, canDelete"
+
+interface LoadingState {
+  readonly isLoading: boolean;
+  readonly hasError: boolean;
+  readonly canRetry: boolean;
+  readonly shouldShowSpinner: boolean;
+}
+
+interface UserPermissions {
+  readonly canEdit: boolean;
+  readonly canDelete: boolean;
+  readonly canView: boolean;
+  readonly hasAdminAccess: boolean;
+}
+```
+
+### 5. Const Assertions and Enums
+```typescript
+// ✅ REQUIRED - Avoid enums, use const objects
+// From research: "Avoid enums; use maps instead" / "use const objects"
+
+// ❌ FORBIDDEN - Enums
+enum UserRole {
+  ADMIN = 'admin',
+  USER = 'user'
+}
+
+// ✅ REQUIRED - Const objects with proper typing
+const USER_ROLES = {
+  ADMIN: 'admin',
+  USER: 'user',
+  MODERATOR: 'moderator'
+} as const;
+
+type UserRole = typeof USER_ROLES[keyof typeof USER_ROLES];
+
+const API_ENDPOINTS = {
+  USERS: '/api/users',
+  AUTH: '/api/auth',
+  DATA: '/api/data'
+} as const;
+
+type ApiEndpoint = typeof API_ENDPOINTS[keyof typeof API_ENDPOINTS];
+```
+
+## 🔧 ADVANCED TYPE PATTERNS
+
+### 1. Generic Constraints
+```typescript
+// ✅ REQUIRED - Proper generic constraints
+interface Repository<T extends { id: string }> {
+  readonly findById: (id: string) => Promise<T | null>;
+  readonly create: (data: Omit<T, 'id'>) => Promise<T>;
+  readonly update: (id: string, data: Partial<T>) => Promise<T>;
+  readonly delete: (id: string) => Promise<void>;
+}
+
+// ✅ REQUIRED - Conditional types for complex scenarios
+type ApiResponse<T> = {
+  readonly data: T;
+  readonly error?: never;
+} | {
+  readonly data?: never;
+  readonly error: string;
+};
+```
+
+### 2. Utility Types Usage
+```typescript
+// ✅ REQUIRED - Use built-in utility types
+interface User {
+  readonly id: string;
+  readonly name: string;
+  readonly email: string;
+  readonly password: string;
+  readonly createdAt: Date;
+}
+
+// ✅ REQUIRED - Proper utility type usage
+type UserCreateInput = Omit<User, 'id' | 'createdAt'>;
+type UserUpdateInput = Partial<Pick<User, 'name' | 'email'>>;
+type UserPublic = Omit<User, 'password'>;
+
+// ✅ REQUIRED - Custom utility types when needed
+type Optional<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
+type RequiredFields<T, K extends keyof T> = T & Required<Pick<T, K>>;
+```
+
+### 3. Function Type Definitions
+```typescript
+// ✅ REQUIRED - Proper function typing
+// From research: "Use the function keyword for pure functions"
+
+// Pure functions
+function calculateTotal(items: OrderItem[]): number {
+  return items.reduce((sum, item) => sum + item.price, 0);
+}
+
+// Event handlers with proper typing
+type EventHandlers = {
+  readonly onUserClick: (user: User) => void;
+  readonly onFormSubmit: (data: FormData) => Promise<void>;
+  readonly onError: (error: Error) => void;
+};
+
+// Async function types
+type AsyncProcessor<TInput, TOutput> = (input: TInput) => Promise<TOutput>;
+type DataFetcher<T> = () => Promise<ApiResponse<T>>;
+```
+
+## 🎯 PERFORMANCE-FOCUSED TYPING
+
+### 1. Readonly Everything
+```typescript
+// ✅ REQUIRED - Immutable data structures
+interface AppConfig {
+  readonly api: {
+    readonly baseUrl: string;
+    readonly timeout: number;
+    readonly retries: number;
+  };
+  readonly features: {
+    readonly enableAuth: boolean;
+    readonly enableTelemetry: boolean;
+  };
+}
+
+// ✅ REQUIRED - Readonly arrays
+type ReadonlyStringArray = readonly string[];
+type ReadonlyUserArray = readonly User[];
+```
+
+### 2. Strict Function Signatures
+```typescript
+// ✅ REQUIRED - No any parameters
+// From research: "Handle errors and edge cases at the beginning of functions"
+
+// ❌ FORBIDDEN
+function processData(data: any): any {
+  // Unsafe
+}
+
+// ✅ REQUIRED - Strict typing with error handling
+function processUserData(
+  data: unknown
+): ProcessResult<UserData> {
+  // Type guard first
+  if (!isUserData(data)) {
+    return { success: false, error: 'Invalid user data' };
+  }
+  
+  // Process with known type
+  const processed = transformUserData(data);
+  return { success: true, data: processed };
+}
+
+// ✅ REQUIRED - Type guards
+function isUserData(data: unknown): data is UserData {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    typeof (data as any).id === 'string' &&
+    typeof (data as any).name === 'string'
+  );
+}
+```
+
+## 🛡️ ERROR HANDLING WITH TYPES
+
+### 1. Result Types
+```typescript
+// ✅ REQUIRED - Type-safe error handling
+type Result<T, E = Error> = {
+  readonly success: true;
+  readonly data: T;
+} | {
+  readonly success: false;
+  readonly error: E;
+};
+
+type AsyncResult<T, E = Error> = Promise<Result<T, E>>;
+
+// ✅ REQUIRED - Usage example
+async function fetchUser(id: string): AsyncResult<User, ApiError> {
+  try {
+    const user = await api.getUser(id);
+    return { success: true, data: user };
+  } catch (error) {
+    return { 
+      success: false, 
+      error: { 
+        code: 'FETCH_ERROR', 
+        message: 'Failed to fetch user',
+        details: { userId: id }
+      }
+    };
+  }
+}
+```
+
+### 2. Custom Error Types
+```typescript
+// ✅ REQUIRED - Structured error types
+interface ValidationError {
+  readonly type: 'validation';
+  readonly field: string;
+  readonly message: string;
+}
+
+interface NetworkError {
+  readonly type: 'network';
+  readonly status: number;
+  readonly message: string;
+}
+
+interface BusinessError {
+  readonly type: 'business';
+  readonly code: string;
+  readonly message: string;
+}
+
+type AppError = ValidationError | NetworkError | BusinessError;
+```
+
+## 📊 TYPE TESTING & VALIDATION
+
+### 1. Runtime Validation with Zod
+```typescript
+// ✅ REQUIRED - Runtime type validation
+import { z } from 'zod';
+
+const UserSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string().min(1).max(100),
+  email: z.string().email(),
+  age: z.number().min(0).max(150)
+});
+
+type User = z.infer<typeof UserSchema>;
+
+// ✅ REQUIRED - Safe parsing
+function parseUser(data: unknown): Result<User, ValidationError> {
+  const parsed = UserSchema.safeParse(data);
+  
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: {
+        type: 'validation',
+        field: 'user',
+        message: parsed.error.message
+      }
+    };
+  }
+  
+  return { success: true, data: parsed.data };
+}
+```
+
+### 2. Type Testing
+```typescript
+// ✅ REQUIRED - Type-level testing
+type Assert<T extends true> = T;
+type IsEqual<A, B> = A extends B ? B extends A ? true : false : false;
+
+// Test our types compile correctly
+type TestUserType = Assert<IsEqual<
+  User,
+  { id: string; name: string; email: string; age: number }
+>>;
+
+type TestResultType = Assert<IsEqual<
+  Result<string, Error>,
+  { success: true; data: string } | { success: false; error: Error }
+>>;
+```
+
+## 🎯 COMPETITIVE ADVANTAGE THROUGH TYPES
+
+### 1. Performance Monitoring Types
+```typescript
+// ✅ REQUIRED - Performance-focused types
+interface PerformanceMetrics {
+  readonly startupTime: number;
+  readonly bundleSize: number;
+  readonly memoryUsage: number;
+  readonly renderTime: number;
+}
+
+interface PerformanceBudgets {
+  readonly STARTUP_TIME: 50; // ms - beat Gemini's 200ms
+  readonly BUNDLE_SIZE: 5242880; // 5MB - beat Gemini's 20MB+
+  readonly MEMORY_USAGE: 41943040; // 40MB - beat Gemini's 100MB+
+  readonly RENDER_TIME: 16; // 60fps
+}
+
+// ✅ REQUIRED - Compile-time performance checks
+type AssertPerformance<T extends PerformanceBudgets> = T;
+```
+
+### 2. Type-Safe Configuration
+```typescript
+// ✅ REQUIRED - Zero-runtime-error configuration
+interface StrictConfig {
+  readonly typescript: {
+    readonly strict: true;
+    readonly noImplicitAny: true;
+    readonly strictNullChecks: true;
+    readonly strictFunctionTypes: true;
+  };
+  readonly performance: {
+    readonly budgets: PerformanceBudgets;
+    readonly monitoring: true;
+  };
+}
+
+// ✅ REQUIRED - Compile-time validation
+type ValidConfig = StrictConfig & {
+  readonly typescript: {
+    readonly strict: true; // Must be true
+  };
+};
+```
+
+## 🎉 FINAL TYPE SAFETY CHECKLIST
+
+### Before Every Commit:
+- [ ] No `any` types used
+- [ ] All interfaces properly defined
+- [ ] Function signatures are explicit
+- [ ] Error types are structured
+- [ ] Boolean variables use verbs (isLoading, hasError)
+- [ ] Event handlers start with "handle"
+- [ ] Component props follow ComponentNameProps pattern
+- [ ] Const objects used instead of enums
+- [ ] Readonly properties where appropriate
+- [ ] Generic constraints are meaningful
+
+### Performance Type Checks:
+- [ ] Types don't increase bundle size
+- [ ] No complex type computations at runtime
+- [ ] Type guards are efficient
+- [ ] Validation is fast (Zod schemas)
+
+### Competitive Advantage:
+- [ ] Types enforce our performance budgets
+- [ ] Error handling is superior to Gemini CLI
+- [ ] Configuration is type-safe
+- [ ] No runtime type errors possible
+
+**Remember**: Our TypeScript discipline is what separates us from Gemini CLI's mixed JS/TS approach. Every type we define makes our code more reliable, faster, and easier to maintain.

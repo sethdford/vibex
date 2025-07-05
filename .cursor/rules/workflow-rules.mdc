@@ -1,0 +1,317 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Development Workflow Rules: Catch Issues Early
+
+## 🚨 BEFORE ANY CODE CHANGES
+
+### 1. Run Quality Checks
+```bash
+# ALWAYS run these before starting work
+npm run lint:check      # Check current issues
+npm run typecheck      # Verify TypeScript
+npm run build          # Ensure builds
+npm test              # Run tests
+
+# Check our performance metrics
+time node dist/cli.js --version  # Should be <50ms
+du -sh dist/                     # Should be <5MB
+```
+
+### 2. Check File Sizes (Current Issues Found)
+```bash
+# Files over 250 lines need splitting:
+# ⚠️  src/ui/utils/markdownUtilities.ts has 414 lines
+# ⚠️  src/ui/hooks/useClaudeStream.ts has 390 lines  
+# ⚠️  src/ui/hooks/useClaude4Stream.ts has 467 lines
+# ⚠️  src/tools/screenshot.ts has 417 lines
+# ⚠️  src/tools/code-analyzer.ts has 291 lines
+
+find src -name "*.ts" -exec wc -l {} + | awk '$1 > 250 {print "⚠️  " $2 " has " $1 " lines"}'
+```
+
+### 3. Check Console Pollution (Current Issue: 278 statements!)
+```bash
+# We have 278 console statements outside CLI/tests - need cleanup!
+grep -r "console\." src/ | grep -v ".test." | grep -v "cli.ts" | wc -l
+
+# Find specific violations:
+grep -rn "console\." src/ | grep -v ".test." | grep -v "cli.ts" | head -20
+```
+
+## 🔧 DEVELOPMENT PATTERNS
+
+### File Creation Rules
+```typescript
+// ✅ CORRECT - New file template
+/**
+ * [Module Name] - [Brief Description]
+ * 
+ * [Detailed description of purpose and functionality]
+ */
+
+import { /* required imports */ } from './path.js';  // Always .js extension
+import type { /* type imports */ } from './types.js';
+
+// Implementation (max 250 lines)
+
+export { /* exports */ };
+```
+
+### Function Creation Rules
+```typescript
+// ✅ CORRECT - Function template (max 30 lines)
+/**
+ * [Function description]
+ * 
+ * @param parameter - Description
+ * @returns Description
+ * @throws {UserError} When [condition]
+ */
+async function descriptiveFunctionName(
+  parameter: SpecificType
+): Promise<SpecificReturnType> {
+  // Validation
+  if (!isValid(parameter)) {
+    throw createUserError('Clear error message', {
+      category: ErrorCategory.VALIDATION,
+      resolution: 'How to fix this'
+    });
+  }
+  
+  // Implementation (max 25 lines after validation)
+  try {
+    const result = await operation(parameter);
+    return result;
+  } catch (error) {
+    throw createUserError('Operation failed', {
+      category: ErrorCategory.SYSTEM,
+      details: { error }
+    });
+  }
+}
+```
+
+### Import Organization Rules
+```typescript
+// ✅ CORRECT - Import order
+// 1. Node.js built-ins
+import { readFile } from 'fs/promises';
+import { join } from 'path';
+
+// 2. External dependencies
+import { z } from 'zod';
+import Anthropic from '@anthropic-ai/sdk';
+
+// 3. Internal modules (with .js extensions)
+import { logger } from '../utils/logger.js';
+import { createUserError } from '../errors/index.js';
+
+// 4. Type-only imports last
+import type { ConfigType } from './types.js';
+import type { UserError } from '../errors/types.js';
+```
+
+## 🛡️ QUALITY GATES
+
+### Before Every Commit
+```bash
+#!/bin/bash
+# Save as .git/hooks/pre-commit
+
+echo "🛡️  Quality gate checks..."
+
+# 1. File size violations
+LARGE_FILES=$(find src -name "*.ts" -exec wc -l {} + | awk '$1 > 250 {print $2}' | wc -l)
+if [ $LARGE_FILES -gt 0 ]; then
+  echo "❌ Found $LARGE_FILES files over 250 lines"
+  find src -name "*.ts" -exec wc -l {} + | awk '$1 > 250 {print "  " $2 " (" $1 " lines)"}'
+  echo "Split these files before committing"
+  exit 1
+fi
+
+# 2. Console pollution check
+CONSOLE_COUNT=$(grep -r "console\." src/ | grep -v ".test." | grep -v "cli.ts" | wc -l)
+if [ $CONSOLE_COUNT -gt 0 ]; then
+  echo "❌ Found $CONSOLE_COUNT console statements outside CLI/tests"
+  echo "Replace with proper logging before committing"
+  exit 1
+fi
+
+# 3. TypeScript compilation
+if ! npm run typecheck > /dev/null 2>&1; then
+  echo "❌ TypeScript compilation failed"
+  echo "Fix TypeScript errors before committing"
+  exit 1
+fi
+
+# 4. Linting
+if ! npm run lint > /dev/null 2>&1; then
+  echo "❌ ESLint failed"
+  echo "Fix linting errors before committing"
+  exit 1
+fi
+
+# 5. Build check
+if ! npm run build > /dev/null 2>&1; then
+  echo "❌ Build failed"
+  echo "Fix build errors before committing"
+  exit 1
+fi
+
+# 6. Performance check
+STARTUP_TIME=$(timeout 5s time node dist/cli.js --version 2>&1 | grep real | awk '{print $2}' | sed 's/[^0-9.]//g')
+if [ -n "$STARTUP_TIME" ] && (( $(echo "$STARTUP_TIME > 0.05" | bc -l) )); then
+  echo "⚠️  Startup time is ${STARTUP_TIME}s (target: <0.05s)"
+fi
+
+echo "✅ Quality gate passed"
+```
+
+### Before Every PR
+```bash
+#!/bin/bash
+# Run before creating PR
+
+echo "🚀 PR readiness check..."
+
+# 1. Full test suite
+npm test
+
+# 2. Performance benchmarks
+echo "Startup time:"
+time node dist/cli.js --version
+
+echo "Bundle size:"
+du -sh dist/
+
+echo "Memory usage test:"
+node --max-old-space-size=100 dist/cli.js test
+
+# 3. Code quality metrics
+echo "File count by size:"
+find src -name "*.ts" -exec wc -l {} + | awk '{
+  if ($1 < 100) small++
+  else if ($1 < 200) medium++  
+  else if ($1 < 300) large++
+  else huge++
+} END {
+  print "Small (<100): " small
+  print "Medium (100-200): " medium  
+  print "Large (200-300): " large
+  print "Huge (>300): " huge " ⚠️"
+}'
+
+# 4. Dependencies check
+echo "Dependency count:"
+cat package.json | jq '.dependencies | length'
+
+echo "✅ PR ready"
+```
+
+## 🎯 SPECIFIC CLEANUP TASKS
+
+### Current Console Pollution (278 statements to fix)
+```bash
+# Find and replace console statements:
+# 1. console.log → logger.debug
+# 2. console.error → logger.error  
+# 3. console.warn → logger.warn
+# 4. console.info → logger.info
+
+# Example cleanup:
+sed -i 's/console\.log(/logger.debug(/g' src/**/*.ts
+sed -i 's/console\.error(/logger.error(/g' src/**/*.ts
+sed -i 's/console\.warn(/logger.warn(/g' src/**/*.ts
+```
+
+### Current File Size Violations
+```bash
+# Files to split:
+# 1. src/ui/utils/markdownUtilities.ts (414 lines) → split into parser + renderer
+# 2. src/ui/hooks/useClaudeStream.ts (390 lines) → split into stream + state
+# 3. src/ui/hooks/useClaude4Stream.ts (467 lines) → split into client + hooks
+# 4. src/tools/screenshot.ts (417 lines) → split into capture + processing
+# 5. src/tools/code-analyzer.ts (291 lines) → split into analyzer + formatter
+```
+
+## 📊 QUALITY METRICS TRACKING
+
+### Performance Targets (Beat Gemini CLI)
+```bash
+# Current vs Target:
+# Startup: ~33ms vs <50ms ✅ (6x faster than Gemini CLI)
+# Bundle: ~3.7MB vs <5MB ✅ (5.4x smaller than Gemini CLI)  
+# Files: 161 vs <200 ✅ (better organized than Gemini CLI)
+# Dependencies: 27 vs <30 ✅ (33% fewer than Gemini CLI)
+
+# Issues to fix:
+# Console statements: 278 vs 0 ❌ (need cleanup)
+# Large files: 10 vs 0 ❌ (need splitting)
+```
+
+### Code Quality Targets
+```bash
+# Track these metrics:
+echo "TypeScript errors: $(npm run typecheck 2>&1 | grep -c 'error TS')"
+echo "ESLint warnings: $(npm run lint 2>&1 | grep -c 'warning')"
+echo "Console statements: $(grep -r 'console\.' src/ | grep -v '.test.' | grep -v 'cli.ts' | wc -l)"
+echo "Large files: $(find src -name '*.ts' -exec wc -l {} + | awk '$1 > 250' | wc -l)"
+echo "Generic names: $(grep -r 'const \(data\|result\|item\|temp\)' src/ | wc -l)"
+```
+
+## ⚡ QUICK WORKFLOW COMMANDS
+
+### Daily Development
+```bash
+# Start of day
+npm run quality:check    # Check current state
+npm run dev             # Start development
+
+# Before each commit  
+npm run pre:commit      # Run quality gates
+
+# End of day
+npm run quality:report  # Generate metrics report
+```
+
+### Emergency Fixes
+```bash
+# Quick console cleanup
+find src -name "*.ts" -not -path "*/test*" -not -name "cli.ts" \
+  -exec sed -i 's/console\.log(/logger.debug(/g' {} \;
+
+# Quick file size check
+find src -name "*.ts" -exec wc -l {} + | awk '$1 > 250 {print $2 " needs splitting"}'
+
+# Quick TypeScript fix
+npm run typecheck | head -20  # Show first 20 errors
+```
+
+## 🔍 MONITORING COMMANDS
+
+### Real-time Quality Monitoring
+```bash
+# Watch for violations during development
+watch -n 5 '
+echo "=== Quality Status ==="
+echo "Console statements: $(grep -r "console\." src/ | grep -v ".test." | grep -v "cli.ts" | wc -l)"
+echo "Large files: $(find src -name "*.ts" -exec wc -l {} + | awk "$1 > 250" | wc -l)"  
+echo "TypeScript errors: $(npm run typecheck 2>&1 | grep -c "error TS" || echo 0)"
+echo "Build status: $(npm run build > /dev/null 2>&1 && echo "✅ OK" || echo "❌ FAILED")"
+'
+```
+
+---
+
+## 🎯 IMMEDIATE ACTION ITEMS
+
+1. **Fix Console Pollution**: 278 → 0 statements
+2. **Split Large Files**: 10 files need splitting  
+3. **Fix TypeScript Errors**: 387 errors to resolve
+4. **Add Missing Dependencies**: Install missing packages
+5. **Setup Quality Gates**: Install pre-commit hooks
+
+**Remember: Every rule prevents us from degrading into Gemini CLI's messy codebase. Our 6x performance advantage depends on maintaining these standards.**

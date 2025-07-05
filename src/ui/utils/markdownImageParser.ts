@@ -6,7 +6,7 @@
 
 import path from 'path';
 import { existsSync } from 'fs';
-import { downloadImage, isImageFile } from './imageUtils';
+import { downloadImage, isImageFile } from './imageUtils.js';
 import { logger } from '../../utils/logger.js';
 
 /**
@@ -91,7 +91,7 @@ export async function processMarkdownImages(markdown: string): Promise<{
   try {
     // Extract images
     const images = extractImages(markdown);
-    let processedMarkdown = markdown;
+    const processedMarkdown = markdown;
     
     // Process each image
     for (const image of images) {

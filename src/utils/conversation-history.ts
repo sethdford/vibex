@@ -47,6 +47,7 @@ export interface ConversationMessage {
     };
     command?: string;
     file?: string;
+    timestamp?: Date;
   };
 }
 
@@ -118,8 +119,8 @@ export interface HistoryOptions {
  * Conversation History Manager
  */
 export class ConversationHistoryManager {
-  private storageDir: string;
-  private options: Required<HistoryOptions>;
+  private readonly storageDir: string;
+  private readonly options: Required<HistoryOptions>;
   private currentSession: ConversationSession | null = null;
 
   constructor(options: HistoryOptions = {}) {
@@ -233,7 +234,7 @@ export class ConversationHistoryManager {
   /**
    * Get recent messages from current session
    */
-  getRecentMessages(count: number = 10): ConversationMessage[] {
+  getRecentMessages(count = 10): ConversationMessage[] {
     if (!this.currentSession) {
       return [];
     }
@@ -244,12 +245,12 @@ export class ConversationHistoryManager {
   /**
    * Search messages across all sessions
    */
-  async searchMessages(query: string, limit: number = 50): Promise<ConversationMessage[]> {
+  async searchMessages(query: string, limit = 50): Promise<ConversationMessage[]> {
     const sessions = await this.listSessions();
     const results: ConversationMessage[] = [];
     
     for (const sessionSummary of sessions) {
-      if (results.length >= limit) break;
+      if (results.length >= limit) {break;}
       
       try {
         const session = await this.loadSession(sessionSummary.id);
@@ -281,7 +282,7 @@ export class ConversationHistoryManager {
       const sessionFiles = files.filter(f => f.endsWith('.json'));
       
       const sessions = await Promise.all(
-        sessionFiles.map(async (file) => {
+        sessionFiles.map(async file => {
           try {
             const sessionPath = path.join(this.storageDir, file);
             const content = await fs.readFile(sessionPath, 'utf-8');
@@ -428,9 +429,7 @@ export class ConversationHistoryManager {
    */
   private calculateSessionStats(session: ConversationSession): ConversationSession['stats'] {
     const messageCount = session.messages.length;
-    const totalTokens = session.messages.reduce((sum, msg) => {
-      return sum + (msg.metadata?.tokens?.input || 0) + (msg.metadata?.tokens?.output || 0);
-    }, 0);
+    const totalTokens = session.messages.reduce((sum, msg) => sum + (msg.metadata?.tokens?.input || 0) + (msg.metadata?.tokens?.output || 0), 0);
     
     const duration = session.endTime ? session.endTime - session.startTime : Date.now() - session.startTime;
     
