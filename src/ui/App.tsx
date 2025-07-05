@@ -9,62 +9,103 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import {
   Box,
-  DOMElement,
-  measureElement,
   Static,
   Text,
   useStdin,
   useStdout,
+  measureElement,
+} from 'ink';
+import type {
+  DOMElement,
   useInput,
-  type Key as InkKeyType,
+  Key as InkKeyType,
 } from 'ink';
 
-import { StreamingState, type HistoryItem, MessageType } from './types';
-import { useTerminalSize } from './hooks/useTerminalSize';
-import { useLoadingIndicator } from './hooks/useLoadingIndicator';
-import { useThemeCommand } from './hooks/useThemeCommand';
-import { useSettings } from './hooks/useSettings';
-import { shouldDisableLoadingPhrases } from './utils/accessibilityUtils';
-import { AccessibilitySettings } from './components/AccessibilitySettings';
-import { useSlashCommandProcessor } from './hooks/slashCommandProcessor';
-import { useAutoAcceptIndicator } from './hooks/useAutoAcceptIndicator';
-import { useConsoleMessages } from './hooks/useConsoleMessages';
-import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
-import { useClipboard } from './hooks/useClipboard';
-import { Header } from './components/Header';
-import { LoadingIndicator } from './components/LoadingIndicator';
-import { AutoAcceptIndicator } from './components/AutoAcceptIndicator';
-import { InputPrompt } from './components/InputPrompt';
-import { Footer } from './components/Footer';
-import { ThemeDialog } from './components/ThemeDialog';
-import { SettingsDialog } from './components/SettingsDialog';
-import { Help } from './components/Help';
-import { Colors } from './colors';
-import { useClaude4Stream } from './hooks/useClaude4Stream';
-import { useConsolePatcher } from './hooks/useConsolePatcher';
-import { DetailedMessagesDisplay } from './components/DetailedMessagesDisplay';
-import { HistoryItemDisplay } from './components/HistoryItemDisplay';
-import { ContextSummaryDisplay } from './components/ContextSummaryDisplay';
-import { useHistory } from './hooks/useHistoryManager';
+import { type HistoryItem, MessageType } from './types.js';
+import { StreamingState } from './components/AdvancedStreamingDisplay.js';
+import { useTerminalSize } from './hooks/useTerminalSize.js';
+import { useLoadingIndicator } from './hooks/useLoadingIndicator.js';
+import { useThemeCommand } from './hooks/useThemeCommand.js';
+import { useSettings } from './hooks/useSettings.js';
+import { shouldDisableLoadingPhrases } from './utils/accessibilityUtils.js';
+import { AccessibilitySettings } from './components/AccessibilitySettings.js';
+import { useSlashCommandProcessor } from './hooks/slashCommandProcessor.js';
+import { useAutoAcceptIndicator } from './hooks/useAutoAcceptIndicator.js';
+import { useConsoleMessages } from './hooks/useConsoleMessages.js';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts.js';
+import { useClipboard } from './hooks/useClipboard.js';
+import { Header } from './components/Header.js';
+import { LoadingIndicator } from './components/LoadingIndicator.js';
+import { AutoAcceptIndicator, ApprovalMode } from './components/AutoAcceptIndicator.js';
+import { MemoryUsageDisplay } from './components/MemoryUsageDisplay.js';
+import { PrivacyNotice } from './components/PrivacyNotice.js';
+import { ToolStatsDisplay } from './components/ToolStatsDisplay.js';
+import { InputPrompt } from './components/InputPrompt.js';
+import { Footer } from './components/Footer.js';
+import { ThemeDialog } from './components/ThemeDialog.js';
+import { SettingsDialog } from './components/SettingsDialog.js';
+import { Help } from './components/Help.js';
+import { Colors } from './colors.js';
+import { useClaude } from './hooks/useClaude.js';
+import { useConsolePatcher } from './hooks/useConsolePatcher.js';
+import { DetailedMessagesDisplay } from './components/DetailedMessagesDisplay.js';
+import { HistoryItemDisplay } from './components/HistoryItemDisplay.js';
+import { ContextSummaryDisplay } from './components/ContextSummaryDisplay.js';
+import { useHistory } from './hooks/useHistoryManager.js';
 import process from 'node:process';
-import { StreamingContext } from './contexts/StreamingContext';
-import { SessionStatsProvider, useSessionStats } from './contexts/SessionContext';
-import { useTextBuffer } from './components/shared/text-buffer';
+import { StreamingContext } from './contexts/StreamingContext.js';
+import { SessionStatsProvider, useSessionStats } from './contexts/SessionContext.js';
+import { useTextBuffer } from './components/shared/text-buffer.js';
 import * as fs from 'fs';
-import { UpdateNotification } from './components/UpdateNotification';
-import { ClipboardNotification, NotificationType } from './components/ClipboardNotification';
-import { checkForUpdates } from './utils/updateCheck';
+import { UpdateNotification } from './components/UpdateNotification.js';
+import type { NotificationType } from './components/ClipboardNotification.js';
+import { ClipboardNotification } from './components/ClipboardNotification.js';
+import { checkForUpdates } from './utils/updateCheck.js';
 import ansiEscapes from 'ansi-escapes';
-import { OverflowProvider } from './contexts/OverflowContext';
-import { ProgressProvider } from './contexts/ProgressContext';
-import { ProgressDisplay } from './components/ProgressDisplay';
-import { Tips } from './components/Tips';
-import { ShowMoreLines } from './components/ShowMoreLines';
+import { OverflowProvider } from './contexts/OverflowContext.js';
+import { ProgressProvider } from './contexts/ProgressContext.js';
+import { ProgressDisplay } from './components/ProgressDisplay.js';
+import { Tips } from './components/Tips.js';
+import { ShowMoreLines } from './components/ShowMoreLines.js';
+import { LiveToolFeedback, useLiveToolFeedback } from './components/LiveToolFeedback.js';
+import { ToolExecutionFeed, useToolExecutionFeed } from './components/ToolExecutionFeed.js';
 import { loadConfig } from '../config/index.js';
 import { getAIClient } from '../ai/index.js';
 import { logger } from '../utils/logger.js';
+import type { AppConfigType } from '../config/schema.js';
+// Advanced UI Components
+import { ModernInterface, InterfaceMode } from './components/ModernInterface.js';
+import { MultimodalContentHandler, ProcessingStatus } from './components/MultimodalContentHandler.js';
+import { CompactInterface } from './components/CompactInterface.js';
+import type { MultimodalContent, ThinkingBlock, CanvasElement, CollaborationState } from './components/ModernInterface.js';
+import type { MultimodalContentItem, ProcessingCapabilities, ContentType } from './components/MultimodalContentHandler.js';
+
+// @ Command Processing
+import { useAtCommandProcessor } from './hooks/useAtCommandProcessor.js';
+import type { AtCommandResult } from './hooks/useAtCommandProcessor.js';
+
+// UI Density Management
+import { useDensityMetrics } from './utils/density-metrics.js';
+import { useProgressiveDisclosure } from './hooks/useProgressiveDisclosure.js';
+import type { DensityMetrics } from './utils/density-metrics.js';
 
 const CTRL_EXIT_PROMPT_DURATION_MS = 1000;
+
+/**
+ * App configuration interface - using proper schema type
+ */
+export interface AppConfig extends Omit<AppConfigType, 'debug'> {
+  debug?: boolean;
+  targetDir?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * App settings interface - compatible with useSettings hook
+ */
+export interface AppSettings {
+  [key: string]: string | number | boolean | null | undefined;
+}
 
 /**
  * App props interface
@@ -73,17 +114,32 @@ interface AppProps {
   /**
    * Application configuration
    */
-  config: any;
+  config: AppConfig;
+  
+  /**
+   * Initial context to pass to the chat
+   */
+  initialContext?: string;
   
   /**
    * User settings
    */
-  settings?: any;
+  settings?: AppSettings;
   
   /**
    * Optional warnings to display at startup
    */
   startupWarnings?: string[];
+  
+  /**
+   * Update message to display
+   */
+  updateMessage?: string | null;
+  
+  /**
+   * Callback when the app exits
+   */
+  onExit?: () => void;
 }
 
 /**
@@ -98,18 +154,22 @@ export const AppWrapper = (props: AppProps) => (
 );
 
 /**
+ * UI Density Mode enumeration
+ */
+export enum DensityMode {
+  NORMAL = 'normal',
+  COMPACT = 'compact',
+  ULTRA_COMPACT = 'ultra_compact',
+  ADAPTIVE = 'adaptive'
+}
+
+/**
  * Main App component
  */
-const App = ({ config, settings = {}, startupWarnings = [] }: AppProps) => {
+const App = ({ config, initialContext, settings = {}, startupWarnings = [], updateMessage = null, onExit }: AppProps) => {
   // Terminal and state hooks
-  const [updateMessage, setUpdateMessage] = useState<string | null>(null);
-  const [showTips, setShowTips] = useState<boolean>(true);
+  const [showTips, setShowTips] = useState<boolean>(false); // Start hidden like Gemini CLI
   const { stdout } = useStdout();
-
-  // Check for updates
-  useEffect(() => {
-    checkForUpdates().then(setUpdateMessage);
-  }, []);
 
   // Conversation history management
   const { history, addItem, clearItems, loadHistory } = useHistory();
@@ -125,7 +185,7 @@ const App = ({ config, settings = {}, startupWarnings = [] }: AppProps) => {
   const [staticKey, setStaticKey] = useState(0);
   const refreshStatic = useCallback(() => {
     stdout.write(ansiEscapes.clearTerminal);
-    setStaticKey((prev) => prev + 1);
+    setStaticKey(prev => prev + 1);
   }, [setStaticKey, stdout]);
 
   // UI control states
@@ -143,9 +203,53 @@ const App = ({ config, settings = {}, startupWarnings = [] }: AppProps) => {
   const ctrlDTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [constrainHeight, setConstrainHeight] = useState<boolean>(true);
 
+  // Modern Interface State Management
+  const [interfaceMode, setInterfaceMode] = useState<InterfaceMode>(InterfaceMode.CHAT);
+  const [multimodalContent, setMultimodalContent] = useState<MultimodalContent[]>([]);
+  const [thinkingBlocks, setThinkingBlocks] = useState<ThinkingBlock[]>([]);
+  const [canvasElements, setCanvasElements] = useState<CanvasElement[]>([]);
+  const [collaboration, setCollaboration] = useState<CollaborationState>({
+    isActive: false,
+    participants: [],
+    sharedContext: {}
+  });
+  const [advancedFeaturesEnabled, setAdvancedFeaturesEnabled] = useState<boolean>(true);
+  
+  // UI Density Management State
+  const [densityMode, setDensityMode] = useState<DensityMode>(DensityMode.NORMAL);
+  const [isCompactMode, setIsCompactMode] = useState(false);
+  const mainContentRef = useRef<HTMLElement | null>(null);
+  
+  // Density metrics monitoring (only when ref is available)
+  const { metrics: densityMetrics, measureDensity } = useDensityMetrics(
+    mainContentRef as React.RefObject<HTMLElement>
+  );
+  
+  // Progressive disclosure for collapsible sections
+  const progressiveDisclosure = useProgressiveDisclosure([
+    { id: 'history', priority: 80, defaultExpanded: true },
+    { id: 'context', priority: 70, defaultExpanded: false },
+    { id: 'tools', priority: 60, defaultExpanded: false },
+    { id: 'debug', priority: 40, defaultExpanded: false },
+    { id: 'stats', priority: 50, defaultExpanded: false },
+  ]);
+
+  // Multimodal Content Handler State
+  const [contentItems, setContentItems] = useState<MultimodalContentItem[]>([]);
+  const [processingCapabilities] = useState<ProcessingCapabilities>({
+    imageAnalysis: true,
+    audioTranscription: true,
+    videoAnalysis: true,
+    documentExtraction: true,
+    codeAnalysis: true,
+    realTimeProcessing: true,
+    batchProcessing: true,
+    cloudProcessing: true
+  });
+
   // Error tracking
   const errorCount = useMemo(
-    () => consoleMessages.filter((msg) => msg.type === 'error').length,
+    () => consoleMessages.filter(msg => msg.type === 'error').length,
     [consoleMessages],
   );
 
@@ -156,6 +260,24 @@ const App = ({ config, settings = {}, startupWarnings = [] }: AppProps) => {
     saveSetting,
     error: settingsError
   } = useSettings(settings);
+  
+  // Tool execution feedback
+  const {
+    currentFeedback,
+    startFeedback,
+    updateFeedback,
+    completeFeedback,
+    clearFeedback
+  } = useLiveToolFeedback();
+  
+  // Tool execution feed
+  const {
+    feedVisible,
+    feedMode,
+    showFeed,
+    hideFeed,
+    toggleFeed
+  } = useToolExecutionFeed();
   
   // Settings dialog state
   const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
@@ -197,8 +319,8 @@ const App = ({ config, settings = {}, startupWarnings = [] }: AppProps) => {
         Date.now(),
       );
       
-    } catch (error: any) {
-      const errorMessage = error.message || String(error);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       addItem(
         {
           type: MessageType.ERROR,
@@ -210,13 +332,70 @@ const App = ({ config, settings = {}, startupWarnings = [] }: AppProps) => {
     }
   }, [addItem]);
 
+  // Automatic context loading on startup
+  useEffect(() => {
+    const loadInitialContext = async () => {
+      try {
+        logger.info('🔍 Loading project context automatically...');
+        
+        // Use the context system for better performance and maintainability
+        const { createContextSystem } = await import('../context/context-system.js');
+        const contextSystem = createContextSystem();
+        const result = await contextSystem.loadContext();
+        
+        if (result.stats.totalFiles > 0) {
+          logger.info(`✅ Loaded project context: ${result.stats.totalFiles} files, ${result.stats.totalSize} characters`);
+          
+          // Update context file count for UI
+          setContextFileCount(result.stats.totalFiles);
+          
+          // Count entries by type for display
+          const globalFiles = result.entries.filter(e => e.type === 'global');
+          const projectFiles = result.entries.filter(e => e.type === 'project');
+          const currentFiles = result.entries.filter(e => e.type === 'directory' && e.scope === '.');
+          
+          // Add a subtle notification about context loading
+          addItem(
+            {
+              type: MessageType.INFO,
+              text: `📁 Project context loaded: ${result.stats.totalFiles} files (${result.stats.totalSize.toLocaleString()} characters)\n• Global context: ${globalFiles.length} files\n• Project context: ${projectFiles.length} files\n• Current directory: ${currentFiles.length} files\n• Use /memory show for details`,
+            },
+            Date.now(),
+          );
+        } else {
+          logger.debug('No project context files found');
+          // Don't show a message if no context is found - keep startup clean
+        }
+        
+        // If there are any errors, log them but don't interrupt startup
+        if (result.errors.length > 0) {
+          logger.warn(`Context loading warnings: ${result.errors.length} errors`);
+          result.errors.forEach((error: string) => {
+            logger.warn(`Context error: ${error}`);
+          });
+        }
+        
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        logger.error('Failed to load initial context:', errorMessage);
+        // Don't show error to user unless it's critical - keep startup clean
+      }
+    };
+    
+    // Load context after a brief delay to allow UI to initialize
+    const timeoutId = setTimeout(loadInitialContext, 500);
+    
+    return () => clearTimeout(timeoutId);
+  }, [addItem]);
+
   // Command processing
   const {
-    handleSlashCommand,
+    processSlashCommand: handleSlashCommand,
     slashCommands,
-    pendingHistoryItems: pendingSlashCommandHistoryItems,
+    pendingHistoryItems,
+    clearPendingItems
   } = useSlashCommandProcessor(
-    config,
+    { ...config, debug: config.debug ?? false } as AppConfigType,
     settings,
     history,
     addItem,
@@ -228,9 +407,8 @@ const App = ({ config, settings = {}, startupWarnings = [] }: AppProps) => {
     openThemeDialog,
     refreshContextFiles,
     showToolDescriptions,
-    setQuittingMessages,
+    setQuittingMessages
   );
-  const pendingHistoryItems = [...pendingSlashCommandHistoryItems];
 
   // Terminal dimensions
   const { rows: terminalHeight, columns: terminalWidth } = useTerminalSize();
@@ -275,7 +453,7 @@ const App = ({ config, settings = {}, startupWarnings = [] }: AppProps) => {
           clearTimeout(timerRef.current);
         }
         const quitCommand = slashCommands.find(
-          (cmd) => cmd.name === 'quit' || cmd.altName === 'exit',
+          cmd => cmd.name === 'quit' || cmd.altName === 'exit',
         );
         if (quitCommand) {
           quitCommand.action('quit', '', '');
@@ -301,6 +479,110 @@ const App = ({ config, settings = {}, startupWarnings = [] }: AppProps) => {
     refreshStatic();
   }, [clearItems, clearConsoleMessagesState, refreshStatic]);
 
+  // Modern Interface Callback Handlers
+  const handleModeChange = useCallback((mode: InterfaceMode) => {
+    setInterfaceMode(mode);
+    // Add mode-specific initialization logic here
+    switch (mode) {
+      case InterfaceMode.MULTIMODAL:
+        // Initialize multimodal capabilities
+        break;
+      case InterfaceMode.CANVAS:
+        // Initialize canvas elements
+        break;
+      case InterfaceMode.ANALYSIS:
+        // Initialize analysis mode
+        break;
+      case InterfaceMode.COLLABORATION:
+        // Initialize collaboration
+        break;
+      default:
+        break;
+    }
+  }, []);
+
+  const handleContentUpload = useCallback((content: MultimodalContent) => {
+    setMultimodalContent(prev => [...prev, content]);
+    // Process the content with Claude
+    // This would integrate with the Claude API for multimodal processing
+  }, []);
+
+  const handleCanvasUpdate = useCallback((elements: CanvasElement[]) => {
+    setCanvasElements(elements);
+  }, []);
+
+  const handleThinkingInteraction = useCallback((blockId: string, action: 'expand' | 'collapse' | 'copy') => {
+    setThinkingBlocks(prev => prev.map(block => 
+      block.id === blockId ? { ...block, isVisible: action === 'expand' } : block
+    ));
+    if (action === 'copy') {
+      const block = thinkingBlocks.find(b => b.id === blockId);
+      if (block) {
+        // We'll handle this after copyToClipboard is defined
+      }
+    }
+  }, [thinkingBlocks]);
+
+  // Multimodal Content Handler Callbacks
+  const handleMultimodalContentUpload = useCallback((files: File[]) => {
+    // Convert File objects to MultimodalContentItem
+    files.forEach(file => {
+      const newItem: MultimodalContentItem = {
+        id: `file-${Date.now()}-${Math.random()}`,
+        type: file.type.startsWith('image/') ? 'image' as ContentType :
+              file.type.startsWith('audio/') ? 'audio' as ContentType :
+              file.type.startsWith('video/') ? 'video' as ContentType :
+              'document' as ContentType,
+        name: file.name,
+        size: file.size,
+        mimeType: file.type,
+        status: ProcessingStatus.PENDING,
+        uploadedAt: Date.now()
+      };
+      setContentItems(prev => [...prev, newItem]);
+    });
+  }, []);
+
+  const handleContentAnalyze = useCallback((contentId: string) => {
+    // Trigger analysis for the content item
+    setContentItems(prev => prev.map(item => 
+      item.id === contentId ? { ...item, status: ProcessingStatus.ANALYZING } : item
+    ));
+    // Here we would integrate with Claude API for content analysis
+  }, []);
+
+  const handleContentRemove = useCallback((contentId: string) => {
+    setContentItems(prev => prev.filter(item => item.id !== contentId));
+  }, []);
+
+  const handleBatchProcess = useCallback((contentIds: string[]) => {
+    // Process multiple content items
+    setContentItems(prev => prev.map(item => 
+      contentIds.includes(item.id) ? { ...item, status: ProcessingStatus.ANALYZING } : item
+    ));
+  }, []);
+
+  const handleContentInteraction = useCallback((contentId: string, action: 'view' | 'edit' | 'share' | 'export') => {
+    // Handle content interaction actions
+    const item = contentItems.find(item => item.id === contentId);
+    if (item) {
+      switch (action) {
+        case 'view':
+          // Open content viewer
+          break;
+        case 'edit':
+          // Open content editor
+          break;
+        case 'share':
+          // Share content
+          break;
+        case 'export':
+          // Export content
+          break;
+      }
+    }
+  }, [contentItems]);
+
   // Clipboard integration
   const { copyToClipboard, pasteFromClipboard } = useClipboard();
   
@@ -309,6 +591,15 @@ const App = ({ config, settings = {}, startupWarnings = [] }: AppProps) => {
     message: string;
     type: NotificationType;
   } | null>(null);
+  
+  // Privacy notice state
+  const [showPrivacyNotice, setShowPrivacyNotice] = useState<boolean>(false); // Start hidden like Gemini CLI
+  
+  // Tool stats - only populated from actual tool usage (no mock data)
+  const [toolStats, setToolStats] = useState<any[]>([]);
+  
+  // Tool stats would be populated from actual tool usage in a real implementation
+  // For now, keep empty to match Gemini CLI's clean startup
   
   // Define keyboard shortcuts
   const { registerShortcut } = useKeyboardShortcuts({
@@ -365,21 +656,21 @@ const App = ({ config, settings = {}, startupWarnings = [] }: AppProps) => {
         description: 'Toggle error details',
         ctrl: true,
         key: 'o',
-        action: () => setShowErrorDetails((prev) => !prev),
+        action: () => setShowErrorDetails(prev => !prev),
       },
       {
         name: 'toggleToolDescriptions',
         description: 'Toggle tool descriptions',
         ctrl: true,
         key: 't',
-        action: () => setShowToolDescriptions((prev) => !prev),
+        action: () => setShowToolDescriptions(prev => !prev),
       },
       {
         name: 'toggleHeightConstraint',
         description: 'Toggle height constraint',
         ctrl: true,
         key: 's',
-        action: () => setConstrainHeight((prev) => !prev),
+        action: () => setConstrainHeight(prev => !prev),
       },
       {
         name: 'clearScreen',
@@ -401,6 +692,22 @@ const App = ({ config, settings = {}, startupWarnings = [] }: AppProps) => {
         ctrl: true,
         key: 'i',
         action: () => setShowTips(prev => !prev),
+      },
+      {
+        name: 'toggleModernInterface',
+        description: 'Toggle modern interface mode',
+        ctrl: true,
+        key: 'm',
+        action: () => setInterfaceMode(prev => 
+          prev === InterfaceMode.CHAT ? InterfaceMode.MULTIMODAL : InterfaceMode.CHAT
+        ),
+      },
+      {
+        name: 'toggleCompactMode',
+        description: 'Toggle compact interface density mode',
+        ctrl: true,
+        key: 'k',
+        action: () => setIsCompactMode(prev => !prev),
       },
       {
         name: 'closeHelp',
@@ -447,48 +754,86 @@ const App = ({ config, settings = {}, startupWarnings = [] }: AppProps) => {
     thought,
     streamingText,
     streamingItemId,
-  } = useClaude4Stream(
-    getAIClient(),
+  } = useClaude(
+    getAIClient() as any, // TODO: Fix type compatibility between AIClient and ClaudeClient
     history,
     addItem,
     setShowHelp,
-    config,
+    { ...config, debug: config.debug ?? false } as AppConfigType,
     setDebugMessage,
     handleSlashCommand,
     refreshContextFiles,
   );
-  pendingHistoryItems.push(...pendingClaudeHistoryItems);
+  
+  // Combine pending items from different sources without mutation
+  const allPendingHistoryItems = useMemo(() => {
+    const combined = [...pendingHistoryItems, ...pendingClaudeHistoryItems];
+    // Ensure each item has a unique key by adding source prefix if needed
+    return combined.map((item, index) => ({
+      ...item,
+      id: item.id || `combined-${index}-${Date.now()}`
+    }));
+  }, [pendingHistoryItems, pendingClaudeHistoryItems]);
   
   // Loading indicator state
   const { elapsedTime, currentLoadingPhrase } = useLoadingIndicator(streamingState);
   
   // Auto-accept indicator
-  const showAutoAcceptIndicator = useAutoAcceptIndicator({ config });
+  const autoAcceptIndicatorState = useAutoAcceptIndicator({ ...config, debug: config.debug ?? false } as AppConfigType, false);
 
-  // Handle submission of user query
+  // @ Command Processor
+  const { processAtCommand } = useAtCommandProcessor({
+    maxFileSize: 1024 * 1024, // 1MB
+    respectGitIgnore: true
+  });
+
+  // Handle submission of user query with @ command processing
   const handleFinalSubmit = useCallback(
-    (submittedValue: string) => {
+    async (submittedValue: string) => {
       const trimmedValue = submittedValue.trim();
       if (trimmedValue.length > 0) {
-        submitQuery(trimmedValue);
+        try {
+          // Process @ commands first
+          const atResult: AtCommandResult = await processAtCommand(trimmedValue);
+          
+          if (atResult.processedQuery && atResult.processedQuery.length > 0) {
+            // Combine all processed query parts into a single string
+            const finalQuery = atResult.processedQuery.map(part => part.text).join('');
+            
+            // Log file injection for debugging
+            if (atResult.fileContents && atResult.fileContents.length > 0) {
+              logger.debug(`Injected ${atResult.fileContents.length} files into query`, {
+                files: atResult.fileContents.map(f => f.path)
+              });
+            }
+            
+            submitQuery(finalQuery);
+          } else {
+            // Fallback to original query if processing fails
+            submitQuery(trimmedValue);
+          }
+        } catch (error) {
+          logger.error('Error processing @ commands, using original query', error);
+          submitQuery(trimmedValue);
+        }
       }
     },
-    [submitQuery],
+    [submitQuery, processAtCommand],
   );
 
   // User message history
   const [userMessages, setUserMessages] = useState<string[]>([]);
 
   useEffect(() => {
-    // Build user message history from current conversation
+    // Extract user messages for input history
     const currentSessionUserMessages = history
       .filter(
-        (item): item is HistoryItem & { type: 'user'; text: string } =>
-          item.type === 'user' &&
+        (item): item is HistoryItem & { type: MessageType.USER; text: string } =>
+          item.type === MessageType.USER &&
           typeof item.text === 'string' &&
           item.text.trim() !== '',
       )
-      .map((item) => item.text)
+      .map(item => item.text)
       .reverse(); // Newest first
 
     // Set user messages for input history
@@ -496,7 +841,38 @@ const App = ({ config, settings = {}, startupWarnings = [] }: AppProps) => {
   }, [history]);
 
   // Input active state
-  const isInputActive = streamingState === StreamingState.Idle && !initError;
+  const isInputActive = streamingState === StreamingState.IDLE && !initError;
+
+  // Track whether initial context has been submitted and store initial context
+  const initialContextSubmittedRef = useRef(false);
+  const initialContextRef = useRef(initialContext);
+
+  // Auto-submit initial context when component mounts (only once)
+  useEffect(() => {
+    const contextToSubmit = initialContextRef.current;
+    
+    // Only run once on mount when we have initial context
+    if (
+      contextToSubmit?.trim() && 
+      !initialContextSubmittedRef.current
+    ) {
+      // Mark as submitted immediately to prevent re-submission
+      initialContextSubmittedRef.current = true;
+      
+      // Use a timeout to wait for initialization, but only once
+      const timeoutId = setTimeout(() => {
+        const trimmedValue = contextToSubmit.trim();
+        if (trimmedValue.length > 0) {
+          // Use handleFinalSubmit to properly process @ commands
+          // This ensures @ commands are expanded before sending to Claude
+          handleFinalSubmit(trimmedValue);
+        }
+      }, 500); // Wait 500ms for initialization
+      
+      // Cleanup timeout on unmount
+      return () => clearTimeout(timeoutId);
+    }
+  }, [handleFinalSubmit]); // Add handleFinalSubmit to dependencies
 
   // Footer height measurement
   const mainControlsRef = useRef<DOMElement>(null);
@@ -516,7 +892,7 @@ const App = ({ config, settings = {}, startupWarnings = [] }: AppProps) => {
     [terminalHeight, footerHeight],
   );
 
-  // Handle terminal resizing
+  // Handle terminal resizing with debounced refresh (like Gemini CLI)
   useEffect(() => {
     // skip refreshing Static during first mount
     if (isInitialMount.current) {
@@ -524,7 +900,7 @@ const App = ({ config, settings = {}, startupWarnings = [] }: AppProps) => {
       return;
     }
 
-    // debounce so it doesn't fire up too often during resize
+    // debounce so it doesn't fire up too often during resize (300ms like Gemini)
     const handler = setTimeout(() => {
       setStaticNeedsRefresh(false);
       refreshStatic();
@@ -536,7 +912,7 @@ const App = ({ config, settings = {}, startupWarnings = [] }: AppProps) => {
   }, [terminalWidth, terminalHeight, refreshStatic]);
 
   useEffect(() => {
-    if (streamingState === StreamingState.Idle && staticNeedsRefresh) {
+    if (streamingState === StreamingState.IDLE && staticNeedsRefresh) {
       setStaticNeedsRefresh(false);
       refreshStatic();
     }
@@ -547,13 +923,25 @@ const App = ({ config, settings = {}, startupWarnings = [] }: AppProps) => {
     if (config?.debug) {
       return consoleMessages;
     }
-    return consoleMessages.filter((msg) => msg.type !== 'debug');
+    return consoleMessages.filter(msg => msg.type !== 'debug');
   }, [consoleMessages, config]);
 
   // Context file names
-  const contextFileNames = useMemo(() => {
-    return ['CLAUDE.md'];
-  }, []);
+  const contextFileNames = useMemo(() => ['CLAUDE.md'], []);
+
+  // Use provided update message or check for updates
+  useEffect(() => {
+    if (updateMessage) {
+      // Update message already provided as prop, no need to set state
+    } else {
+      checkForUpdates().then(msg => {
+        // Handle update message if needed
+        if (msg) {
+          logger.info('Update available:', msg);
+        }
+      });
+    }
+  }, [updateMessage]);
 
   // If quitting, show the quitting messages only
   if (quittingMessages) {
@@ -575,14 +963,16 @@ const App = ({ config, settings = {}, startupWarnings = [] }: AppProps) => {
     );
   }
 
-  // Main layout sizes
+  // Main layout sizes (like Gemini CLI)
   const mainAreaWidth = Math.floor(terminalWidth * 0.9);
   const debugConsoleMaxHeight = Math.floor(Math.max(terminalHeight * 0.2, 5));
+  // Arbitrary threshold to ensure that items in the static area are large
+  // enough but not too large to make the terminal hard to use (from Gemini CLI)
   const staticAreaMaxItemHeight = Math.max(terminalHeight * 4, 100);
 
   return (
     <StreamingContext.Provider value={streamingState}>
-      <Box flexDirection="column" marginBottom={1} width="90%">
+      <Box flexDirection="column" width="95%">
         {/*
          * Static component renders items once and preserves them
          * as the terminal scrolls, creating a persistent history
@@ -594,30 +984,42 @@ const App = ({ config, settings = {}, startupWarnings = [] }: AppProps) => {
               <Header terminalWidth={terminalWidth} />
               {updateMessage && <UpdateNotification message={updateMessage} />}
               {clipboardNotification && (
-                <Box marginY={1}>
-                  <ClipboardNotification
-                    message={clipboardNotification.message}
-                    type={clipboardNotification.type}
-                    onDismiss={() => setClipboardNotification(null)}
-                  />
-                </Box>
+                <ClipboardNotification
+                  message={clipboardNotification.message}
+                  type={clipboardNotification.type}
+                  onDismiss={() => setClipboardNotification(null)}
+                />
+              )}
+              
+              {/* Privacy Notice */}
+              {showPrivacyNotice && (
+                <PrivacyNotice
+                  title="Privacy & Telemetry Notice"
+                  message="Vibex collects anonymous usage data to improve the tool. No personal data or code content is collected."
+                  details="Usage data includes command invocations, error rates, and performance metrics. You can disable telemetry in settings."
+                  dismissable={true}
+                  level="info"
+                  onAcknowledge={() => {
+                    setShowPrivacyNotice(false);
+                    // In a real app, we would save this preference
+                    // saveSetting('privacyConsentGiven', true);
+                  }}
+                />
               )}
               
               {/* Show tips if enabled */}
               {showTips && (
-                <Box marginTop={1}>
-                  <Tips 
-                    maxWidth={Math.floor(terminalWidth * 0.8)}
-                    onDismiss={() => setShowTips(false)}
-                  />
-                </Box>
+                <Tips 
+                  maxWidth={Math.floor(terminalWidth * 0.8)}
+                  onDismiss={() => setShowTips(false)}
+                />
               )}
             </Box>,
-            ...history.map((h) => (
+            ...history.map((h, index) => (
               <HistoryItemDisplay
                 terminalWidth={mainAreaWidth}
-                availableTerminalHeight={staticAreaMaxItemHeight}
-                key={h.id || `history-${h.timestamp}`}
+                availableTerminalHeight={Math.min(staticAreaMaxItemHeight, 15)}
+                key={h.id || `history-${h.timestamp}-${index}`}
                 item={h}
                 isPending={false}
                 config={config}
@@ -625,24 +1027,24 @@ const App = ({ config, settings = {}, startupWarnings = [] }: AppProps) => {
             )),
           ]}
         >
-          {(item) => item}
+          {item => item}
         </Static>
         <OverflowProvider>
           <Box ref={pendingHistoryItemRef} flexDirection="column">
-            {pendingHistoryItems.map((item, i) => (
-              <HistoryItemDisplay
-                key={i}
-                availableTerminalHeight={
-                  constrainHeight ? availableTerminalHeight : undefined
-                }
-                terminalWidth={mainAreaWidth}
-                // Pending items may not have an ID yet
-                item={{ ...item, id: item.id || `pending-${i}` }}
-                isPending={true}
-                config={config}
-                isFocused={!isThemeDialogOpen}
-              />
-            ))}
+            {allPendingHistoryItems.map((item, i) => (
+                <HistoryItemDisplay
+                  key={item.id}
+                  availableTerminalHeight={
+                    constrainHeight ? Math.min(availableTerminalHeight, 12) : 12
+                  }
+                  terminalWidth={mainAreaWidth}
+                  // Pending items may not have an ID yet
+                  item={{ ...item, id: item.id || `pending-${i}` }}
+                  isPending={true}
+                  config={config}
+                  isFocused={!isThemeDialogOpen}
+                />
+              ))}
             <ShowMoreLines constrainHeight={constrainHeight} />
           </Box>
         </OverflowProvider>
@@ -655,7 +1057,6 @@ const App = ({ config, settings = {}, startupWarnings = [] }: AppProps) => {
               borderStyle="round"
               borderColor={Colors.Warning}
               paddingX={1}
-              marginY={1}
               flexDirection="column"
             >
               {startupWarnings.map((warning, index) => (
@@ -666,172 +1067,252 @@ const App = ({ config, settings = {}, startupWarnings = [] }: AppProps) => {
             </Box>
           )}
 
-          {isThemeDialogOpen ? (
-            <Box flexDirection="column">
-              {themeError && (
-                <Box marginBottom={1}>
-                  <Text color={Colors.Error}>{themeError}</Text>
-                </Box>
-              )}
-              <ThemeDialog
-                onSelect={handleThemeSelect}
-                onHighlight={handleThemeHighlight}
-                settings={userSettings}
-                availableTerminalHeight={
-                  constrainHeight
-                    ? terminalHeight - staticExtraHeight
-                    : undefined
-                }
-                terminalWidth={mainAreaWidth}
-              />
-            </Box>
-          ) : isAccessibilityDialogOpen ? (
-            <Box flexDirection="column">
-              {settingsError && (
-                <Box marginBottom={1}>
-                  <Text color={Colors.Error}>{settingsError}</Text>
-                </Box>
-              )}
-              <AccessibilitySettings
-                onClose={() => setIsAccessibilityDialogOpen(false)}
-                terminalWidth={mainAreaWidth}
-              />
-            </Box>
-          ) : isSettingsDialogOpen ? (
-            <Box flexDirection="column">
-              {settingsError && (
-                <Box marginBottom={1}>
-                  <Text color={Colors.Error}>{settingsError}</Text>
-                </Box>
-              )}
-              <SettingsDialog
-                settings={settingDefinitions}
-                onSave={saveSetting}
-                onClose={() => setIsSettingsDialogOpen(false)}
-                availableTerminalHeight={
-                  constrainHeight
-                    ? terminalHeight - staticExtraHeight
-                    : undefined
-                }
-                terminalWidth={mainAreaWidth}
-              />
-            </Box>
-          ) : (
-            <>
-              <LoadingIndicator
-                thought={
-                  streamingState === StreamingState.WaitingForConfirmation ||
-                  shouldDisableLoadingPhrases(config)
-                    ? undefined
-                    : thought
-                }
-                currentLoadingPhrase={
-                  shouldDisableLoadingPhrases(config)
-                    ? undefined
-                    : currentLoadingPhrase
-                }
-                elapsedTime={elapsedTime}
-              />
-              <Box
-                marginTop={1}
-                display="flex"
-                justifyContent="space-between"
-                width="100%"
-              >
-                <Box>
-                  {ctrlCPressedOnce ? (
-                    <Text color={Colors.Warning}>
-                      Press Ctrl+C again to exit.
-                    </Text>
-                  ) : ctrlDPressedOnce ? (
-                    <Text color={Colors.Warning}>
-                      Press Ctrl+D again to exit.
-                    </Text>
-                  ) : (
-                    <ContextSummaryDisplay
-                      contextFileCount={contextFileCount}
-                      contextFileNames={contextFileNames}
-                      showToolDescriptions={showToolDescriptions}
-                    />
-                  )}
-              
-              {/* Active progress indicators */}
-              {streamingState === StreamingState.Idle && (
-                <Box marginLeft={2}>
-                  <ProgressDisplay
-                    maxItems={2}
-                    width={Math.floor(terminalWidth * 0.25)}
-                  />
-                </Box>
-              )}
-                </Box>
-                <Box>
-                  {showAutoAcceptIndicator && (
-                    <AutoAcceptIndicator
-                      approvalMode={showAutoAcceptIndicator}
-                    />
-                  )}
-                </Box>
-              </Box>
-
-              {showErrorDetails && (
-                <OverflowProvider>
-                  <DetailedMessagesDisplay
-                    messages={filteredConsoleMessages}
-                    maxHeight={
-                      constrainHeight ? debugConsoleMaxHeight : undefined
-                    }
-                    width={inputWidth}
-                  />
-                  <ShowMoreLines constrainHeight={constrainHeight} />
-                </OverflowProvider>
-              )}
-
-              {isInputActive && (
-                <InputPrompt
-                  buffer={buffer}
-                  inputWidth={inputWidth}
-                  suggestionsWidth={suggestionsWidth}
-                  onSubmit={handleFinalSubmit}
-                  userMessages={userMessages}
-                  onClearScreen={handleClearScreen}
-                  config={config}
-                  slashCommands={slashCommands}
-                />
-              )}
-            </>
-          )}
-
-          {initError && streamingState !== StreamingState.Responding && (
-            <Box
-              borderStyle="round"
-              borderColor={Colors.Error}
-              paddingX={1}
-              marginBottom={1}
-            >
-              <Text color={Colors.Error}>
-                Initialization Error: {initError}
+          {/* Interface Mode Indicator */}
+          {interfaceMode !== InterfaceMode.CHAT && (
+            <Box borderStyle="single" borderColor={Colors.AccentBlue} paddingX={1} marginY={1}>
+              <Text color={Colors.AccentBlue} bold>
+                🚀 Modern Interface Mode: {interfaceMode.toUpperCase()}
               </Text>
-              <Text color={Colors.Error}>
-                {' '}
-                Please check API key and configuration.
+              <Text color={Colors.TextDim}>
+                {' '}• Press Ctrl+M to return to chat mode • Ctrl+V Canvas • Ctrl+A Analysis
               </Text>
             </Box>
           )}
-          <Footer
-            model="claude-3-7-sonnet"
-            targetDir={config?.targetDir || process.cwd()}
-            debugMode={config?.debug || false}
-            errorCount={errorCount}
-            showErrorDetails={showErrorDetails}
-            promptTokenCount={sessionStats.currentResponse.promptTokenCount}
-            candidatesTokenCount={
-              sessionStats.currentResponse.candidatesTokenCount
-            }
-            totalTokenCount={sessionStats.currentResponse.totalTokenCount}
-          />
+
+          {/*
+           * Main content area - conditionally wrapped with CompactInterface
+           */}
+          <Box 
+            flexDirection="column" 
+            width="100%" 
+            minHeight={0}
+          >
+            {isCompactMode ? (
+              <CompactInterface
+                terminalWidth={terminalWidth}
+                terminalHeight={terminalHeight}
+                history={history}
+                input={buffer.text}
+                isProcessing={streamingState !== StreamingState.IDLE}
+                streamingText={streamingText}
+                model={config?.ai?.model || 'claude-sonnet-4-20250514'}
+                metrics={{
+                  tokensUsed: sessionStats.currentResponse.totalTokenCount,
+                  responseTime: elapsedTime,
+                  memoryUsage: process.memoryUsage().heapUsed / 1024 / 1024
+                }}
+                context={{
+                  filesLoaded: contextFileCount,
+                  projectName: config?.targetDir?.split('/').pop() || 'vibex',
+                  gitBranch: undefined // Could be added later
+                }}
+                onSubmit={handleFinalSubmit}
+                onCancel={() => {
+                  // Handle cancel if needed
+                }}
+              />
+            ) : (
+              /* Normal mode - existing content */
+              <>
+                {isThemeDialogOpen ? (
+                  <Box flexDirection="column">
+                    {themeError && (
+                      <Box marginBottom={1}>
+                        <Text color={Colors.Error}>{themeError}</Text>
+                      </Box>
+                    )}
+                    <ThemeDialog
+                      onSelect={handleThemeSelect}
+                      onHighlight={handleThemeHighlight}
+                      settings={userSettings}
+                      availableTerminalHeight={
+                        constrainHeight
+                          ? terminalHeight - staticExtraHeight
+                          : undefined
+                      }
+                      terminalWidth={mainAreaWidth}
+                    />
+                  </Box>
+                ) : isAccessibilityDialogOpen ? (
+                  <Box flexDirection="column">
+                    {settingsError && (
+                      <Box marginBottom={1}>
+                        <Text color={Colors.Error}>{settingsError}</Text>
+                      </Box>
+                    )}
+                    <AccessibilitySettings
+                      onClose={() => setIsAccessibilityDialogOpen(false)}
+                      terminalWidth={mainAreaWidth}
+                    />
+                  </Box>
+                ) : isSettingsDialogOpen ? (
+                  <Box flexDirection="column">
+                    {settingsError && (
+                      <Box marginBottom={1}>
+                        <Text color={Colors.Error}>{settingsError}</Text>
+                      </Box>
+                    )}
+                    <SettingsDialog
+                      settings={settingDefinitions}
+                      onSave={saveSetting}
+                      onClose={() => setIsSettingsDialogOpen(false)}
+                      availableTerminalHeight={
+                        constrainHeight
+                          ? terminalHeight - staticExtraHeight
+                          : undefined
+                      }
+                      terminalWidth={mainAreaWidth}
+                    />
+                  </Box>
+                ) : (
+                  <>
+                    <LoadingIndicator
+                      thought={
+                        streamingState === StreamingState.TOOL_EXECUTING ||
+                        shouldDisableLoadingPhrases({ ...config, debug: config.debug ?? false } as AppConfigType)
+                          ? undefined
+                          : thought
+                      }
+                      currentLoadingPhrase={
+                        shouldDisableLoadingPhrases({ ...config, debug: config.debug ?? false } as AppConfigType)
+                          ? undefined
+                          : currentLoadingPhrase
+                      }
+                      elapsedTime={elapsedTime}
+                    />
+                    
+                    {/* Live Tool Execution Feedback */}
+                    {currentFeedback && (
+                      <LiveToolFeedback
+                        feedback={currentFeedback}
+                        showProgress={true}
+                        maxWidth={Math.floor(terminalWidth * 0.9)}
+                      />
+                    )}
+                    
+                    {/* Tool Execution Feed */}
+                    {feedVisible && (
+                      <ToolExecutionFeed
+                        mode={feedMode}
+                        maxItems={5}
+                        showCompleted={true}
+                        maxWidth={Math.floor(terminalWidth * 0.9)}
+                        title="Recent Tool Executions"
+                      />
+                    )}
+                    
+                    <Box
+                      display="flex"
+                      justifyContent="space-between"
+                      width="100%"
+                    >
+                      <Box>
+                        {ctrlCPressedOnce ? (
+                          <Text color={Colors.Warning}>
+                            Press Ctrl+C again to exit.
+                          </Text>
+                        ) : ctrlDPressedOnce ? (
+                          <Text color={Colors.Warning}>
+                            Press Ctrl+D again to exit.
+                          </Text>
+                        ) : (
+                          <ContextSummaryDisplay
+                            contextFileCount={contextFileCount}
+                            contextFileNames={contextFileNames}
+                            showToolDescriptions={showToolDescriptions}
+                          />
+                        )}
+                    
+                        {/* Tool statistics compact display */}
+                        {toolStats.length > 0 && streamingState === StreamingState.IDLE && (
+                          <Box marginLeft={2}>
+                            <ToolStatsDisplay 
+                              tools={toolStats}
+                              visible={true}
+                              displayMode="compact"
+                              sortBy="usage"
+                            />
+                          </Box>
+                        )}
+                    
+                        {/* Active progress indicators */}
+                        {streamingState === StreamingState.IDLE && (
+                          <Box marginLeft={2}>
+                            <ProgressDisplay
+                              maxItems={2}
+                              width={Math.floor(terminalWidth * 0.25)}
+                            />
+                          </Box>
+                        )}
+                      </Box>
+                      <Box>
+                        {autoAcceptIndicatorState.showAutoAcceptIndicator && (
+                          <AutoAcceptIndicator
+                            approvalMode={ApprovalMode.AUTO_ACCEPT}
+                          />
+                        )}
+                        <MemoryUsageDisplay />
+                      </Box>
+                    </Box>
+                    
+                    {/* Detailed tool statistics */}
+                    {toolStats.length > 0 && config?.debug && (
+                      <Box marginTop={1}>
+                        <ToolStatsDisplay 
+                          tools={toolStats}
+                          visible={true}
+                          maxTools={10}
+                          sortBy="usage"
+                          displayMode="detailed"
+                          maxWidth={mainAreaWidth}
+                        />
+                      </Box>
+                    )}
+
+                    {showErrorDetails && (
+                      <OverflowProvider>
+                        <DetailedMessagesDisplay
+                          messages={filteredConsoleMessages}
+                          maxHeight={
+                            constrainHeight ? debugConsoleMaxHeight : undefined
+                          }
+                          width={inputWidth}
+                        />
+                        <ShowMoreLines constrainHeight={constrainHeight} />
+                      </OverflowProvider>
+                    )}
+
+                    {isInputActive && (
+                      <InputPrompt
+                        buffer={buffer}
+                        inputWidth={inputWidth}
+                        suggestionsWidth={suggestionsWidth}
+                        onSubmit={(text: string) => {
+                          if (text.startsWith('/')) {
+                            const handled = handleSlashCommand(text);
+                            if (!handled) {
+                              logger.error('Unknown command:', text);
+                            }
+                          } else {
+                            handleFinalSubmit(text);
+                          }
+                        }}
+                        userMessages={userMessages}
+                        onClearScreen={handleClearScreen}
+                        config={config}
+                        slashCommands={slashCommands}
+                      />
+                    )}
+                  </>
+                )}
+              </>
+            )}
+          </Box>
         </Box>
       </Box>
     </StreamingContext.Provider>
   );
 };
+
+// Export App component for testing
+export { App };
