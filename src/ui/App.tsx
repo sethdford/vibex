@@ -842,13 +842,31 @@ const App = ({ config, initialContext, settings = {}, startupWarnings = [], upda
   
   // Combine pending items from different sources without mutation
   const allPendingHistoryItems = useMemo(() => {
-    const combined = [...pendingHistoryItems, ...pendingClaudeHistoryItems];
-    // Ensure each item has a unique key by adding source prefix if needed
+    // Only show Claude pending items if we're actively streaming
+    if (streamingState === StreamingState.IDLE) {
+      return pendingHistoryItems;
+    }
+    
+    const combined = [...pendingHistoryItems];
+    
+    // Only add Claude items if they're not duplicates
+    pendingClaudeHistoryItems.forEach(claudeItem => {
+      const isDuplicate = combined.some(item => 
+        item.id === claudeItem.id || 
+        (item.type === claudeItem.type && item.timestamp === claudeItem.timestamp)
+      );
+      
+      if (!isDuplicate) {
+        combined.push(claudeItem);
+      }
+    });
+    
+    // Ensure each item has a unique key
     return combined.map((item, index) => ({
       ...item,
       id: item.id || `combined-${index}-${Date.now()}`
     }));
-  }, [pendingHistoryItems, pendingClaudeHistoryItems]);
+  }, [pendingHistoryItems, pendingClaudeHistoryItems, streamingState]);
   
   // Loading indicator state
   const { elapsedTime, currentLoadingPhrase } = useLoadingIndicator(streamingState);

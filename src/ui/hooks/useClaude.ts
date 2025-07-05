@@ -247,23 +247,20 @@ export function useClaude(
   // Operation tracking
   const operationTracker = useOperationStatus();
   
-  // Initialize context integration
+  // FIXED: Add context loading state to prevent redundant loads
+  const contextLoadingRef = useRef<boolean>(false);
+  const lastContextLoadRef = useRef<number>(0);
+  const CONTEXT_LOAD_DEBOUNCE_MS = 2000; // 2 second debounce
+  
+  // Initialize conversation context integration
   useEffect(() => {
     const initializeContextIntegration = async () => {
+      if (!useConversationHistory || !config) {
+        return;
+      }
+      
       try {
-        // Import the required dependencies
-        const { createContextSystem } = await import('../../context/context-system.js');
-        const { ConversationHistoryManager } = await import('../../utils/conversation-history.js');
-        
-        // Create context system and conversation history manager
-        const contextSystem = createContextSystem();
-        const conversationHistoryManager = new ConversationHistoryManager();
-        
-        // Initialize context integration with required dependencies
-        const integration = new ConversationContextIntegration(
-          contextSystem,
-          conversationHistoryManager
-        );
+        const integration = new ConversationContextIntegration(config.workingDirectory || process.cwd());
         await integration.initialize();
         setContextIntegration(integration);
         
@@ -272,12 +269,11 @@ export function useClaude(
         }
       } catch (error) {
         logger.warn('Failed to initialize context integration:', error);
-        // Don't fail the hook if context integration fails
       }
     };
     
     initializeContextIntegration();
-  }, [enableDebugLogging]);
+  }, [useConversationHistory, config, enableDebugLogging]);
   
   // Auto-capture context snapshots when conversation changes
   useEffect(() => {
@@ -286,6 +282,18 @@ export function useClaude(
     }
     
     const captureContextSnapshot = async () => {
+      // FIXED: Prevent redundant context loading
+      const now = Date.now();
+      if (contextLoadingRef.current || (now - lastContextLoadRef.current) < CONTEXT_LOAD_DEBOUNCE_MS) {
+        if (enableDebugLogging) {
+          logger.debug('Skipping context snapshot - too recent or already loading');
+        }
+        return;
+      }
+      
+      contextLoadingRef.current = true;
+      lastContextLoadRef.current = now;
+      
       try {
         await contextIntegration.createContextSnapshot();
         
@@ -294,6 +302,8 @@ export function useClaude(
         }
       } catch (error) {
         logger.warn('Failed to capture context snapshot:', error);
+      } finally {
+        contextLoadingRef.current = false;
       }
     };
     

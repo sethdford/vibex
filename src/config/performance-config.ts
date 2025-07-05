@@ -798,4 +798,197 @@ export const PerformanceConfigUtils = {
   create: createPerformanceConfig,
   getDefault: getDefaultPerformanceConfig,
   validate: validatePerformanceConfig
-}; 
+};
+
+/**
+ * Performance Configuration
+ * Optimizes VibeX for better startup and runtime performance
+ */
+
+export interface PerformanceConfig {
+  // Memory optimization
+  enableLazyLoading: boolean;
+  enableAggressiveGC: boolean;
+  maxOldSpaceSize: number;
+  
+  // Module loading optimization
+  deferHeavyModules: boolean;
+  enableModuleCache: boolean;
+  
+  // UI optimization
+  enableVirtualScrolling: boolean;
+  reduceAnimations: boolean;
+  
+  // Context optimization
+  enableContextCaching: boolean;
+  maxContextSize: number;
+  
+  // Network optimization
+  enableRequestBatching: boolean;
+  requestTimeout: number;
+  
+  // ENHANCED: More aggressive memory settings
+  enableMemoryCompression: boolean;
+  enableStringDeduplication: boolean;
+  maxHeapSize: number;
+  enableWeakReferences: boolean;
+  gcInterval: number;
+  enableObjectPooling: boolean;
+}
+
+export const defaultPerformanceConfig: PerformanceConfig = {
+  // Memory optimization
+  enableLazyLoading: true,
+  enableAggressiveGC: true,
+  maxOldSpaceSize: 50, // Target 50MB
+  
+  // Module loading optimization
+  deferHeavyModules: true,
+  enableModuleCache: true,
+  
+  // UI optimization
+  enableVirtualScrolling: true,
+  reduceAnimations: true,
+  
+  // Context optimization
+  enableContextCaching: true,
+  maxContextSize: 100000, // 100KB max context
+  
+  // Network optimization
+  enableRequestBatching: true,
+  requestTimeout: 30000,
+  
+  // ENHANCED: Aggressive memory settings
+  enableMemoryCompression: true,
+  enableStringDeduplication: true,
+  maxHeapSize: 64, // 64MB absolute max
+  enableWeakReferences: true,
+  gcInterval: 5000, // Force GC every 5 seconds
+  enableObjectPooling: true,
+};
+
+/**
+ * Apply performance optimizations
+ */
+export function applyPerformanceOptimizations(config: PerformanceConfig = defaultPerformanceConfig): void {
+  // Set Node.js memory limits
+  if (config.maxOldSpaceSize) {
+    process.env.NODE_OPTIONS = `--max-old-space-size=${config.maxOldSpaceSize}`;
+  }
+  
+  // ENHANCED: Apply aggressive memory optimizations
+  if (config.enableAggressiveGC) {
+    // Force garbage collection more frequently
+    if (global.gc) {
+      setInterval(() => {
+        try {
+          global.gc();
+        } catch (e) {
+          // Ignore GC errors
+        }
+      }, config.gcInterval);
+    }
+    
+    // Set additional Node.js optimization flags
+    const additionalFlags = [
+      '--optimize-for-size',
+      '--memory-reducer',
+      '--no-lazy',
+      '--max-semi-space-size=2', // 2MB semi-space
+      `--max-heap-size=${config.maxHeapSize}`,
+    ];
+    
+    if (process.env.NODE_OPTIONS) {
+      process.env.NODE_OPTIONS += ' ' + additionalFlags.join(' ');
+    } else {
+      process.env.NODE_OPTIONS = additionalFlags.join(' ');
+    }
+  }
+  
+  // Enable memory compression
+  if (config.enableMemoryCompression) {
+    process.env.NODE_OPTIONS += ' --expose-gc --optimize-for-size';
+  }
+  
+  // Set process priority for better resource management
+  try {
+    if (process.platform !== 'win32') {
+      process.setpriority?.(0, 10); // Lower priority to be nice to system
+    }
+  } catch (e) {
+    // Ignore priority setting errors
+  }
+}
+
+/**
+ * Memory monitoring and cleanup
+ */
+export class MemoryManager {
+  private cleanupInterval: NodeJS.Timeout | null = null;
+  private memoryThreshold = 40 * 1024 * 1024; // 40MB threshold
+  
+  constructor(private config: PerformanceConfig = defaultPerformanceConfig) {}
+  
+  start(): void {
+    if (this.cleanupInterval) {
+      return;
+    }
+    
+    this.cleanupInterval = setInterval(() => {
+      this.performCleanup();
+    }, this.config.gcInterval);
+  }
+  
+  stop(): void {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
+  }
+  
+  private performCleanup(): void {
+    const memUsage = process.memoryUsage();
+    
+    if (memUsage.heapUsed > this.memoryThreshold) {
+      // Force garbage collection
+      if (global.gc) {
+        global.gc();
+      }
+      
+      // Clear require cache for non-essential modules
+      if (this.config.enableModuleCache) {
+        this.clearNonEssentialCache();
+      }
+    }
+  }
+  
+  private clearNonEssentialCache(): void {
+    const essentialModules = new Set([
+      'fs', 'path', 'util', 'events', 'stream',
+      'crypto', 'os', 'process'
+    ]);
+    
+    Object.keys(require.cache).forEach(key => {
+      const isEssential = essentialModules.has(key) || 
+                         key.includes('node_modules') ||
+                         key.includes('src/core') ||
+                         key.includes('src/config');
+      
+      if (!isEssential) {
+        delete require.cache[key];
+      }
+    });
+  }
+  
+  getMemoryUsage(): { used: number; total: number; percentage: number } {
+    const memUsage = process.memoryUsage();
+    const used = memUsage.heapUsed;
+    const total = memUsage.heapTotal;
+    const percentage = (used / total) * 100;
+    
+    return { used, total, percentage };
+  }
+}
+
+// Global memory manager instance
+export const memoryManager = new MemoryManager(); 
