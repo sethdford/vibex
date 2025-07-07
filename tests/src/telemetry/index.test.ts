@@ -1,34 +1,40 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Telemetry Service Tests
  * 
  * Tests for the core telemetry service in index.ts
  */
 
-import { jest } from '@jest/globals';
+import { jest } from 'vitest';
 import { TelemetryService, TelemetryEventType } from '../../../src/telemetry/index.js';
 import { EventEmitter } from 'events';
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../../../src/utils/logger.js';
 
 // Mock dependencies
-jest.mock('uuid', () => ({
-  v4: jest.fn().mockReturnValue('mock-uuid')
+vi.mock('uuid', () => ({
+  v4: vi.fn().mockReturnValue('mock-uuid')
 }));
 
-jest.mock('../../../src/utils/logger.js', () => ({
+vi.mock('../../../src/utils/logger.js', () => ({
   logger: {
-    debug: jest.fn(),
-    error: jest.fn(),
-    info: jest.fn()
+    debug: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn()
   }
 }));
 
 describe('TelemetryService', () => {
   let telemetryService: TelemetryService;
-  const clearTimeoutSpy = jest.spyOn(global, 'clearInterval');
+  const clearTimeoutSpy = vi.spyOn(global, 'clearInterval');
   
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     telemetryService = new TelemetryService({
       enabled: true,
       trackCliStart: false, // Disable CLI_START tracking for tests
@@ -54,8 +60,8 @@ describe('TelemetryService', () => {
   
   describe('trackEvent', () => {
     it('should add breadcrumb and capture message for tracked events', () => {
-      const addBreadcrumbSpy = jest.spyOn(telemetryService, 'addBreadcrumb');
-      const captureMessageSpy = jest.spyOn(telemetryService, 'captureMessage');
+      const addBreadcrumbSpy = vi.spyOn(telemetryService, 'addBreadcrumb');
+      const captureMessageSpy = vi.spyOn(telemetryService, 'captureMessage');
       
       telemetryService.trackEvent(TelemetryEventType.COMMAND_EXECUTE, { command: 'test' });
       
@@ -69,7 +75,7 @@ describe('TelemetryService', () => {
     
     it('should not track events when telemetry is disabled', () => {
       const disabledService = new TelemetryService({ enabled: false });
-      const addBreadcrumbSpy = jest.spyOn(disabledService, 'addBreadcrumb');
+      const addBreadcrumbSpy = vi.spyOn(disabledService, 'addBreadcrumb');
       
       disabledService.trackEvent(TelemetryEventType.COMMAND_EXECUTE, { command: 'test' });
       
@@ -79,7 +85,7 @@ describe('TelemetryService', () => {
   
   describe('trackCommand', () => {
     it('should track command execution with sanitized args', () => {
-      const trackEventSpy = jest.spyOn(telemetryService, 'trackEvent');
+      const trackEventSpy = vi.spyOn(telemetryService, 'trackEvent');
       
       telemetryService.trackCommand(
         'test-command', 
@@ -113,7 +119,7 @@ describe('TelemetryService', () => {
   
   describe('trackError', () => {
     it('should capture exception with context', () => {
-      const captureExceptionSpy = jest.spyOn(telemetryService, 'captureException');
+      const captureExceptionSpy = vi.spyOn(telemetryService, 'captureException');
       const error = new Error('Test error');
       
       telemetryService.trackError(error, { tags: { source: 'test' } });
@@ -143,7 +149,7 @@ describe('TelemetryService', () => {
     });
     
     it('should emit message:captured event', () => {
-      const emitSpy = jest.spyOn(telemetryService, 'emit');
+      const emitSpy = vi.spyOn(telemetryService, 'emit');
       telemetryService.captureMessage('Test message');
       
       expect(emitSpy).toHaveBeenCalledWith('message:captured', expect.anything());
@@ -253,7 +259,7 @@ describe('TelemetryService', () => {
     });
     
     it('should emit flush:success event', async () => {
-      const emitSpy = jest.spyOn(telemetryService, 'emit');
+      const emitSpy = vi.spyOn(telemetryService, 'emit');
       telemetryService.captureMessage('Test message');
       
       await telemetryService.flush();
@@ -263,8 +269,8 @@ describe('TelemetryService', () => {
   
   describe('cleanup', () => {
     it('should clear data and remove listeners', () => {
-      const clearDataSpy = jest.spyOn(telemetryService, 'clearData');
-      const removeAllListenersSpy = jest.spyOn(telemetryService, 'removeAllListeners');
+      const clearDataSpy = vi.spyOn(telemetryService, 'clearData');
+      const removeAllListenersSpy = vi.spyOn(telemetryService, 'removeAllListeners');
       
       telemetryService.captureMessage('Test message');
       telemetryService.trackMetric('test.metric', 10);
@@ -356,7 +362,7 @@ describe('TelemetryService', () => {
       expect(session?.id).toBe(sessionId);
       expect(session?.status).toBe('active');
       
-      const emitSpy = jest.spyOn(telemetryService, 'emit');
+      const emitSpy = vi.spyOn(telemetryService, 'emit');
       telemetryService.endSession(sessionId, 'completed');
       
       expect(emitSpy).toHaveBeenCalledWith('session:ended', expect.objectContaining({

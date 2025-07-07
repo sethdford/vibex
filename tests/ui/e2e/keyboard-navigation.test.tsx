@@ -1,4 +1,10 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Keyboard Navigation E2E Tests
  * 
  * Tests keyboard navigation across the entire UI to ensure proper focus management
@@ -12,10 +18,11 @@ import { ThemeProvider } from '../../contexts/ThemeContext.js';
 import { SessionStatsProvider } from '../../contexts/SessionContext.js';
 import { ProgressProvider } from '../../contexts/ProgressContext.js';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts.js';
+import { describe, it, test, expect, beforeEach, afterEach, beforeAll, afterAll, vi } from 'vitest';
 
 // Mock required hooks and modules
-jest.mock('../../hooks/useSettings', () => ({
-  useSettings: jest.fn().mockReturnValue({
+vi.mock('../../hooks/useSettings', () => ({
+  useSettings: vi.fn().mockReturnValue({
     settings: {
       terminal: {
         theme: 'dark'
@@ -25,30 +32,30 @@ jest.mock('../../hooks/useSettings', () => ({
       }
     },
     settingDefinitions: [],
-    saveSetting: jest.fn(),
+    saveSetting: vi.fn(),
     error: null
   })
 }));
 
-jest.mock('../../hooks/useTerminalSize', () => ({
-  useTerminalSize: jest.fn().mockReturnValue({ rows: 30, columns: 100 })
+vi.mock('../../hooks/useTerminalSize', () => ({
+  useTerminalSize: vi.fn().mockReturnValue({ rows: 30, columns: 100 })
 }));
 
 // Track registered keyboard shortcuts
 const registeredShortcuts: any[] = [];
 
-jest.mock('../../hooks/useKeyboardShortcuts', () => {
+vi.mock('../../hooks/useKeyboardShortcuts', () => {
   const original = jest.requireActual('../../hooks/useKeyboardShortcuts');
   
   return {
     ...original,
-    useKeyboardShortcuts: jest.fn().mockImplementation(({ shortcuts, isActive }) => {
+    useKeyboardShortcuts: vi.fn().mockImplementation(({ shortcuts, isActive }) => {
       // Store shortcuts for testing
       registeredShortcuts.push(...shortcuts);
       
       return {
-        registerShortcut: jest.fn(),
-        triggerShortcut: jest.fn(),
+        registerShortcut: vi.fn(),
+        triggerShortcut: vi.fn(),
         isActive
       };
     })
@@ -57,13 +64,13 @@ jest.mock('../../hooks/useKeyboardShortcuts', () => {
 
 describe('Keyboard Navigation Tests', () => {
   beforeEach(() => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     registeredShortcuts.length = 0; // Clear shortcuts between tests
   });
   
   afterEach(() => {
-    jest.clearAllMocks();
-    jest.useRealTimers();
+    vi.clearAllMocks();
+    vi.useRealTimers();
   });
   
   it('registers essential keyboard shortcuts', () => {
@@ -138,7 +145,7 @@ describe('Keyboard Navigation Tests', () => {
     
     // Wait for UI to update
     // act(() => {
-    //   jest.advanceTimersByTime(100);
+    //   vi.advanceTimersByTime(100);
     // });
     
     // Help content should be visible
@@ -154,7 +161,7 @@ describe('Keyboard Navigation Tests', () => {
     
     // Wait for UI to update
     // act(() => {
-    //   jest.advanceTimersByTime(100);
+    //   vi.advanceTimersByTime(100);
     // });
   });
   
@@ -189,7 +196,7 @@ describe('Keyboard Navigation Tests', () => {
     
     // Wait for UI to update
     // act(() => {
-    //   jest.advanceTimersByTime(100);
+    //   vi.advanceTimersByTime(100);
     // });
     
     // Settings dialog should be visible
@@ -227,7 +234,7 @@ describe('Keyboard Navigation Tests', () => {
     
     // Wait for UI to update
     // act(() => {
-    //   jest.advanceTimersByTime(100);
+    //   vi.advanceTimersByTime(100);
     // });
     
     // Accessibility settings dialog should be visible

@@ -1,448 +1,165 @@
 #!/usr/bin/env node
 
 /**
- * Vibex CLI - AI-Powered Development Assistant
+ * VibeX CLI - AI-powered development workflow orchestration
  * 
- * A high-performance CLI tool that outperforms Google's Gemini CLI
- * with faster startup, better UX, and superior AI capabilities.
+ * A sophisticated terminal UI built with Ink and React, similar to Gemini CLI.
+ * Provides streaming AI responses, tool execution, and rich terminal interactions.
  */
 
 import { Command } from 'commander';
 import { version } from './version.js';
-import type { ContentBlock } from './index.js';
-import {
-  ContextSystem,
-  createContextSystem
-} from './context/index.js';
+import { logger } from './utils/logger.js';
+import { initializeCli, runChatSession } from './cli-integration.js';
 
 interface CLIOptions {
-  initialContext?: string;
-  fullContext?: boolean;
+  prompt?: string;
   model?: string;
   temperature?: string;
   verbose?: boolean;
   debug?: boolean;
+  config?: string;
+  fullContext?: boolean;
+  apiKey?: string;
+  chat?: boolean;
 }
-
-interface CodeAnalysisOptions {
-  language?: string;
-}
-
-// Performance tracking
-const startTime = Date.now();
-
-// Lazy-loaded modules cache
-const lazyModules = {
-  logger: null as any,
-  config: null as any,
-  ai: null as any,
-  ui: null as any,
-  tools: null as any,
-  commands: null as any,
-  context: null as any
-};
 
 /**
- * Lazy load logger only when needed
+ * Start the full UI like Gemini CLI does
  */
-async function getLogger() {
-  if (!lazyModules.logger) {
-    const { logger } = await import('./utils/logger.js');
-    lazyModules.logger = logger;
+async function startUI(options: CLIOptions) {
+  try {
+    // Load configuration
+    const { loadConfig } = await import('./config/index.js');
+    const config = await loadConfig();
+    
+    // Apply CLI options to config
+    if (options.model) {
+      config.ai = { ...config.ai, model: options.model };
+    }
+    if (options.debug) {
+      config.debug = true;
+    }
+    if (options.fullContext) {
+      config.fullContext = true;
+    }
+    
+    // Start the UI like Gemini CLI
+    const { startUI: startVibeXUI } = await import('./ui/main.js');
+    await startVibeXUI({
+      config,
+      initialContext: options.prompt,
+      startupWarnings: [],
+      updateMessage: null,
+      onExit: () => process.exit(0)
+    });
+    
+  } catch (error) {
+    logger.error('Failed to start VibeX UI:', error);
+    console.error('Error starting VibeX:', error instanceof Error ? error.message : String(error));
+    process.exit(1);
   }
-  return lazyModules.logger;
 }
 
 /**
- * Main CLI application
+ * Main CLI program setup
+ */
+function setupCLI() {
+  const program = new Command();
+  
+  program
+    .name('vibex')
+    .description('VibeX - AI-powered development workflow orchestration')
+    .version(version);
+  
+  // Main command - start interactive UI
+  program
+    .option('-p, --prompt <text>', 'Initial prompt to send to AI')
+    .option('-m, --model <model>', 'AI model to use')
+    .option('-t, --temperature <temp>', 'Model temperature (0.0-1.0)')
+    .option('-v, --verbose', 'Enable verbose logging')
+    .option('-d, --debug', 'Enable debug mode')
+    .option('-c, --config <path>', 'Path to config file')
+    .option('--full-context', 'Load full project context automatically')
+    .option('-k, --api-key <key>', 'API key for Claude')
+    .option('--chat', 'Start in simple chat mode without UI')
+    .action(async (options: CLIOptions) => {
+      if (options.chat) {
+        await startChatMode(options);
+      } else {
+        await startUI(options);
+      }
+    });
+  
+  // Version command
+  program
+    .command('version')
+    .description('Show version information')
+    .action(() => {
+      console.log(`VibeX v${version}`);
+    });
+    
+  // Chat command
+  program
+    .command('chat')
+    .description('Start a simple chat session with Claude')
+    .option('-k, --api-key <key>', 'API key for Claude')
+    .option('-m, --model <model>', 'AI model to use')
+    .action(async (options) => {
+      await startChatMode(options);
+    });
+  
+  return program;
+}
+
+/**
+ * Start a simple chat session without the full UI
+ */
+async function startChatMode(options: CLIOptions) {
+  try {
+    // Get API key from environment or options
+    const apiKey = options.apiKey || process.env.CLAUDE_API_KEY;
+    if (!apiKey) {
+      console.error('Error: API key is required. Provide it with --api-key or set CLAUDE_API_KEY environment variable.');
+      process.exit(1);
+    }
+    
+    // Initialize clean architecture components
+    const adapter = await initializeCli({
+      apiKey,
+      defaultModel: options.model,
+      temperature: options.temperature ? parseFloat(options.temperature) : undefined
+    });
+    
+    // Run the chat session
+    await runChatSession(adapter);
+    
+  } catch (error) {
+    logger.error('Failed to start chat mode:', error);
+    console.error('Error starting chat:', error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  }
+}
+
+/**
+ * Main entry point
  */
 async function main() {
   try {
-    // Create commander instance immediately
-    const program = new Command();
-    
-    program
-      .name('vibex')
-      .description('VibeX - AI-powered CLI for development workflows')
-      .version(version);
-    
-    // Add global options
-    program
-      .option('-v, --verbose', 'Enable verbose logging')
-      .option('-d, --debug', 'Enable debug mode with detailed logging')
-      .option('--full-context', 'Enable full context mode for complete project analysis');
-    
-    // Parse command line arguments early
-    const args = process.argv;
-    
-    // Handle help and version BEFORE any heavy loading
-    if (args.includes('--help') || args.includes('-h')) {
-      program.outputHelp();
-      return;
-    }
-    
-    if (args.includes('--version') || args.includes('-V')) {
-      console.log(version);
-      return;
-    }
-    
-    // Add commands but don't register heavy systems yet
-    program
-      .command('chat [context...]')
-      .description('Start interactive chat mode with AI assistant')
-      .option('-m, --model <model>', 'Specify AI model to use')
-      .option('-t, --temperature <temp>', 'Set AI temperature (0-1)')
-      .option('--full-context', 'Enable full context mode for complete project analysis')
-      .action(async (context, options) => {
-        await initializeHeavySystems();
-        const initialContext = context ? context.join(' ') : '';
-        await startInteractiveMode({ ...options, initialContext });
-      });
-    
-    program
-      .command('analyze <file>')
-      .description('Analyze code file and provide insights')
-      .option('-l, --language <lang>', 'Specify programming language')
-      .action(async (file, options) => {
-        await initializeHeavySystems();
-        await analyzeCode(file, options);
-      });
-    
-    program
-      .command('explain <file>')
-      .description('Explain what the code does')
-      .action(async (file, options) => {
-        await initializeHeavySystems();
-        await explainCode(file, options);
-      });
-    
-    program
-      .command('review <file>')
-      .description('Review code and suggest improvements')
-      .action(async (file, options) => {
-        await initializeHeavySystems();
-        await reviewCode(file, options);
-      });
-    
-    // If no arguments provided, start interactive mode
-    if (args.length === 2) {
-      await initializeHeavySystems();
-      await startInteractiveMode({});
-      return;
-    }
-    
-    // Check if the input is a recognized command
-    const inputArgs = args.slice(2);
-    const knownCommands = ['chat', 'analyze', 'explain', 'review'];
-    const firstArg = inputArgs[0];
-    
-    // If the first argument is not a known command and not a flag,
-    // treat the entire input as chat context
-    if (firstArg && !knownCommands.includes(firstArg) && !firstArg.startsWith('-')) {
-      await initializeHeavySystems();
-      const initialContext = inputArgs.join(' ');
-      await startInteractiveMode({ initialContext });
-      return;
-    }
-    
-    // Parse and execute commands
-    await program.parseAsync(args);
-    
-    // Log performance only if we loaded the logger
-    if (lazyModules.logger) {
-      const duration = Date.now() - startTime;
-      lazyModules.logger.info(`CLI completed in ${duration}ms`);
-    }
-    
+    const program = setupCLI();
+    await program.parseAsync(process.argv);
   } catch (error) {
-    const { formatErrorForDisplay } = await import('./errors/formatter.js');
-    const logger = await getLogger();
-    logger.error('CLI Error:', formatErrorForDisplay(error));
+    logger.error('CLI error:', error);
+    console.error('Error:', error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 }
 
-/**
- * Initialize heavy systems that are not needed for simple commands
- * This is only called when actually needed, reducing startup memory usage
- */
-async function initializeHeavySystems() {
-  const logger = await getLogger();
-  
-  // Load tools system only when needed
-  if (!lazyModules.tools) {
-    const { registerBuiltInTools } = await import('./tools/index.js');
-    lazyModules.tools = { registerBuiltInTools };
-    registerBuiltInTools();
-    logger.info('Registered built-in tools');
-  }
-  
-  // Load commands system only when needed  
-  if (!lazyModules.commands) {
-    const { registerCommands } = await import('./commands/register.js');
-    lazyModules.commands = { registerCommands };
-    registerCommands();
-    logger.info('Commands registered');
-  }
-  
-  // Note: Context system is loaded on-demand in startInteractiveMode
-  // to avoid loading heavy subdirectory discovery during simple operations
-}
-
-/**
- * Start interactive chat mode
- */
-async function startInteractiveMode(options: CLIOptions) {
-  const { initialContext } = options;
-  
-  // Check if we're in a proper terminal environment
-  if (!process.stdin.isTTY || !process.stdout.isTTY) {
-    console.log('🤖 Starting simple chat mode...');
-    await startSimpleChat(options);
-    return;
-  }
-  
-  // Lazy load configuration
-  if (!lazyModules.config) {
-    const { loadConfig } = await import('./config/index.js');
-    lazyModules.config = await loadConfig();
-  }
-  const config = lazyModules.config;
-  
-  // Apply CLI options to configuration
-  if (options.fullContext !== undefined) {
-    config.fullContext = options.fullContext;
-  }
-  if (options.model) {
-    config.ai = { ...config.ai, model: options.model };
-  }
-  if (options.debug !== undefined) {
-    config.debug = options.debug;
-  }
-  
-  // Lazy load AI client
-  if (!lazyModules.ai) {
-    console.log('🤖 Initializing AI client...');
-    try {
-      const { initAI } = await import('./ai/index.js');
-      await initAI(config);
-      lazyModules.ai = true;
-      console.log('✅ AI client initialized successfully');
-    } catch (error) {
-      const logger = await getLogger();
-      logger.error('Failed to initialize AI client:', error);
-      process.exit(1);
-    }
-  }
-  
-  // Lazy load UI system
-  if (!lazyModules.ui) {
-    const { startUI } = await import('./ui/index.js');
-    lazyModules.ui = { startUI };
-  }
-  
-  // Load minimal default configuration instead of full defaults
-  const minimalDefaults = {
-    version: '0.2.29',
-    debug: config.debug || false,
-    fullContext: config.fullContext || false,
-    ai: config.ai,
-    terminal: {
-      theme: 'system' as const,
-      useColors: true,
-      showProgressIndicators: true,
-      codeHighlighting: true
-    }
-  };
-  
-  // Start UI with minimal configuration and initial context
-  await lazyModules.ui.startUI({
-    config: minimalDefaults,
-    initialContext,
-    startupWarnings: [],
-    updateMessage: null,
-    onExit: () => {
-      console.log('\n👋 Thanks for using VibeX!');
-      process.exit(0);
-    }
+// Only run if this file is executed directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main().catch((error) => {
+    logger.error('Unhandled error:', error);
+    console.error('Fatal error:', error);
+    process.exit(1);
   });
 }
-
-/**
- * Simple chat mode without complex UI
- */
-async function startSimpleChat(options: CLIOptions) {
-  const { loadConfig } = await import('./config/index.js');
-  const { initAI } = await import('./ai/index.js');
-  const { formatErrorForDisplay } = await import('./errors/formatter.js');
-  
-  console.log('🚀 VibeX AI Chat - Simple Mode');
-  console.log('================================');
-  
-  try {
-    // Load configuration and initialize AI
-    const config = await loadConfig();
-    console.log('🤖 Initializing AI client...');
-    const aiClient = await initAI(config);
-    console.log('✅ AI client initialized successfully');
-    
-    // Use the provided initial context or default prompt
-    const prompt = options.initialContext || "Hello! How can I help you today?";
-    
-    if (options.initialContext) {
-      console.log('\n🤖 Processing your request...\n');
-    } else {
-      console.log('Ask me anything! Type "exit" to quit.\n');
-      console.log(`> ${prompt}`);
-    }
-    
-    console.log('\n🤖 Claude:');
-    
-    const result = await aiClient.query(prompt);
-    const responseText = Array.isArray(result.message.content)
-      ? result.message.content
-          .filter((block: ContentBlock) => block.type === 'text')
-          .map((block: ContentBlock) => block.text)
-          .join('\n')
-      : result.message.content;
-    
-    console.log(responseText);
-    
-    if (options.initialContext) {
-      console.log('\n✅ Request completed successfully!');
-    } else {
-      console.log('\n✅ Chat test completed successfully!');
-    }
-    
-  } catch (error) {
-    const { logger } = await import('./utils/logger.js');
-    logger.error('Chat failed:', formatErrorForDisplay(error));
-    process.exit(1);
-  }
-}
-
-/**
- * Analyze code file
- */
-async function analyzeCode(file: string, options: CodeAnalysisOptions) {
-  const { logger } = await import('./utils/logger.js');
-  const { fileExists, readTextFile } = await import('./fs/operations.js');
-  
-  try {
-    if (!await fileExists(file)) {
-      logger.error(`File not found: ${file}`);
-      process.exit(1);
-    }
-    
-    const content = await readTextFile(file);
-    const language = getLanguageFromFile(file);
-    
-    // Launch UI with analyze context pre-loaded
-    const initialContext = `Analyze this ${language} code file (${file}):\n\n\`\`\`${language}\n${content}\n\`\`\``;
-    
-    await startInteractiveMode({ initialContext });
-    
-  } catch (error) {
-    const { formatErrorForDisplay } = await import('./errors/formatter.js');
-    logger.error('Analysis failed:', formatErrorForDisplay(error));
-    process.exit(1);
-  }
-}
-
-/**
- * Explain code file
- */
-async function explainCode(file: string, options: CodeAnalysisOptions) {
-  const { logger } = await import('./utils/logger.js');
-  const { fileExists, readTextFile } = await import('./fs/operations.js');
-  
-  try {
-    if (!await fileExists(file)) {
-      logger.error(`File not found: ${file}`);
-      process.exit(1);
-    }
-    
-    const content = await readTextFile(file);
-    const language = getLanguageFromFile(file);
-    
-    // Launch UI with explain context pre-loaded
-    const initialContext = `Explain what this ${language} code does (${file}):\n\n\`\`\`${language}\n${content}\n\`\`\``;
-    
-    await startInteractiveMode({ initialContext });
-    
-  } catch (error) {
-    const { formatErrorForDisplay } = await import('./errors/formatter.js');
-    logger.error('Explanation failed:', formatErrorForDisplay(error));
-    process.exit(1);
-  }
-}
-
-/**
- * Review code file
- */
-async function reviewCode(file: string, options: CodeAnalysisOptions) {
-  const { logger } = await import('./utils/logger.js');
-  const { fileExists, readTextFile } = await import('./fs/operations.js');
-  
-  try {
-    if (!await fileExists(file)) {
-      logger.error(`File not found: ${file}`);
-      process.exit(1);
-    }
-    
-    const content = await readTextFile(file);
-    const language = getLanguageFromFile(file);
-    
-    // Launch UI with review context pre-loaded
-    const initialContext = `Review this ${language} code and suggest improvements (${file}):\n\n\`\`\`${language}\n${content}\n\`\`\``;
-    
-    await startInteractiveMode({ initialContext });
-    
-  } catch (error) {
-    const { formatErrorForDisplay } = await import('./errors/formatter.js');
-    logger.error('Review failed:', formatErrorForDisplay(error));
-    process.exit(1);
-  }
-}
-
-/**
- * Get programming language from file extension
- */
-function getLanguageFromFile(filename: string): string {
-  const ext = filename.split('.').pop()?.toLowerCase();
-  
-  const languageMap: Record<string, string> = {
-    js: 'javascript',
-    ts: 'typescript',
-    jsx: 'javascript',
-    tsx: 'typescript',
-    py: 'python',
-    rb: 'ruby',
-    java: 'java',
-    c: 'c',
-    cpp: 'cpp',
-    cs: 'csharp',
-    go: 'go',
-    rs: 'rust',
-    php: 'php',
-    swift: 'swift',
-    kt: 'kotlin',
-    sh: 'bash',
-    html: 'html',
-    css: 'css',
-    json: 'json',
-    yml: 'yaml',
-    yaml: 'yaml',
-    md: 'markdown'
-  };
-  
-  return languageMap[ext || ''] || 'text';
-}
-
-// Run the CLI
-main().catch(async error => {
-  const { formatErrorForDisplay } = await import('./errors/formatter.js');
-  const { logger } = await import('./utils/logger.js');
-  logger.error('Fatal error:', formatErrorForDisplay(error));
-  process.exit(1);
-});

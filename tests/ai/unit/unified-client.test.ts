@@ -1,15 +1,21 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Unified Claude Client Tests
  * 
  * Tests for the UnifiedClaudeClient class, focusing on API interaction and retry mechanisms
  */
 
-import { expect, jest, test, describe, beforeEach } from '@jest/globals';
+import { expect, jest, test, describe, beforeEach } from 'vitest';
 import { UnifiedClaudeClient, createUnifiedClient } from '../../src/ai/unified-client.js';
 import { EventEmitter } from 'events';
 
 // Mock the Anthropic client
-const mockCreateFn = jest.fn();
+const mockCreateFn = vi.fn();
 const mockClient = {
   messages: {
     create: mockCreateFn
@@ -17,9 +23,9 @@ const mockClient = {
 };
 
 // Mock the retry module
-jest.mock('../../src/utils/retry.js', () => {
+vi.mock('../../src/utils/retry.js', () => {
   return {
-    retry: jest.fn().mockImplementation(async (fn) => fn()),
+    retry: vi.fn().mockImplementation(async (fn) => fn()),
   };
 });
 
@@ -31,7 +37,7 @@ describe('UnifiedClaudeClient', () => {
   let mockConfig: any;
   
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Setup mock config
     mockConfig = {
@@ -97,9 +103,9 @@ describe('UnifiedClaudeClient', () => {
       ];
       
       // Set up event listeners
-      const onStart = jest.fn();
-      const onText = jest.fn();
-      const onEnd = jest.fn();
+      const onStart = vi.fn();
+      const onText = vi.fn();
+      const onEnd = vi.fn();
       
       client.on('start', onStart);
       client.on('content', onText);
@@ -144,7 +150,7 @@ describe('UnifiedClaudeClient', () => {
       ];
       
       // Set up event listeners
-      const onRetry = jest.fn();
+      const onRetry = vi.fn();
       client.on('retry', onRetry);
       
       // Should throw on first attempt
@@ -168,7 +174,7 @@ describe('UnifiedClaudeClient', () => {
       });
       
       // Set up event listeners
-      const onError = jest.fn();
+      const onError = vi.fn();
       client.on('error', onError);
       
       // Call should throw

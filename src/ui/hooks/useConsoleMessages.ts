@@ -41,4 +41,4 @@ export function useConsoleMessages() {
     handleNewMessage,
     clearConsoleMessages,
   };
-}
+} 

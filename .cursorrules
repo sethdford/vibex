@@ -1,109 +1,199 @@
-# VibeX Cursor Rules - Architectural Enforcement
+# VibeX CLI - Architectural Standards (Based on Gemini CLI)
 
-## CRITICAL: Testing Framework Rules
-- **NEVER use vitest imports** - We use Jest exclusively
-- **ALWAYS import from Jest**: `import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globals'`
-- **NEVER import from 'vitest'** - This causes build failures
-- **Test file imports MUST use .ts/.tsx extensions** - Never import from .js files that don't exist
-- **Jest mocks MUST be properly typed** - Use `jest.Mock<ReturnType, Args[]>` format
+## 🏗️ CORE ARCHITECTURAL PRINCIPLES
 
-## Import Path Rules - ESM TypeScript Pattern
-- **Source files**: Use .js extensions in imports (ESM TypeScript pattern)
-- **Built files**: Reference .js files from dist/ directory
-- **Test files**: Import from TypeScript source files (.ts/.tsx) using actual extensions
-- **Demos**: Use `npx tsx` to run TypeScript directly with .tsx extensions
-- **UNDERSTANDING**: VibeX uses ESM TypeScript pattern where source files are .ts/.tsx but imports use .js extensions for the compiled output
+### Single Responsibility Principle
+- Each file/component has ONE clear purpose
+- Components MUST be under 200 lines
+- Hooks MUST be under 100 lines and single-purpose
+- Services handle one specific domain
 
-## TypeScript Configuration
-- **Source code**: Must compile with zero TypeScript errors
-- **Tests**: Excluded from main TypeScript compilation (tsconfig.json excludes tests/**/*) to prevent blocking builds
-- **Build process**: Must complete under 50ms for startup performance
+### Comprehensive Testing
+- EVERY module MUST have corresponding .test.ts/.test.tsx file
+- Test coverage MUST be >90%
+- Integration tests for complex flows (.integration.test.ts)
+- Snapshot tests for UI components (__snapshots__)
+- NO EXCEPTIONS TO TESTING REQUIREMENTS
 
-## Architecture Enforcement
-- **Performance First**: <50ms startup, <40MB runtime, <5MB bundle
-- **Type Safety**: Zero `any` types, no `@ts-ignore` suppressions
-- **Modular Design**: Files <300 lines, functions <30 lines
-- **Error Handling**: Custom UserError with category/resolution/details
-- **No Console Pollution**: Use structured logger, never console.log
+### Logical Organization
+- Clear package structure with proper separation
+- Follow Gemini CLI directory patterns exactly
+- Business logic in services, NOT in components/hooks
+- UI components focus only on presentation
 
-## Testing Standards
-- **Framework**: Jest only (configured in jest.config.js)
-- **Environment**: jsdom for React components
-- **Coverage**: Minimum 10% global, aiming for 90%+
-- **Mock Strategy**: Proper Jest mocks with explicit typing
-- **Test Structure**: Describe/test blocks with clear naming
+## 📁 FILE AND PACKAGE NAMING STANDARDS
 
-## File Organization
-- **Source**: `src/**/*.ts` and `src/**/*.tsx`
-- **Tests**: `tests/**/*.test.ts` and `tests/**/*.test.tsx` (excluded from main compilation)
-- **Built**: `dist/**/*.js` (generated, never edit)
-- **Demos**: Use tsx to run TypeScript directly
+### File Naming
+- Components: PascalCase (InputPrompt.tsx, ThemeDialog.tsx)
+- Services: camelCase (contextService.ts, gitService.ts)
+- Utilities: kebab-case (file-utils.ts, error-handling.ts)
+- Hooks: camelCase starting with 'use' (useAppState.ts)
+- Types: kebab-case (app-types.ts, tool-types.ts)
 
-## Quality Gates
-- **Pre-commit**: `npm run typecheck && npm run lint && npm run build`
-- **TypeScript**: Zero errors in src/ directory
-- **Linting**: Address critical errors, defer style issues
-- **Build**: Must succeed and produce working CLI
+### Package Naming
+- Packages: lowercase with hyphens (code-assist, file-discovery)
+- Directories: camelCase for features, lowercase for packages
+- Core packages: core, tools, utils, services
+- UI packages: components, hooks, types
 
-## Current Status - Quality Metrics
-- ✅ **TypeScript Errors**: 0 (down from 187)
-- ✅ **Vitest Imports**: 0 (down from 3)
-- ⚠️  **Large Files**: 118 files over 300 lines
-- ⚠️  **Console Pollution**: 182 console statements
-- ⚠️  **Import Pattern**: 202 files using ESM .js pattern (architectural decision needed)
-
-## Import Patterns to USE
-```typescript
-// ✅ CURRENT ESM PATTERN - TypeScript with .js imports
-import { Component } from './Component.js';
-import { utils } from './utils.js';
-
-// ✅ TEST PATTERN - Import from actual TypeScript files
-import { Component } from './Component.tsx';
-import { utils } from './utils.ts';
-
-// ✅ DEMO PATTERN - Import from TypeScript source
-import ComprehensiveDemo from './src/ui/demos/ComprehensiveDemo.tsx';
+### Directory Structure
+```
+src/
+├── core/                 # Core business logic
+├── services/            # Business services
+│   ├── core/           # Core services
+│   ├── tools/          # Tool services
+│   └── utils/          # Utility services
+├── ui/
+│   ├── components/     # UI components
+│   │   ├── messages/   # Message components
+│   │   ├── shared/     # Shared components
+│   │   └── dialogs/    # Dialog components
+│   ├── hooks/          # UI hooks
+│   └── types/          # UI types
+├── tools/              # Tool implementations
+└── utils/              # Utility functions
 ```
 
-## Emergency Recovery Process
-1. **TypeScript errors**: Exclude problematic directories from tsconfig.json
-2. **Test failures**: Verify Jest configuration and import paths
-3. **Build failures**: Check for mixed .js/.ts import issues
-4. **Performance issues**: Profile startup time and memory usage
+## 🎯 COMPONENT ARCHITECTURE RULES
 
-## Memory Creation Rules
-- **Document architectural decisions** immediately when made
-- **Record import patterns** and file organization rules
-- **Track performance benchmarks** and quality gates
-- **Note testing framework choices** and configuration
-- **Remember critical debugging steps** for future issues
+### Component Requirements
+- Components MUST be under 200 lines
+- Business logic MUST be in services, not components
+- Props interfaces named ComponentNameProps
+- Every component needs .test.tsx file
+- No complex state logic in components - use focused hooks
+- Components organized in logical subdirectories
 
-## Never Repeat These Mistakes
-1. **Mixing testing frameworks** (vitest vs Jest)
-2. **Including broken tests** in TypeScript compilation
-3. **Untyped Jest mocks** causing compilation errors
-4. **Ignoring quality gates** that prevent issues
+### Hook Requirements
+- Hooks MUST be single-purpose and under 100 lines
+- No business logic in hooks - delegate to services
+- Every hook needs .test.ts file
+- Hook composition over complex hooks
+- Clear, descriptive names starting with 'use'
 
-## Success Metrics - Current Achievement
-- **Zero TypeScript errors** in src/ directory
-- **Sub-50ms build times** maintained
-- **Working CLI commands** at all times
-- **Functional demo scripts** with proper imports
-- **Clean test separation** from main compilation
+### Service Layer Requirements
+- ALL business logic MUST be in services
+- Services organized by domain responsibility
+- Each service has single responsibility
+- Services export clean interfaces with typed methods
+- Every service needs .test.ts file
+- Services handle errors internally with proper logging
+- No direct UI dependencies in services
 
-## Critical Naming Rules
+## 🔧 TOOL SYSTEM ARCHITECTURE
 
-### BANNED WORDS in Class/File/Function Names
-- **"unified"** - Meaningless marketing term. Use specific action verbs instead:
-  - ❌ UnifiedContextSystem → ✅ ContextSystem or MergedContextSystem
-  - ❌ unified-ai-client.ts → ✅ ai-client.ts
-  - ❌ UnifiedClaudeClient → ✅ ClaudeClient
-- **"simple"** - Adds no technical value. Use descriptive names:
-  - ❌ SimpleMemoryManager → ✅ MemoryManager
-  - ❌ simple-auth.ts → ✅ auth.ts
+### Tool Requirements
+- Modular, focused, composable tools
+- Each tool has single responsibility
+- Tool registry for centralized management
+- Standardized tool interfaces
+- Comprehensive testing for all tools
+- Error handling with proper logging
 
-### Naming Convention Enforcement
-- Use specific, descriptive names that indicate actual functionality
-- If combining multiple systems, use action verbs: Merged, Aggregated, Consolidated
-- Avoid generic adjectives that provide no information 
+### Tool Organization
+- Tools organized by functionality
+- Clear tool registration system
+- Tool scheduling and lifecycle management
+- Proper tool result handling
+
+## 🚨 ERROR HANDLING STANDARDS
+
+### Error Management
+- Robust error management throughout
+- Services handle errors internally
+- Proper error logging with context
+- User-friendly error messages
+- Error boundaries for UI components
+- Retry mechanisms where appropriate
+
+### Logging Standards
+- Structured logging with proper levels
+- Context-aware error messages
+- Performance logging for optimization
+- Debug information in development
+
+## ⚡ PERFORMANCE REQUIREMENTS
+
+### React Performance
+- Efficient patterns that avoid common React pitfalls
+- Proper memoization where needed
+- Avoid unnecessary re-renders
+- Optimize component composition
+- Lazy loading for large components
+
+### General Performance
+- Efficient data structures
+- Proper async/await usage
+- Memory management best practices
+- Optimized file operations
+
+## 📝 CODE QUALITY STANDARDS
+
+### TypeScript Requirements
+- Strict TypeScript configuration
+- Proper type definitions for all interfaces
+- No 'any' types except where absolutely necessary
+- Generic types where appropriate
+- Proper error type definitions
+
+### Code Style
+- Consistent formatting with Prettier
+- ESLint rules enforced
+- Clear, descriptive variable names
+- Proper commenting for complex logic
+- JSDoc for public APIs
+
+## 🧪 TESTING STANDARDS
+
+### Testing Requirements
+- EVERY file MUST have corresponding test file
+- Test coverage MUST be >90%
+- Unit tests for all functions/methods
+- Integration tests for complex workflows
+- Snapshot tests for UI components
+- Mock external dependencies properly
+- Test error conditions and edge cases
+
+### Test Organization
+- Tests organized parallel to source structure
+- Descriptive test names
+- Proper describe/it block organization
+- Setup and teardown where needed
+- Test utilities for common patterns
+
+## 🚫 ANTI-PATTERNS TO AVOID
+
+### Component Anti-Patterns
+- Monolithic components (>200 lines)
+- Business logic in components
+- Complex state management in components
+- Mixing UI and business concerns
+- Poor component composition
+
+### Hook Anti-Patterns
+- Complex, multi-purpose hooks
+- Business logic in hooks
+- Hooks without proper dependencies
+- Overuse of useEffect
+- Poor hook composition
+
+### Service Anti-Patterns
+- UI dependencies in services
+- Monolithic services
+- Poor error handling
+- Lack of proper interfaces
+- Missing tests
+
+### General Anti-Patterns
+- Poor naming conventions
+- Lack of proper organization
+- Missing tests
+- Poor error handling
+- Performance bottlenecks
+
+## ✅ ENFORCEMENT
+
+These rules are MANDATORY and will be enforced in all code reviews and development. 
+Follow Gemini CLI patterns exactly - they represent best practices for CLI architecture.
+NO EXCEPTIONS to these standards. 

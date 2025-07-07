@@ -1,26 +1,32 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Unit tests for enhanced telemetry module
  */
 
-import { describe, test, expect, jest, beforeEach } from '@jest/globals';
+import { describe, test, expect, jest, beforeEach } from 'vitest';
 import { EnhancedTelemetrySystem, SpanStatus } from '../../../src/telemetry/enhanced-telemetry.js';
 import { telemetry } from '../../../src/telemetry/index.js';
 
 // Mock dependencies
-jest.mock('../../../src/telemetry/index.js', () => ({
+vi.mock('../../../src/telemetry/index.js', () => ({
   telemetry: {
-    isEnabled: jest.fn().mockReturnValue(false),
-    addBreadcrumb: jest.fn(),
-    trackMetric: jest.fn()
+    isEnabled: vi.fn().mockReturnValue(false),
+    addBreadcrumb: vi.fn(),
+    trackMetric: vi.fn()
   }
 }));
 
-jest.mock('../../../src/utils/logger.js', () => ({
+vi.mock('../../../src/utils/logger.js', () => ({
   logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn()
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
   }
 }));
 
@@ -29,7 +35,7 @@ describe('EnhancedTelemetrySystem', () => {
   
   beforeEach(() => {
     // Reset mocks between tests
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Create a new instance with telemetry disabled for testing
     enhancedTelemetry = new EnhancedTelemetrySystem({

@@ -1,25 +1,38 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Unit tests for basic commands
  */
 
-import { jest } from '@jest/globals';
+import { jest } from 'vitest';
 import { basicCommands, registerBasicCommands } from '../../../src/commands/basic-commands.js';
 import type { CommandRegistry, UnifiedCommand } from '../../../src/commands/types.js';
 import * as configModule from '../../../src/config/index.js';
 
 // Mock dependencies
-jest.mock('../../../src/utils/logger.js', () => ({
+vi.mock('../../../src/utils/logger.ts', () => ({
+  default: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    setLevel: vi.fn(),
+  },
   logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    setLevel: jest.fn()
-  }
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    setLevel: vi.fn(),
+  },
 }));
 
-jest.mock('../../../src/config/index.js', () => ({
-  loadConfig: jest.fn().mockResolvedValue({
+vi.mock('../../../src/config/index.js', () => ({
+  loadConfig: vi.fn().mockResolvedValue({
     terminal: {
       theme: 'dark'
     },
@@ -27,27 +40,27 @@ jest.mock('../../../src/config/index.js', () => ({
       level: 'info'
     }
   }),
-  saveConfig: jest.fn().mockResolvedValue(undefined)
+  saveConfig: vi.fn().mockResolvedValue(undefined)
 }));
 
-jest.mock('../../../src/version.js', () => ({
+vi.mock('../../../src/version.js', () => ({
   version: '1.0.0'
 }));
 
 describe('Basic Commands', () => {
   // Mock command registry
   const mockRegistry: CommandRegistry = {
-    registerCommand: jest.fn(),
-    someOtherMethod: jest.fn()
+    registerCommand: vi.fn(),
+    someOtherMethod: vi.fn()
   };
 
   // Mock terminal and context
   const mockTerminal = {
-    info: jest.fn(),
-    success: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    prompt: jest.fn()
+    info: vi.fn(),
+    success: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    prompt: vi.fn()
   };
 
   const createMockContext = (args = {}) => ({
@@ -61,7 +74,7 @@ describe('Basic Commands', () => {
 
   // Reset mocks before each test
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('Command Registration', () => {

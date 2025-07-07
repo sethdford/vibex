@@ -1,674 +1,345 @@
 /**
- * Real-Time Workflow Engine Integration Hook
+ * Workflow Engine Hook
  * 
- * Provides bidirectional real-time communication between TaskOrchestrator UI
- * and IntelligentWorkflowEngine with <100ms latency and 100% state accuracy.
+ * Manages workflow execution and state for task orchestration.
  */
 
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
-import { WorkflowEngine, WorkflowEvent, type WorkflowExecutionReport } from '../../ai/workflow-engine.js';
-import type { 
-  TaskDefinition, 
-  WorkflowDefinition, 
-  TaskExecutionContext,
-  TaskStatus 
-} from '../components/TaskOrchestrator.tsx';
-import { logger } from '../../utils/logger.js';
+import { useState, useCallback, useEffect } from 'react';
 
-/**
- * Real-time workflow state
- */
+export interface WorkflowStep {
+  id: string;
+  name: string;
+  description?: string;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
+  dependencies?: string[];
+  execute: () => Promise<void>;
+  rollback?: () => Promise<void>;
+  timeout?: number;
+  retries?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface WorkflowDefinition {
+  id: string;
+  name: string;
+  description?: string;
+  steps: WorkflowStep[];
+  onComplete?: () => Promise<void>;
+  onError?: (error: Error, step: WorkflowStep) => Promise<void>;
+}
+
 export interface WorkflowEngineState {
-  // Engine instance
-  engine: WorkflowEngine;
-  
-  // Current workflow state
-  activeWorkflow: WorkflowDefinition | null;
-  executionReport: WorkflowExecutionReport | null;
-  
-  // Real-time metrics
-  connectionStatus: 'connected' | 'disconnected' | 'reconnecting';
-  lastUpdate: number;
-  updateLatency: number;
-  
-  // Task states (real-time updates)
-  taskStates: Map<string, TaskDefinition>;
-  taskProgress: Map<string, number>;
-  taskErrors: Map<string, string>;
-  
-  // Performance metrics
-  performanceMetrics: {
-    executionTime: number;
-    memoryUsage: number;
-    cpuUsage: number;
-    throughput: number;
-  };
-  
-  // Control states
-  isPaused: boolean;
-  isCancelled: boolean;
-  isExecuting: boolean;
+  currentWorkflow: WorkflowDefinition | null;
+  currentStep: WorkflowStep | null;
+  isRunning: boolean;
+  completedSteps: string[];
+  failedSteps: string[];
+  progress: number;
+  error: Error | null;
 }
 
-/**
- * Workflow engine actions
- */
 export interface WorkflowEngineActions {
-  // Workflow control
-  executeWorkflow: (workflow: WorkflowDefinition, context?: Partial<TaskExecutionContext>) => Promise<void>;
+  executeWorkflow: (workflow: WorkflowDefinition) => Promise<void>;
   pauseWorkflow: () => void;
-  resumeWorkflow: () => void;
-  cancelWorkflow: () => void;
-  
-  // Task control
-  retryTask: (taskId: string) => Promise<void>;
-  skipTask: (taskId: string) => void;
-  updateTaskPriority: (taskId: string, priority: 'low' | 'normal' | 'high' | 'critical') => void;
-  
-  // Real-time updates
-  subscribeToUpdates: (callback: (state: WorkflowEngineState) => void) => () => void;
-  forceRefresh: () => void;
-  
-  // Performance monitoring
-  getMetrics: () => WorkflowEngineState['performanceMetrics'];
-  clearMetrics: () => void;
+  resumeWorkflow: () => Promise<void>;
+  stopWorkflow: () => void;
+  retryStep: (stepId: string) => Promise<void>;
+  skipStep: (stepId: string) => void;
+  rollbackWorkflow: () => Promise<void>;
 }
 
-/**
- * Hook configuration
- */
-export interface UseWorkflowEngineConfig {
-  // Real-time update configuration
-  updateInterval: number; // milliseconds
-  maxLatency: number; // milliseconds
-  
-  // Performance monitoring
-  enableMetrics: boolean;
-  metricsInterval: number; // milliseconds
-  
-  // Error handling
-  maxRetries: number;
-  retryDelay: number; // milliseconds
-  
-  // State persistence
-  persistState: boolean;
-  storageKey: string;
+export interface UseWorkflowEngineOptions {
+  maxRetries?: number;
+  defaultTimeout?: number;
+  onStepStart?: (step: WorkflowStep) => void;
+  onStepComplete?: (step: WorkflowStep) => void;
+  onStepError?: (error: Error, step: WorkflowStep) => void;
 }
 
-/**
- * Default configuration
- */
-const DEFAULT_CONFIG: UseWorkflowEngineConfig = {
-  updateInterval: 100, // 100ms for <100ms latency requirement
-  maxLatency: 100,
-  enableMetrics: true,
-  metricsInterval: 250,
-  maxRetries: 3,
-  retryDelay: 500,
-  persistState: true,
-  storageKey: 'vibex-workflow-state',
-};
+export function useWorkflowEngine(options: UseWorkflowEngineOptions = {}): [WorkflowEngineState, WorkflowEngineActions] {
+  const {
+    maxRetries = 3,
+    defaultTimeout = 30000,
+    onStepStart,
+    onStepComplete,
+    onStepError
+  } = options;
 
-/**
- * Real-time workflow engine integration hook
- */
-export function useWorkflowEngine(config: Partial<UseWorkflowEngineConfig> = {}): [WorkflowEngineState, WorkflowEngineActions] {
-  const finalConfig = { ...DEFAULT_CONFIG, ...config };
-  
-  // Engine instance (singleton)
-  const engineRef = useRef<WorkflowEngine | null>(null);
-  
-  // State management
-  const [state, setState] = useState<WorkflowEngineState>(() => ({
-    engine: null as any, // Will be set in useEffect
-    activeWorkflow: null,
-    executionReport: null,
-    connectionStatus: 'disconnected',
-    lastUpdate: 0,
-    updateLatency: 0,
-    taskStates: new Map(),
-    taskProgress: new Map(),
-    taskErrors: new Map(),
-    performanceMetrics: {
-      executionTime: 0,
-      memoryUsage: 0,
-      cpuUsage: 0,
-      throughput: 0,
-    },
-    isPaused: false,
-    isCancelled: false,
-    isExecuting: false,
-  }));
-  
-  // Update subscribers
-  const subscribersRef = useRef<Set<(state: WorkflowEngineState) => void>>(new Set());
-  
-  // Performance monitoring
-  const metricsRef = useRef<{
-    startTime: number;
-    lastMetricUpdate: number;
-    updateCount: number;
-    latencyHistory: number[];
-  }>({
-    startTime: Date.now(),
-    lastMetricUpdate: 0,
-    updateCount: 0,
-    latencyHistory: [],
+  const [state, setState] = useState<WorkflowEngineState>({
+    currentWorkflow: null,
+    currentStep: null,
+    isRunning: false,
+    completedSteps: [],
+    failedSteps: [],
+    progress: 0,
+    error: null
   });
-  
-  // Initialize engine
-  useEffect(() => {
-    if (!engineRef.current) {
-      engineRef.current = new WorkflowEngine({
-        mode: 'adaptive',
-        maxConcurrency: 4,
-        defaultTimeout: 30000,
-        retryConfig: {
-          maxAttempts: finalConfig.maxRetries,
-          backoffMultiplier: 2,
-          initialDelayMs: finalConfig.retryDelay,
-          maxDelayMs: 10000,
-        },
-        resourceLimits: {
-          maxMemoryMB: 512,
-          maxCpuPercent: 80,
-          maxDiskSpaceMB: 1024,
-        },
-        failureHandling: {
-          stopOnCriticalFailure: true,
-          skipDependentTasks: true,
-          generateFailureReport: true,
-        },
-      });
-      
-      setState(prev => ({
-        ...prev,
-        engine: engineRef.current!,
-        connectionStatus: 'connected',
-      }));
-      
-      logger.info('WorkflowEngine initialized with real-time integration');
-    }
-  }, [finalConfig.maxRetries, finalConfig.retryDelay]);
-  
-  // Real-time event listeners
-  useEffect(() => {
-    const engine = engineRef.current;
-    if (!engine) return;
-    
-    const updateStartTime = Date.now();
-    
-    // Workflow events
-    const onWorkflowStarted = ({ workflow }: { workflow: WorkflowDefinition }) => {
-      const latency = Date.now() - updateStartTime;
-      
-      setState(prev => ({
-        ...prev,
-        activeWorkflow: workflow,
-        isExecuting: true,
-        isPaused: false,
-        isCancelled: false,
-        lastUpdate: Date.now(),
-        updateLatency: latency,
-      }));
-      
-      // Update metrics
-      metricsRef.current.updateCount++;
-      metricsRef.current.latencyHistory.push(latency);
-      if (metricsRef.current.latencyHistory.length > 100) {
-        metricsRef.current.latencyHistory.shift();
-      }
-      
-      // Notify subscribers
-      subscribersRef.current.forEach(callback => {
-        try {
-          callback(state);
-        } catch (error) {
-          logger.error('Error in workflow state subscriber', { error });
-        }
-      });
-      
-      logger.debug('Workflow started event processed', { workflowId: workflow.id, latency });
-    };
-    
-    const onWorkflowCompleted = ({ workflow, report }: { workflow: WorkflowDefinition; report: WorkflowExecutionReport }) => {
-      const latency = Date.now() - updateStartTime;
-      
-      setState(prev => ({
-        ...prev,
-        executionReport: report,
-        isExecuting: false,
-        lastUpdate: Date.now(),
-        updateLatency: latency,
-      }));
-      
-      logger.debug('Workflow completed event processed', { workflowId: workflow.id, latency });
-    };
-    
-    const onWorkflowPaused = ({ workflow }: { workflow: WorkflowDefinition }) => {
-      setState(prev => ({
-        ...prev,
-        isPaused: true,
-        lastUpdate: Date.now(),
-      }));
-      
-      logger.debug('Workflow paused event processed', { workflowId: workflow.id });
-    };
-    
-    const onWorkflowResumed = ({ workflow }: { workflow: WorkflowDefinition }) => {
-      setState(prev => ({
-        ...prev,
-        isPaused: false,
-        lastUpdate: Date.now(),
-      }));
-      
-      logger.debug('Workflow resumed event processed', { workflowId: workflow.id });
-    };
-    
-    const onWorkflowCancelled = ({ workflow }: { workflow: WorkflowDefinition }) => {
-      setState(prev => ({
-        ...prev,
-        isCancelled: true,
-        isExecuting: false,
-        lastUpdate: Date.now(),
-      }));
-      
-      logger.debug('Workflow cancelled event processed', { workflowId: workflow.id });
-    };
-    
-    // Task events
-    const onTaskStarted = ({ task }: { task: TaskDefinition }) => {
-      setState(prev => {
-        const newTaskStates = new Map(prev.taskStates);
-        newTaskStates.set(task.id, { ...task, status: 'in_progress' as TaskStatus });
-        
-        return {
-          ...prev,
-          taskStates: newTaskStates,
-          lastUpdate: Date.now(),
-        };
-      });
-      
-      logger.debug('Task started event processed', { taskId: task.id });
-    };
-    
-    const onTaskProgress = ({ task, progress }: { task: TaskDefinition; progress: number }) => {
-      setState(prev => {
-        const newTaskProgress = new Map(prev.taskProgress);
-        newTaskProgress.set(task.id, progress);
-        
-        const newTaskStates = new Map(prev.taskStates);
-        const currentTask = newTaskStates.get(task.id);
-        if (currentTask) {
-          newTaskStates.set(task.id, { ...currentTask, progress });
-        }
-        
-        return {
-          ...prev,
-          taskStates: newTaskStates,
-          taskProgress: newTaskProgress,
-          lastUpdate: Date.now(),
-        };
-      });
-      
-      logger.debug('Task progress event processed', { taskId: task.id, progress });
-    };
-    
-    const onTaskCompleted = ({ task, result }: { task: TaskDefinition; result: any }) => {
-      setState(prev => {
-        const newTaskStates = new Map(prev.taskStates);
-        newTaskStates.set(task.id, { 
-          ...task, 
-          status: 'completed' as TaskStatus,
-          progress: 100,
-          result,
-        });
-        
-        const newTaskProgress = new Map(prev.taskProgress);
-        newTaskProgress.set(task.id, 100);
-        
-        return {
-          ...prev,
-          taskStates: newTaskStates,
-          taskProgress: newTaskProgress,
-          lastUpdate: Date.now(),
-        };
-      });
-      
-      logger.debug('Task completed event processed', { taskId: task.id });
-    };
-    
-    const onTaskFailed = ({ task, error }: { task: TaskDefinition; error: string }) => {
-      setState(prev => {
-        const newTaskStates = new Map(prev.taskStates);
-        newTaskStates.set(task.id, { ...task, status: 'failed' as TaskStatus });
-        
-        const newTaskErrors = new Map(prev.taskErrors);
-        newTaskErrors.set(task.id, error);
-        
-        return {
-          ...prev,
-          taskStates: newTaskStates,
-          taskErrors: newTaskErrors,
-          lastUpdate: Date.now(),
-        };
-      });
-      
-      logger.debug('Task failed event processed', { taskId: task.id, error });
-    };
-    
-    // Register event listeners
-    engine.on(WorkflowEvent.WORKFLOW_STARTED, onWorkflowStarted);
-    engine.on(WorkflowEvent.WORKFLOW_COMPLETED, onWorkflowCompleted);
-    engine.on(WorkflowEvent.WORKFLOW_PAUSED, onWorkflowPaused);
-    engine.on(WorkflowEvent.WORKFLOW_RESUMED, onWorkflowResumed);
-    engine.on(WorkflowEvent.WORKFLOW_CANCELLED, onWorkflowCancelled);
-    engine.on(WorkflowEvent.TASK_STARTED, onTaskStarted);
-    engine.on(WorkflowEvent.TASK_PROGRESS, onTaskProgress);
-    engine.on(WorkflowEvent.TASK_COMPLETED, onTaskCompleted);
-    engine.on(WorkflowEvent.TASK_FAILED, onTaskFailed);
-    
-    // Cleanup
-    return () => {
-      engine.off(WorkflowEvent.WORKFLOW_STARTED, onWorkflowStarted);
-      engine.off(WorkflowEvent.WORKFLOW_COMPLETED, onWorkflowCompleted);
-      engine.off(WorkflowEvent.WORKFLOW_PAUSED, onWorkflowPaused);
-      engine.off(WorkflowEvent.WORKFLOW_RESUMED, onWorkflowResumed);
-      engine.off(WorkflowEvent.WORKFLOW_CANCELLED, onWorkflowCancelled);
-      engine.off(WorkflowEvent.TASK_STARTED, onTaskStarted);
-      engine.off(WorkflowEvent.TASK_PROGRESS, onTaskProgress);
-      engine.off(WorkflowEvent.TASK_COMPLETED, onTaskCompleted);
-      engine.off(WorkflowEvent.TASK_FAILED, onTaskFailed);
-    };
+
+  // Check if step dependencies are satisfied
+  const areDependenciesSatisfied = useCallback((step: WorkflowStep, completedSteps: string[]): boolean => {
+    if (!step.dependencies || step.dependencies.length === 0) return true;
+    return step.dependencies.every(dep => completedSteps.includes(dep));
   }, []);
-  
-  // Performance metrics monitoring
-  useEffect(() => {
-    if (!finalConfig.enableMetrics) return;
-    
-    const interval = setInterval(() => {
-      const now = Date.now();
-      const metrics = metricsRef.current;
-      
-      setState(prev => {
-        const avgLatency = metrics.latencyHistory.length > 0 
-          ? metrics.latencyHistory.reduce((a, b) => a + b, 0) / metrics.latencyHistory.length 
-          : 0;
-        
-        return {
-          ...prev,
-          performanceMetrics: {
-            executionTime: now - metrics.startTime,
-            memoryUsage: process.memoryUsage().heapUsed / 1024 / 1024, // MB
-            cpuUsage: 0, // Would need additional monitoring
-            throughput: metrics.updateCount / ((now - metrics.startTime) / 1000), // updates per second
-          },
-          updateLatency: avgLatency,
-        };
-      });
-      
-      metrics.lastMetricUpdate = now;
-    }, finalConfig.metricsInterval);
-    
-    return () => clearInterval(interval);
-  }, [finalConfig.enableMetrics, finalConfig.metricsInterval]);
-  
-  // Actions implementation
-  const actions = useMemo<WorkflowEngineActions>(() => ({
-    executeWorkflow: async (workflow: WorkflowDefinition, context?: Partial<TaskExecutionContext>) => {
-      const engine = engineRef.current;
-      if (!engine) {
-        throw new Error('Workflow engine not initialized');
-      }
-      
+
+  // Get next executable step
+  const getNextStep = useCallback((workflow: WorkflowDefinition, completedSteps: string[], failedSteps: string[]): WorkflowStep | null => {
+    return workflow.steps.find(step => 
+      step.status === 'pending' && 
+      !completedSteps.includes(step.id) && 
+      !failedSteps.includes(step.id) &&
+      areDependenciesSatisfied(step, completedSteps)
+    ) || null;
+  }, [areDependenciesSatisfied]);
+
+  // Execute a single step
+  const executeStep = useCallback(async (step: WorkflowStep): Promise<void> => {
+    let retryCount = 0;
+    const maxRetryCount = step.retries ?? maxRetries;
+    const timeout = step.timeout ?? defaultTimeout;
+
+    while (retryCount <= maxRetryCount) {
       try {
-        logger.info('Starting workflow execution', { workflowId: workflow.id });
-        const report = await engine.executeWorkflow(workflow, context);
+        setState(prev => ({ ...prev, currentStep: step }));
         
+        if (onStepStart) {
+          onStepStart(step);
+        }
+
+        // Update step status to running
+        step.status = 'running';
+
+        // Execute with timeout
+        await Promise.race([
+          step.execute(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error(`Step ${step.id} timed out`)), timeout)
+          )
+        ]);
+
+        // Mark as completed
+        step.status = 'completed';
         setState(prev => ({
           ...prev,
-          executionReport: report,
-          isExecuting: false,
+          completedSteps: [...prev.completedSteps, step.id],
+          currentStep: null
         }));
-        
-        logger.info('Workflow execution completed', { 
-          workflowId: workflow.id, 
-          success: report.success,
-          duration: report.duration 
-        });
+
+        if (onStepComplete) {
+          onStepComplete(step);
+        }
+
+        return;
       } catch (error) {
-        logger.error('Workflow execution failed', { 
-          workflowId: workflow.id, 
-          error: error instanceof Error ? error.message : String(error) 
-        });
+        retryCount++;
         
-        setState(prev => ({
-          ...prev,
-          isExecuting: false,
-        }));
-        
-        throw error;
+        if (retryCount > maxRetryCount) {
+          step.status = 'failed';
+          setState(prev => ({
+            ...prev,
+            failedSteps: [...prev.failedSteps, step.id],
+            currentStep: null,
+            error: error as Error
+          }));
+
+          if (onStepError) {
+            onStepError(error as Error, step);
+          }
+
+          throw error;
+        }
+
+        // Wait before retry
+        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
       }
-    },
-    
-    pauseWorkflow: () => {
-      const engine = engineRef.current;
-      const workflowId = state.activeWorkflow?.id;
-      
-      if (engine && workflowId) {
-        engine.pauseWorkflow(workflowId);
-        logger.info('Workflow paused', { workflowId });
-      }
-    },
-    
-    resumeWorkflow: () => {
-      const engine = engineRef.current;
-      const workflowId = state.activeWorkflow?.id;
-      
-      if (engine && workflowId) {
-        engine.resumeWorkflow(workflowId);
-        logger.info('Workflow resumed', { workflowId });
-      }
-    },
-    
-    cancelWorkflow: () => {
-      const engine = engineRef.current;
-      const workflowId = state.activeWorkflow?.id;
-      
-      if (engine && workflowId) {
-        engine.cancelWorkflow(workflowId);
-        logger.info('Workflow cancelled', { workflowId });
-      }
-    },
-    
-    retryTask: async (taskId: string) => {
-      const task = state.taskStates.get(taskId);
-      if (!task || !state.activeWorkflow) {
-        throw new Error(`Task ${taskId} not found or no active workflow`);
-      }
-      
-      // Reset task state for retry
-      setState(prev => {
-        const newTaskStates = new Map(prev.taskStates);
-        newTaskStates.set(taskId, { 
-          ...task, 
-          status: 'pending' as TaskStatus,
-          progress: 0,
-          retryCount: (task.retryCount || 0) + 1,
-        });
-        
-        const newTaskErrors = new Map(prev.taskErrors);
-        newTaskErrors.delete(taskId);
-        
-        return {
-          ...prev,
-          taskStates: newTaskStates,
-          taskErrors: newTaskErrors,
-        };
+    }
+  }, [maxRetries, defaultTimeout, onStepStart, onStepComplete, onStepError]);
+
+  // Execute workflow
+  const executeWorkflow = useCallback(async (workflow: WorkflowDefinition): Promise<void> => {
+    setState(prev => ({
+      ...prev,
+      currentWorkflow: workflow,
+      isRunning: true,
+      completedSteps: [],
+      failedSteps: [],
+      progress: 0,
+      error: null
+    }));
+
+    try {
+      // Reset all steps to pending
+      workflow.steps.forEach(step => {
+        step.status = 'pending';
       });
-      
-      logger.info('Task retry initiated', { taskId, retryCount: (task.retryCount || 0) + 1 });
-    },
-    
-    skipTask: (taskId: string) => {
-      setState(prev => {
-        const task = prev.taskStates.get(taskId);
-        if (!task) return prev;
+
+      let completedSteps: string[] = [];
+      let failedSteps: string[] = [];
+
+      while (true) {
+        const nextStep = getNextStep(workflow, completedSteps, failedSteps);
         
-        const newTaskStates = new Map(prev.taskStates);
-        newTaskStates.set(taskId, { 
-          ...task, 
-          status: 'cancelled' as TaskStatus,
-        });
-        
-        return {
-          ...prev,
-          taskStates: newTaskStates,
-        };
-      });
-      
-      logger.info('Task skipped', { taskId });
-    },
-    
-    updateTaskPriority: (taskId: string, priority: 'low' | 'normal' | 'high' | 'critical') => {
-      setState(prev => {
-        const task = prev.taskStates.get(taskId);
-        if (!task) return prev;
-        
-        const newTaskStates = new Map(prev.taskStates);
-        newTaskStates.set(taskId, { 
-          ...task, 
-          priority: priority as any,
-        });
-        
-        return {
-          ...prev,
-          taskStates: newTaskStates,
-        };
-      });
-      
-      logger.info('Task priority updated', { taskId, priority });
-    },
-    
-    subscribeToUpdates: (callback: (state: WorkflowEngineState) => void) => {
-      subscribersRef.current.add(callback);
-      
-      return () => {
-        subscribersRef.current.delete(callback);
-      };
-    },
-    
-    forceRefresh: () => {
+        if (!nextStep) {
+          // No more executable steps
+          break;
+        }
+
+        try {
+          await executeStep(nextStep);
+          completedSteps = [...completedSteps, nextStep.id];
+        } catch (error) {
+          failedSteps = [...failedSteps, nextStep.id];
+          
+          // Check if workflow should continue or stop
+          const remainingSteps = workflow.steps.filter(step => 
+            !completedSteps.includes(step.id) && 
+            !failedSteps.includes(step.id)
+          );
+
+          const canContinue = remainingSteps.some(step => 
+            areDependenciesSatisfied(step, completedSteps)
+          );
+
+          if (!canContinue) {
+            throw error;
+          }
+        }
+
+        // Update progress
+        const totalSteps = workflow.steps.length;
+        const progress = (completedSteps.length / totalSteps) * 100;
+        setState(prev => ({ ...prev, progress }));
+      }
+
+      // Workflow completed
       setState(prev => ({
         ...prev,
-        lastUpdate: Date.now(),
+        isRunning: false,
+        progress: 100
       }));
-      
-      logger.debug('Workflow state force refreshed');
-    },
-    
-    getMetrics: () => state.performanceMetrics,
-    
-    clearMetrics: () => {
-      metricsRef.current = {
-        startTime: Date.now(),
-        lastMetricUpdate: 0,
-        updateCount: 0,
-        latencyHistory: [],
-      };
-      
+
+      if (workflow.onComplete) {
+        await workflow.onComplete();
+      }
+
+    } catch (error) {
       setState(prev => ({
         ...prev,
-        performanceMetrics: {
-          executionTime: 0,
-          memoryUsage: 0,
-          cpuUsage: 0,
-          throughput: 0,
-        },
+        isRunning: false,
+        error: error as Error
       }));
-      
-      logger.debug('Performance metrics cleared');
-    },
-  }), [state]);
-  
-  // State persistence
-  useEffect(() => {
-    if (!finalConfig.persistState) return;
-    
-    try {
-      const serializedState = {
-        activeWorkflow: state.activeWorkflow,
-        taskStates: Array.from(state.taskStates.entries()),
-        taskProgress: Array.from(state.taskProgress.entries()),
-        taskErrors: Array.from(state.taskErrors.entries()),
-        lastUpdate: state.lastUpdate,
-      };
-      
-      localStorage.setItem(finalConfig.storageKey, JSON.stringify(serializedState));
-    } catch (error) {
-      logger.warn('Failed to persist workflow state', { error });
-    }
-  }, [state.activeWorkflow, state.taskStates, state.taskProgress, state.taskErrors, finalConfig.persistState, finalConfig.storageKey]);
-  
-  // Load persisted state
-  useEffect(() => {
-    if (!finalConfig.persistState) return;
-    
-    try {
-      const serializedState = localStorage.getItem(finalConfig.storageKey);
-      if (serializedState) {
-        const parsedState = JSON.parse(serializedState);
-        
-        setState(prev => ({
-          ...prev,
-          activeWorkflow: parsedState.activeWorkflow,
-          taskStates: new Map(parsedState.taskStates || []),
-          taskProgress: new Map(parsedState.taskProgress || []),
-          taskErrors: new Map(parsedState.taskErrors || []),
-          lastUpdate: parsedState.lastUpdate || 0,
-        }));
-        
-        logger.info('Workflow state restored from persistence');
+
+      if (workflow.onError) {
+        await workflow.onError(error as Error, state.currentStep!);
       }
-    } catch (error) {
-      logger.warn('Failed to load persisted workflow state', { error });
+
+      throw error;
     }
-  }, [finalConfig.persistState, finalConfig.storageKey]);
-  
+  }, [getNextStep, executeStep, areDependenciesSatisfied, state.currentStep]);
+
+  // Pause workflow
+  const pauseWorkflow = useCallback(() => {
+    setState(prev => ({ ...prev, isRunning: false }));
+  }, []);
+
+  // Resume workflow
+  const resumeWorkflow = useCallback(async (): Promise<void> => {
+    if (!state.currentWorkflow) return;
+    
+    setState(prev => ({ ...prev, isRunning: true }));
+    await executeWorkflow(state.currentWorkflow);
+  }, [state.currentWorkflow, executeWorkflow]);
+
+  // Stop workflow
+  const stopWorkflow = useCallback(() => {
+    setState(prev => ({
+      ...prev,
+      currentWorkflow: null,
+      currentStep: null,
+      isRunning: false,
+      error: null
+    }));
+  }, []);
+
+  // Retry step
+  const retryStep = useCallback(async (stepId: string): Promise<void> => {
+    if (!state.currentWorkflow) return;
+
+    const step = state.currentWorkflow.steps.find(s => s.id === stepId);
+    if (!step) return;
+
+    // Reset step status
+    step.status = 'pending';
+    setState(prev => ({
+      ...prev,
+      failedSteps: prev.failedSteps.filter(id => id !== stepId),
+      error: null
+    }));
+
+    try {
+      await executeStep(step);
+      setState(prev => ({
+        ...prev,
+        completedSteps: [...prev.completedSteps, stepId]
+      }));
+    } catch (error) {
+      setState(prev => ({
+        ...prev,
+        failedSteps: [...prev.failedSteps, stepId],
+        error: error as Error
+      }));
+    }
+  }, [state.currentWorkflow, executeStep]);
+
+  // Skip step
+  const skipStep = useCallback((stepId: string) => {
+    if (!state.currentWorkflow) return;
+
+    const step = state.currentWorkflow.steps.find(s => s.id === stepId);
+    if (!step) return;
+
+    step.status = 'skipped';
+    setState(prev => ({
+      ...prev,
+      completedSteps: [...prev.completedSteps, stepId]
+    }));
+  }, [state.currentWorkflow]);
+
+  // Rollback workflow
+  const rollbackWorkflow = useCallback(async (): Promise<void> => {
+    if (!state.currentWorkflow) return;
+
+    const completedSteps = state.currentWorkflow.steps
+      .filter(step => state.completedSteps.includes(step.id))
+      .reverse(); // Rollback in reverse order
+
+    for (const step of completedSteps) {
+      if (step.rollback) {
+        try {
+          await step.rollback();
+        } catch (error) {
+          console.error(`Failed to rollback step ${step.id}:`, error);
+        }
+      }
+    }
+
+    setState(prev => ({
+      ...prev,
+      completedSteps: [],
+      failedSteps: [],
+      progress: 0,
+      error: null
+    }));
+  }, [state.currentWorkflow, state.completedSteps]);
+
+  const actions: WorkflowEngineActions = {
+    executeWorkflow,
+    pauseWorkflow,
+    resumeWorkflow,
+    stopWorkflow,
+    retryStep,
+    skipStep,
+    rollbackWorkflow
+  };
+
   return [state, actions];
-}
-
-/**
- * Utility hook for workflow metrics only
- */
-export function useWorkflowMetrics() {
-  const [state] = useWorkflowEngine({ enableMetrics: true });
-  
-  return {
-    metrics: state.performanceMetrics,
-    latency: state.updateLatency,
-    connectionStatus: state.connectionStatus,
-    lastUpdate: state.lastUpdate,
-  };
-}
-
-/**
- * Utility hook for task state only
- */
-export function useTaskStates(workflowId?: string) {
-  const [state] = useWorkflowEngine();
-  
-  const filteredTasks = useMemo(() => {
-    if (!workflowId || !state.activeWorkflow || state.activeWorkflow.id !== workflowId) {
-      return new Map();
-    }
-    
-    return state.taskStates;
-  }, [state.taskStates, state.activeWorkflow, workflowId]);
-  
-  return {
-    tasks: filteredTasks,
-    progress: state.taskProgress,
-    errors: state.taskErrors,
-  };
 } 

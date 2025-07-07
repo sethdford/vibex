@@ -1,80 +1,91 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Unit tests for Terminal class
  */
 
-import { jest } from '@jest/globals';
+import { jest } from 'vitest';
 import { Terminal, initTerminal } from '../../../src/terminal/index.js';
 import type { TerminalInterface, TerminalConfig } from '../../../src/terminal/types.js';
 
 // Mock dependencies
-jest.mock('../../../src/utils/logger.js', () => ({
+vi.mock('../../../src/utils/logger.js', () => ({
   logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn()
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
   }
 }));
 
-jest.mock('../../../src/terminal/formatting.js', () => ({
-  formatOutput: jest.fn().mockImplementation((content) => content),
-  clearScreen: jest.fn(),
-  getTerminalSize: jest.fn().mockReturnValue({ rows: 24, columns: 80 })
+vi.mock('../../../src/terminal/formatting.js', () => ({
+  formatOutput: vi.fn().mockImplementation((content) => content),
+  clearScreen: vi.fn(),
+  getTerminalSize: vi.fn().mockReturnValue({ rows: 24, columns: 80 })
 }));
 
-jest.mock('chalk', () => ({
-  blue: {
-    bold: jest.fn().mockImplementation((text) => text)
-  },
-  gray: jest.fn().mockImplementation((text) => text),
-  white: jest.fn().mockImplementation((text) => text),
-  cyan: {
-    bold: jest.fn().mockImplementation((text) => text)
-  },
-  cyan: jest.fn().mockImplementation((text) => text),
-  dim: jest.fn().mockImplementation((text) => text),
-  green: jest.fn().mockImplementation((text) => text),
-  yellow: jest.fn().mockImplementation((text) => text),
-  red: jest.fn().mockImplementation((text) => text),
-  bold: jest.fn().mockImplementation((text) => text),
-  level: 3
+vi.mock('chalk', () => ({
+  default: {
+    blue: {
+      bold: vi.fn().mockImplementation((text) => text)
+    },
+    gray: vi.fn().mockImplementation((text) => text),
+    white: vi.fn().mockImplementation((text) => text),
+    cyan: Object.assign(
+      vi.fn().mockImplementation((text) => text),
+      {
+        bold: vi.fn().mockImplementation((text) => text)
+      }
+    ),
+    dim: vi.fn().mockImplementation((text) => text),
+    green: vi.fn().mockImplementation((text) => text),
+    yellow: vi.fn().mockImplementation((text) => text),
+    red: vi.fn().mockImplementation((text) => text),
+    bold: vi.fn().mockImplementation((text) => text),
+    level: 3
+  }
 }));
 
-jest.mock('ora', () => {
-  // Mock Ora spinner
+vi.mock('ora', () => {
   const mockSpinner = {
-    start: jest.fn().mockReturnThis(),
-    stop: jest.fn().mockReturnThis(),
-    succeed: jest.fn().mockReturnThis(),
-    fail: jest.fn().mockReturnThis(),
-    warn: jest.fn().mockReturnThis(),
-    info: jest.fn().mockReturnThis(),
+    start: vi.fn().mockReturnThis(),
+    stop: vi.fn().mockReturnThis(),
+    succeed: vi.fn().mockReturnThis(),
+    fail: vi.fn().mockReturnThis(),
+    warn: vi.fn().mockReturnThis(),
+    info: vi.fn().mockReturnThis(),
     text: ''
   };
-  return jest.fn().mockImplementation(() => mockSpinner);
+  return {
+    default: vi.fn().mockImplementation(() => mockSpinner)
+  };
 });
 
-jest.mock('terminal-link', () => {
-  return jest.fn().mockImplementation((text, url, options) => {
+vi.mock('terminal-link', () => {
+  return vi.fn().mockImplementation((text, url, options) => {
     return `${text} (${url})`;
   });
 });
 
-jest.mock('table', () => ({
-  table: jest.fn().mockImplementation((data) => JSON.stringify(data))
+vi.mock('table', () => ({
+  table: vi.fn().mockImplementation((data) => JSON.stringify(data))
 }));
 
-jest.mock('../../../src/terminal/prompt.js', () => ({
-  createPrompt: jest.fn().mockResolvedValue('mocked-response')
+vi.mock('../../../src/terminal/prompt.js', () => ({
+  createPrompt: vi.fn().mockResolvedValue('mocked-response')
 }));
 
 describe('Terminal', () => {
   // Backup and restore console methods
   const originalConsoleLog = console.log;
-  const mockConsoleLog = jest.fn();
+  const mockConsoleLog = vi.fn();
   
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     console.log = mockConsoleLog;
   });
   

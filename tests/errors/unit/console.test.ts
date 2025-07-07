@@ -1,8 +1,14 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Unit tests for console error handling utilities
  */
 
-import { jest } from '@jest/globals';
+import { jest } from 'vitest';
 
 // Since extractErrorFromArgs is not exported, we need to implement 
 // our own test version based on the original function's logic
@@ -43,7 +49,7 @@ function extractErrorFromArgs(args: readonly unknown[]): Error | string | null {
 
 describe('Console Error Handling', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('extractErrorFromArgs function', () => {
@@ -107,7 +113,7 @@ describe('Console Error Handling', () => {
     test('should handle errors during processing', () => {
       // Mock JSON.stringify to throw an error
       const originalStringify = JSON.stringify;
-      JSON.stringify = jest.fn().mockImplementation(() => {
+      JSON.stringify = vi.fn().mockImplementation(() => {
         throw new Error('Stringify error');
       });
       
@@ -125,7 +131,7 @@ describe('Console Error Handling', () => {
     test('should handle errors during the entire extraction process', () => {
       // For this edge case, we'll just verify our implementation can handle
       // a basic error during processing
-      const mapSpy = jest.spyOn(Array.prototype, 'map').mockImplementationOnce(() => {
+      const mapSpy = vi.spyOn(Array.prototype, 'map').mockImplementationOnce(() => {
         throw new Error('map error');
       });
       

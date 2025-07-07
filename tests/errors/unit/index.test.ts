@@ -1,8 +1,14 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Unit tests for main error module exports and custom error classes
  */
 
-import { jest } from '@jest/globals';
+import { jest } from 'vitest';
 import {
   UserError,
   ErrorCategory,

@@ -1,0 +1,17 @@
+{
+  "id": "summary_1751810328859",
+  "content": "Session 1 memory.",
+  "timestamp": "2025-07-06T13:58:48.859Z",
+  "type": "conversation",
+  "importance": 0.6,
+  "metadata": {
+    "source": "system",
+    "session_id": "session-1",
+    "tags": [
+      "compressed"
+    ],
+    "references": [
+      "mem_1751810328859_vta47wkoc"
+    ]
+  }
+}

@@ -1,26 +1,32 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Unit tests for telemetry index module
  */
 
-import { describe, test, expect, jest, beforeEach } from '@jest/globals';
+import { describe, test, expect, jest, beforeEach } from 'vitest';
 import { TelemetryService, TelemetryEventType } from '../../../src/telemetry/index.js';
 
 // Mock dependencies
-jest.mock('node:events', () => {
+vi.mock('node:events', () => {
   return {
     EventEmitter: class MockEventEmitter {
-      on = jest.fn();
-      emit = jest.fn();
+      on = vi.fn();
+      emit = vi.fn();
     }
   };
 });
 
-jest.mock('../../../src/utils/logger.js', () => ({
+vi.mock('../../../src/utils/logger.js', () => ({
   logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn()
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
   }
 }));
 
@@ -29,7 +35,7 @@ describe('TelemetryService', () => {
   
   beforeEach(() => {
     // Reset mocks between tests
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Create a new instance with telemetry explicitly disabled for testing
     telemetryService = new TelemetryService({ enabled: false });
@@ -46,8 +52,8 @@ describe('TelemetryService', () => {
   });
   
   test('should not track events when disabled', () => {
-    const addBreadcrumbSpy = jest.spyOn(telemetryService, 'addBreadcrumb');
-    const captureMessageSpy = jest.spyOn(telemetryService, 'captureMessage');
+    const addBreadcrumbSpy = vi.spyOn(telemetryService, 'addBreadcrumb');
+    const captureMessageSpy = vi.spyOn(telemetryService, 'captureMessage');
     
     telemetryService.trackEvent(TelemetryEventType.CLI_START);
     
@@ -56,7 +62,7 @@ describe('TelemetryService', () => {
   });
   
   test('should not track errors when disabled', () => {
-    const captureExceptionSpy = jest.spyOn(telemetryService, 'captureException');
+    const captureExceptionSpy = vi.spyOn(telemetryService, 'captureException');
     const error = new Error('Test error');
     
     telemetryService.trackError(error);
@@ -65,7 +71,7 @@ describe('TelemetryService', () => {
   });
   
   test('should not track commands when disabled', () => {
-    const trackEventSpy = jest.spyOn(telemetryService, 'trackEvent');
+    const trackEventSpy = vi.spyOn(telemetryService, 'trackEvent');
     
     telemetryService.trackCommand('test-command', { flag: true }, true, 100);
     
@@ -75,7 +81,7 @@ describe('TelemetryService', () => {
   test('should not track login/logout commands for privacy', () => {
     // Create a test instance with telemetry enabled
     const enabledTelemetry = new TelemetryService({ enabled: true });
-    const trackEventSpy = jest.spyOn(enabledTelemetry, 'trackEvent');
+    const trackEventSpy = vi.spyOn(enabledTelemetry, 'trackEvent');
     
     enabledTelemetry.trackCommand('login', { token: 'secret' }, true, 100);
     enabledTelemetry.trackCommand('logout', {}, true, 50);
@@ -86,7 +92,7 @@ describe('TelemetryService', () => {
   test('should sanitize sensitive arguments when tracking commands', () => {
     // Create a test instance with telemetry enabled
     const enabledTelemetry = new TelemetryService({ enabled: true });
-    const sanitizeArgsSpy = jest.spyOn(enabledTelemetry as any, 'sanitizeArgs');
+    const sanitizeArgsSpy = vi.spyOn(enabledTelemetry as any, 'sanitizeArgs');
     
     enabledTelemetry.trackCommand('test-command', {
       apiKey: 'secret',

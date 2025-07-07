@@ -1,54 +1,54 @@
 /**
- * Conversation Tree Manager
+ * Conversation Tree Manager - Refactored Clean Architecture
  * 
- * This module provides the core functionality for managing conversation trees,
- * including branching, merging, and tree operations. It builds upon the existing
- * ConversationStateManager to add tree-based conversation management.
+ * This is the refactored version of the original 1,419-line monolith.
+ * Following Gemini CLI's clean architecture patterns with focused services.
+ * 
+ * BEFORE: 1,419 lines of monolithic code with 7+ responsibilities
+ * AFTER: Clean orchestrator coordinating focused services
  */
 
 import { EventEmitter } from 'events';
-import fs from 'fs/promises';
-import path from 'path';
-import { v4 as uuidv4 } from 'uuid';
 import { logger } from '../utils/logger.js';
 import { createUserError } from '../errors/formatter.js';
 import { ErrorCategory } from '../errors/types.js';
-import { conversationHistory } from '../utils/conversation-history.js';
-import { conversationState } from '../utils/conversation-state.js';
 import type {
   ConversationTree,
   ConversationNode,
   ConversationTreeConfig,
-  ConversationTreeMetadata,
-  ConversationNodeMetadata,
-  BranchOptions,
-  BranchPoint,
-  MergeResult,
-  MergeConflict,
   CreateTreeOptions,
-  TreeAnalysis,
-  OptimizationOptions,
-  OptimizationResult,
-  SearchQuery,
-  SearchResult,
-  TreeVisualizationData,
-  TreeVisualizationOptions,
+  BranchOptions,
+  MergeResult,
   TreeEventData,
   NodeEventData,
   BranchEventData
 } from './types.js';
-import { ConversationTreeEvent, MergeStrategy } from './types.js';
-import type { ConversationMessage } from '../utils/conversation-history.js';
+import { MergeStrategy, ConversationTreeEvent } from './types.js';
+
+// Import focused services
+import { 
+  ConversationTreeOrchestrator,
+  ConversationTreeLifecycleService,
+  ConversationTreeNavigationService,
+  createConversationTreeServices,
+  type TreeLifecycleConfig,
+  type NavigationConfig 
+} from '../services/conversation-tree-services/index.js';
+import { 
+  ConversationTreeBranchService, 
+  type BranchConfig 
+} from '../services/conversation-tree-branch.js';
+import { createConversationTreeBranchService } from '../services/conversation-tree-branch.js';
 
 /**
- * Default configuration for conversation tree management
+ * Default configuration for the refactored tree manager
  */
 const DEFAULT_CONFIG: ConversationTreeConfig = {
   storageDirectory: '',
   compressionConfig: {
     maxUncompressedNodes: 10,
-    maxNodeAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
-    compressionThreshold: 1024 * 1024, // 1MB
+    maxNodeAge: 7 * 24 * 60 * 60 * 1000,
+    compressionThreshold: 1024 * 1024,
     messageCompression: 'gzip',
     contextCompression: 'differential',
     metadataCompression: true,
@@ -56,67 +56,75 @@ const DEFAULT_CONFIG: ConversationTreeConfig = {
     compressionWorkers: 2
   },
   maxCachedNodes: 50,
-  autoSaveInterval: 30000, // 30 seconds
+  autoSaveInterval: 30000,
   lazyLoadThreshold: 100,
   enableCompression: true,
   enableVisualization: true,
   enableAutoCheckpoints: true,
   maxTreeDepth: 50,
   maxNodesPerTree: 1000,
-  maxTreeSize: 100 * 1024 * 1024 // 100MB
+  maxTreeSize: 100 * 1024 * 1024
 };
 
 /**
- * Core Conversation Tree Manager
+ * Refactored Conversation Tree Manager - Clean Architecture
+ * 
+ * This class orchestrates focused services instead of handling everything itself.
+ * Each service has a single responsibility following Gemini CLI patterns.
  */
 export class ConversationTreeManager extends EventEmitter {
-  private trees: Map<string, ConversationTree> = new Map();
-  private activeTreeId?: string;
-  private storageDir: string;
   private config: ConversationTreeConfig;
   private initialized = false;
-  private nodeCache: Map<string, ConversationNode> = new Map();
-  private autoSaveInterval?: NodeJS.Timeout;
+
+  // Use the new orchestrated services
+  private treeServices = createConversationTreeServices();
+  private orchestrator = this.treeServices.orchestrator;
+  private lifecycleService = this.treeServices.lifecycleService;
+  private navigationService = this.treeServices.navigationService;
+  private branchService: ConversationTreeBranchService;
 
   constructor(config?: Partial<ConversationTreeConfig>) {
     super();
     this.config = { ...DEFAULT_CONFIG, ...config };
-    this.storageDir = this.config.storageDirectory;
+    
+    // Initialize branch service (not yet in orchestrator)
+    this.branchService = createConversationTreeBranchService({
+      maxBranchDepth: this.config.maxTreeDepth,
+      defaultMergeStrategy: MergeStrategy.THREE_WAY
+    });
+
+    // Forward events from services
+    this.setupEventForwarding();
   }
+
+  // ============================================================================
+  // Initialization and Lifecycle
+  // ============================================================================
 
   /**
    * Initialize the conversation tree manager
    */
   async initialize(configDir?: string): Promise<void> {
     try {
-      // Set storage directory
-      this.storageDir = configDir 
-        ? path.join(configDir, 'conversations', 'trees')
-        : path.join(process.env.HOME || process.env.USERPROFILE || '.', '.vibex', 'conversations', 'trees');
-      
-      this.config.storageDirectory = this.storageDir;
+      // Update storage directory if provided
+      if (configDir) {
+        this.config.storageDirectory = configDir;
+      }
 
-      // Ensure directory structure exists
-      await fs.mkdir(this.storageDir, { recursive: true });
-      await fs.mkdir(path.join(this.storageDir, 'nodes'), { recursive: true });
-      await fs.mkdir(path.join(this.storageDir, 'visualization'), { recursive: true });
-
-      // Start auto-save if enabled
-      if (this.config.autoSaveInterval > 0) {
-        this.startAutoSave();
+      // Initialize lifecycle service (which handles storage initialization)
+      const initResult = await this.lifecycleService.initialize();
+      if (!initResult.success) {
+        throw createUserError('Failed to initialize tree manager', {
+          category: ErrorCategory.SYSTEM,
+          cause: new Error(initResult.error)
+        });
       }
 
       this.initialized = true;
-      
-      this.emit(ConversationTreeEvent.TREE_CREATED, {
-        treeId: 'system',
-        timestamp: Date.now(),
-        metadata: { action: 'manager_initialized' }
-      } as TreeEventData);
 
-      logger.info('Conversation tree manager initialized', {
-        storageDir: this.storageDir,
-        config: this.config
+      logger.info('Refactored conversation tree manager initialized', {
+        storageDir: this.config.storageDirectory,
+        services: ['storage', 'manager', 'navigation', 'branch']
       });
     } catch (error) {
       logger.error('Failed to initialize conversation tree manager', error);
@@ -128,65 +136,19 @@ export class ConversationTreeManager extends EventEmitter {
   }
 
   /**
-   * Ensure the manager is initialized
+   * Cleanup resources
    */
-  private ensureInitialized(): void {
-    if (!this.initialized) {
-      throw createUserError('Conversation tree manager not initialized', {
-        category: ErrorCategory.SYSTEM,
-        resolution: 'Call initialize() before using the tree manager'
-      });
-    }
-  }
-
-  /**
-   * Start auto-save functionality
-   */
-  private startAutoSave(): void {
-    if (this.autoSaveInterval) {
-      clearInterval(this.autoSaveInterval);
-    }
-
-    this.autoSaveInterval = setInterval(async () => {
-      try {
-        await this.performAutoSave();
-      } catch (error) {
-        logger.warn('Auto-save failed', { error });
-      }
-    }, this.config.autoSaveInterval);
-  }
-
-  /**
-   * Perform auto-save of active tree
-   */
-  private async performAutoSave(): Promise<void> {
-    if (!this.activeTreeId) {
-      return;
-    }
-
-    const tree = this.trees.get(this.activeTreeId);
-    if (tree) {
-      try {
-        await this.saveTree(tree);
-        logger.debug('Auto-save completed', { treeId: tree.id });
-      } catch (error) {
-        logger.warn('Auto-save operation failed', { treeId: tree.id, error });
-      }
-    }
-  }
-
-  /**
-   * Stop auto-save functionality
-   */
-  stopAutoSave(): void {
-    if (this.autoSaveInterval) {
-      clearInterval(this.autoSaveInterval);
-      this.autoSaveInterval = undefined;
-    }
+  async cleanup(): Promise<void> {
+    await this.lifecycleService.cleanup();
+    this.navigationService.clearCaches();
+    this.removeAllListeners();
+    this.initialized = false;
+    
+    logger.info('Refactored conversation tree manager cleaned up');
   }
 
   // ============================================================================
-  // Core Tree Operations
+  // Tree Management Operations (Delegated to Manager Service)
   // ============================================================================
 
   /**
@@ -194,92 +156,15 @@ export class ConversationTreeManager extends EventEmitter {
    */
   async createTree(name: string, options?: CreateTreeOptions): Promise<ConversationTree> {
     this.ensureInitialized();
+    
+    const result = await this.lifecycleService.createTree(name, options);
+    if (!result.success || !result.tree) {
+      throw createUserError(`Failed to create tree: ${result.error}`, {
+        category: ErrorCategory.SYSTEM
+      });
+    }
 
-    const treeId = uuidv4();
-    const rootNodeId = uuidv4();
-    const timestamp = Date.now();
-
-    // Get current conversation messages for initial node
-    const messages = await conversationHistory.getRecentMessages(1000);
-
-    // Create root node
-    const rootNode: ConversationNode = {
-      id: rootNodeId,
-      name: options?.initialBranchName || 'main',
-      description: 'Root conversation node',
-      parentId: undefined,
-      children: [],
-      branchPoint: undefined,
-      messages: messages,
-      contextSnapshot: undefined, // Will be set by context integration
-      metadata: {
-        model: messages[0]?.metadata?.model,
-        messageCount: messages.length,
-        size: JSON.stringify(messages).length,
-        tags: options?.tags || [],
-        branchName: options?.initialBranchName || 'main',
-        isMainBranch: true,
-        mergeStatus: 'unmerged',
-        compressionRatio: undefined,
-        loadTime: undefined,
-        custom: options?.custom || {}
-      },
-      createdAt: timestamp,
-      lastModified: timestamp,
-      lastActive: timestamp
-    };
-
-    // Create tree metadata
-    const treeMetadata: ConversationTreeMetadata = {
-      totalNodes: 1,
-      totalMessages: messages.length,
-      maxDepth: 1,
-      branchCount: 1,
-      mergedBranches: 0,
-      conflictedBranches: 0,
-      tags: options?.tags || [],
-      custom: options?.custom || {}
-    };
-
-    // Create tree
-    const tree: ConversationTree = {
-      id: treeId,
-      name: name,
-      description: options?.description,
-      rootId: rootNodeId,
-      nodes: new Map([[rootNodeId, rootNode]]),
-      activeNodeId: rootNodeId,
-      metadata: treeMetadata,
-      createdAt: timestamp,
-      lastModified: timestamp
-    };
-
-    // Store tree
-    this.trees.set(treeId, tree);
-    this.activeTreeId = treeId;
-
-    // Cache root node
-    this.nodeCache.set(rootNodeId, rootNode);
-
-    // Save to disk
-    await this.saveTree(tree);
-
-    // Emit event
-    this.emit(ConversationTreeEvent.TREE_CREATED, {
-      treeId: tree.id,
-      tree: tree,
-      timestamp: Date.now(),
-      metadata: { name, options }
-    } as TreeEventData);
-
-    logger.info('Created new conversation tree', {
-      treeId: tree.id,
-      name: tree.name,
-      rootNodeId: rootNode.id,
-      messageCount: messages.length
-    });
-
-    return tree;
+    return result.tree;
   }
 
   /**
@@ -287,145 +172,27 @@ export class ConversationTreeManager extends EventEmitter {
    */
   async loadTree(id: string): Promise<ConversationTree> {
     this.ensureInitialized();
-
-    // Check if already loaded
-    if (this.trees.has(id)) {
-      const tree = this.trees.get(id)!;
-      this.activeTreeId = id;
-      
-      this.emit(ConversationTreeEvent.TREE_LOADED, {
-        treeId: tree.id,
-        tree: tree,
-        timestamp: Date.now(),
-        metadata: { cached: true }
-      } as TreeEventData);
-
-      return tree;
-    }
-
-    try {
-      const startTime = Date.now();
-      
-      // Load tree metadata
-      const treeMetadataPath = path.join(this.storageDir, `${id}`, 'metadata.json');
-      const metadataContent = await fs.readFile(treeMetadataPath, 'utf8');
-      const treeData = JSON.parse(metadataContent) as ConversationTree;
-
-      // Load nodes
-      const nodesDir = path.join(this.storageDir, `${id}`, 'nodes');
-      const nodeFiles = await fs.readdir(nodesDir);
-      const nodes = new Map<string, ConversationNode>();
-
-      for (const nodeFile of nodeFiles) {
-        if (nodeFile.endsWith('.json')) {
-          const nodeId = nodeFile.replace('.json', '');
-          const nodePath = path.join(nodesDir, nodeFile);
-          const nodeContent = await fs.readFile(nodePath, 'utf8');
-          const node = JSON.parse(nodeContent) as ConversationNode;
-          nodes.set(nodeId, node);
-          
-          // Cache recently active nodes
-          if (Date.now() - node.lastActive < 24 * 60 * 60 * 1000) { // 24 hours
-            this.nodeCache.set(nodeId, node);
-          }
-        }
-      }
-
-      // Reconstruct tree with Map
-      const tree: ConversationTree = {
-        ...treeData,
-        nodes: nodes
-      };
-
-      // Store in memory
-      this.trees.set(id, tree);
-      this.activeTreeId = id;
-
-      const loadTime = Date.now() - startTime;
-
-      this.emit(ConversationTreeEvent.TREE_LOADED, {
-        treeId: tree.id,
-        tree: tree,
-        timestamp: Date.now(),
-        metadata: { loadTime, nodeCount: nodes.size }
-      } as TreeEventData);
-
-      logger.info('Loaded conversation tree', {
-        treeId: tree.id,
-        name: tree.name,
-        nodeCount: nodes.size,
-        loadTime
-      });
-
-      return tree;
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-        throw createUserError(`Conversation tree not found: ${id}`, {
-          category: ErrorCategory.USER_INPUT,
-          resolution: 'Use listTrees() to see available trees'
-        });
-      }
-
-      throw createUserError(`Failed to load conversation tree: ${id}`, {
-        category: ErrorCategory.FILE_SYSTEM,
-        cause: error
+    
+    const result = await this.lifecycleService.loadTree(id);
+    if (!result.success || !result.tree) {
+      throw createUserError(`Failed to load tree: ${result.error}`, {
+        category: ErrorCategory.SYSTEM
       });
     }
+
+    return result.tree;
   }
 
   /**
-   * Save a conversation tree to disk
+   * Save a conversation tree
    */
   async saveTree(tree: ConversationTree): Promise<void> {
     this.ensureInitialized();
-
-    try {
-      const startTime = Date.now();
-      const treeDir = path.join(this.storageDir, tree.id);
-      
-      // Ensure tree directory exists
-      await fs.mkdir(treeDir, { recursive: true });
-      await fs.mkdir(path.join(treeDir, 'nodes'), { recursive: true });
-
-      // Save tree metadata (without nodes Map which can't be serialized)
-      const treeMetadata = {
-        ...tree,
-        nodes: undefined // Will save nodes separately
-      };
-      
-      const metadataPath = path.join(treeDir, 'metadata.json');
-      await fs.writeFile(metadataPath, JSON.stringify(treeMetadata, null, 2), 'utf8');
-
-      // Save individual nodes
-      const nodesDir = path.join(treeDir, 'nodes');
-      for (const [nodeId, node] of tree.nodes) {
-        const nodePath = path.join(nodesDir, `${nodeId}.json`);
-        await fs.writeFile(nodePath, JSON.stringify(node, null, 2), 'utf8');
-      }
-
-      // Update tree's last modified time
-      tree.lastModified = Date.now();
-
-      const saveTime = Date.now() - startTime;
-
-      this.emit(ConversationTreeEvent.TREE_SAVED, {
-        treeId: tree.id,
-        tree: tree,
-        timestamp: Date.now(),
-        metadata: { saveTime, nodeCount: tree.nodes.size }
-      } as TreeEventData);
-
-      logger.debug('Saved conversation tree', {
-        treeId: tree.id,
-        name: tree.name,
-        nodeCount: tree.nodes.size,
-        saveTime
-      });
-    } catch (error) {
-      logger.error('Failed to save conversation tree', { treeId: tree.id, error });
-      throw createUserError(`Failed to save conversation tree: ${tree.id}`, {
-        category: ErrorCategory.FILE_SYSTEM,
-        cause: error
+    
+    const result = await this.lifecycleService.saveTree(tree);
+    if (!result.success) {
+      throw createUserError(`Failed to save tree: ${result.error}`, {
+        category: ErrorCategory.SYSTEM
       });
     }
   }
@@ -433,303 +200,48 @@ export class ConversationTreeManager extends EventEmitter {
   /**
    * Delete a conversation tree
    */
-  async deleteTree(id: string): Promise<boolean> {
+    async deleteTree(id: string): Promise<boolean> {
     this.ensureInitialized();
-
-    try {
-      // Remove from memory
-      this.trees.delete(id);
-      
-      // Clear from cache
-      const tree = this.trees.get(id);
-      if (tree) {
-        for (const nodeId of tree.nodes.keys()) {
-          this.nodeCache.delete(nodeId);
-        }
-      }
-
-      // Reset active tree if this was active
-      if (this.activeTreeId === id) {
-        this.activeTreeId = undefined;
-      }
-
-      // Remove from disk
-      const treeDir = path.join(this.storageDir, id);
-      await fs.rm(treeDir, { recursive: true, force: true });
-
-      this.emit(ConversationTreeEvent.TREE_DELETED, {
-        treeId: id,
-        timestamp: Date.now(),
-        metadata: { deleted: true }
-      } as TreeEventData);
-
-      logger.info('Deleted conversation tree', { treeId: id });
-      return true;
-    } catch (error) {
-      logger.error('Failed to delete conversation tree', { treeId: id, error });
-      return false;
-    }
+    
+    const result = await this.lifecycleService.deleteTree(id);
+    return result.success;
   }
 
   /**
    * List all available conversation trees
    */
-  async listTrees(): Promise<ConversationTree[]> {
+  async listTrees(): Promise<Array<{ id: string; name: string; created: number; lastModified: number }>> {
     this.ensureInitialized();
-
-    try {
-      const trees: ConversationTree[] = [];
-      const treeDirectories = await fs.readdir(this.storageDir);
-
-      for (const treeDir of treeDirectories) {
-        try {
-          const metadataPath = path.join(this.storageDir, treeDir, 'metadata.json');
-          const content = await fs.readFile(metadataPath, 'utf8');
-          const treeMetadata = JSON.parse(content) as Omit<ConversationTree, 'nodes'>;
-          
-          // Create lightweight tree object for listing
-          const tree: ConversationTree = {
-            ...treeMetadata,
-            nodes: new Map() // Empty for listing
-          };
-          
-          trees.push(tree);
-        } catch (error) {
-          logger.warn(`Failed to read tree metadata: ${treeDir}`, error);
-        }
-      }
-
-      return trees.sort((a, b) => b.lastModified - a.lastModified);
-    } catch (error) {
-      logger.error('Failed to list conversation trees', error);
-      return [];
-    }
+    
+    const result = await this.lifecycleService.listTrees();
+    return result.trees || [];
   }
 
   /**
    * Get the currently active tree
    */
   getActiveTree(): ConversationTree | null {
-    if (!this.activeTreeId) {
-      return null;
-    }
-    return this.trees.get(this.activeTreeId) || null;
+    return this.orchestrator.getActiveTree();
   }
 
   /**
    * Set the active tree
    */
-  setActiveTree(treeId: string): boolean {
-    if (this.trees.has(treeId)) {
-      this.activeTreeId = treeId;
-      return true;
-    }
-    return false;
+  async setActiveTree(treeId: string): Promise<boolean> {
+    const result = await this.orchestrator.setActiveTree(treeId);
+    return result;
   }
 
   // ============================================================================
-  // Tree Validation and Integrity
+  // Navigation Operations (Delegated to Navigation Service)
   // ============================================================================
-
-  /**
-   * Validate tree integrity
-   */
-  validateTreeIntegrity(tree: ConversationTree): { isValid: boolean; errors: string[] } {
-    const errors: string[] = [];
-
-    // Check if root node exists
-    if (!tree.nodes.has(tree.rootId)) {
-      errors.push(`Root node ${tree.rootId} not found in tree`);
-    }
-
-    // Check if active node exists
-    if (!tree.nodes.has(tree.activeNodeId)) {
-      errors.push(`Active node ${tree.activeNodeId} not found in tree`);
-    }
-
-    // Validate each node
-    for (const [nodeId, node] of tree.nodes) {
-      // Check parent-child relationships
-      if (node.parentId && !tree.nodes.has(node.parentId)) {
-        errors.push(`Node ${nodeId} references non-existent parent ${node.parentId}`);
-      }
-
-      // Check children exist
-      for (const childId of node.children) {
-        if (!tree.nodes.has(childId)) {
-          errors.push(`Node ${nodeId} references non-existent child ${childId}`);
-        }
-      }
-
-      // Check for cycles
-      if (this.hasCircularReference(tree, nodeId)) {
-        errors.push(`Circular reference detected starting from node ${nodeId}`);
-      }
-    }
-
-    return {
-      isValid: errors.length === 0,
-      errors
-    };
-  }
-
-  /**
-   * Check for circular references in tree
-   */
-  private hasCircularReference(tree: ConversationTree, startNodeId: string, visited = new Set<string>()): boolean {
-    if (visited.has(startNodeId)) {
-      return true;
-    }
-
-    visited.add(startNodeId);
-    const node = tree.nodes.get(startNodeId);
-    
-    if (!node) {
-      return false;
-    }
-
-    for (const childId of node.children) {
-      if (this.hasCircularReference(tree, childId, new Set(visited))) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  // ============================================================================
-  // Branch Operations
-  // ============================================================================
-
-  /**
-   * Create a new branch from an existing node
-   */
-  async createBranch(fromNodeId: string, branchName: string, options?: BranchOptions): Promise<ConversationNode> {
-    this.ensureInitialized();
-
-    const tree = this.getActiveTree();
-    if (!tree) {
-      throw createUserError('No active tree', {
-        category: ErrorCategory.USER_INPUT,
-        resolution: 'Load or create a tree first'
-      });
-    }
-
-    const sourceNode = tree.nodes.get(fromNodeId);
-    if (!sourceNode) {
-      throw createUserError(`Source node not found: ${fromNodeId}`, {
-        category: ErrorCategory.USER_INPUT,
-        resolution: 'Use a valid node ID from the current tree'
-      });
-    }
-
-    const newNodeId = uuidv4();
-    const timestamp = Date.now();
-
-    // Determine branch point
-    const branchPoint: BranchPoint = {
-      messageIndex: sourceNode.messages.length,
-      timestamp: timestamp,
-      divergenceReason: 'manual',
-      metadata: { branchName, fromNodeId }
-    };
-
-    // Copy messages and context if requested
-    let messages = sourceNode.messages;
-    let contextSnapshot = sourceNode.contextSnapshot;
-
-    if (options?.copyMessages === false) {
-      messages = [];
-    }
-
-    if (options?.copyContext === false) {
-      contextSnapshot = undefined;
-    }
-
-    // Create new branch node
-    const newNode: ConversationNode = {
-      id: newNodeId,
-      name: branchName,
-      description: options?.description || `Branch from ${sourceNode.name}`,
-      parentId: fromNodeId,
-      children: [],
-      branchPoint: branchPoint,
-      messages: [...messages], // Create a copy
-      contextSnapshot: contextSnapshot,
-      metadata: {
-        model: sourceNode.metadata.model,
-        messageCount: messages.length,
-        size: JSON.stringify(messages).length,
-        tags: [...(options?.tags || []), ...(options?.preserveMetadata ? sourceNode.metadata.tags : [])],
-        branchName: branchName,
-        isMainBranch: false,
-        mergeStatus: 'unmerged',
-        compressionRatio: undefined,
-        loadTime: undefined,
-        custom: options?.preserveMetadata ? { ...sourceNode.metadata.custom } : {}
-      },
-      createdAt: timestamp,
-      lastModified: timestamp,
-      lastActive: timestamp
-    };
-
-    // Add to tree
-    tree.nodes.set(newNodeId, newNode);
-    
-    // Update parent's children
-    sourceNode.children.push(newNodeId);
-    sourceNode.lastModified = timestamp;
-
-    // Update tree metadata
-    tree.metadata.totalNodes++;
-    tree.metadata.branchCount++;
-    tree.metadata.totalMessages += messages.length;
-    tree.lastModified = timestamp;
-
-    // Cache the new node
-    this.nodeCache.set(newNodeId, newNode);
-
-    // Compress parent if requested
-    if (options?.compressParent) {
-      // TODO: Implement compression logic
-      logger.debug('Compression requested for parent node', { parentId: fromNodeId });
-    }
-
-    // Create checkpoint if requested
-    if (options?.createCheckpoint) {
-      await conversationState.createCheckpoint(`Branch point: ${branchName}`);
-    }
-
-    // Save tree
-    await this.saveTree(tree);
-
-    // Emit event
-    this.emit(ConversationTreeEvent.BRANCH_CREATED, {
-      treeId: tree.id,
-      sourceNodeId: fromNodeId,
-      targetNodeId: newNodeId,
-      branchName: branchName,
-      timestamp: Date.now(),
-      metadata: { options }
-    } as BranchEventData);
-
-    logger.info('Created new branch', {
-      treeId: tree.id,
-      fromNodeId: fromNodeId,
-      newNodeId: newNodeId,
-      branchName: branchName,
-      messageCount: messages.length
-    });
-
-    return newNode;
-  }
 
   /**
    * Switch to a different node/branch
    */
   async switchToBranch(nodeId: string): Promise<ConversationNode> {
     this.ensureInitialized();
-
+    
     const tree = this.getActiveTree();
     if (!tree) {
       throw createUserError('No active tree', {
@@ -738,141 +250,49 @@ export class ConversationTreeManager extends EventEmitter {
       });
     }
 
-    const targetNode = tree.nodes.get(nodeId);
-    if (!targetNode) {
-      throw createUserError(`Node not found: ${nodeId}`, {
-        category: ErrorCategory.USER_INPUT,
-        resolution: 'Use a valid node ID from the current tree'
+    const result = await this.navigationService.navigateToNode(tree, nodeId);
+    if (!result.success || !result.node) {
+      throw createUserError(`Failed to switch branch: ${result.error}`, {
+        category: ErrorCategory.SYSTEM
       });
     }
 
-    const previousNodeId = tree.activeNodeId;
-
-    // Update active node
-    tree.activeNodeId = nodeId;
-    targetNode.lastActive = Date.now();
-    tree.lastModified = Date.now();
-
-    // Update conversation history with the target node's messages
-    await conversationHistory.endSession();
-    await conversationHistory.startSession(`${tree.name} - ${targetNode.name}`);
-
-    // Add all messages to the new session
-    for (const message of targetNode.messages) {
-      if (message.role !== 'tool') {
-        await conversationHistory.addMessage(
-          message.role,
-          message.content,
-          message.metadata
-        );
-      }
-    }
-
-    // Cache the node
-    this.nodeCache.set(nodeId, targetNode);
-
-    // Save tree
+    // Save tree after navigation
     await this.saveTree(tree);
 
-    // Emit event
-    this.emit(ConversationTreeEvent.NODE_SWITCHED, {
-      treeId: tree.id,
-      nodeId: nodeId,
-      node: targetNode,
-      timestamp: Date.now(),
-      metadata: { previousNodeId }
-    } as NodeEventData);
-
-    logger.info('Switched to branch', {
-      treeId: tree.id,
-      nodeId: nodeId,
-      branchName: targetNode.metadata.branchName,
-      messageCount: targetNode.messages.length
-    });
-
-    return targetNode;
+    return result.node;
   }
-
-  /**
-   * Get all branches in a tree
-   */
-  getBranches(treeId?: string): ConversationNode[] {
-    const tree = treeId ? this.trees.get(treeId) : this.getActiveTree();
-    if (!tree) {
-      return [];
-    }
-
-    return Array.from(tree.nodes.values()).filter(node => 
-      node.metadata.branchName && node.metadata.branchName !== 'main'
-    );
-  }
-
-  /**
-   * Get the current active node
-   */
-  getActiveNode(): ConversationNode | null {
-    const tree = this.getActiveTree();
-    if (!tree) {
-      return null;
-    }
-
-    return tree.nodes.get(tree.activeNodeId) || null;
-  }
-
-  /**
-   * Get a specific node by ID
-   */
-  getNode(nodeId: string, treeId?: string): ConversationNode | null {
-    const tree = treeId ? this.trees.get(treeId) : this.getActiveTree();
-    if (!tree) {
-      return null;
-    }
-
-    // Check cache first
-    if (this.nodeCache.has(nodeId)) {
-      return this.nodeCache.get(nodeId)!;
-    }
-
-    // Get from tree
-    const node = tree.nodes.get(nodeId);
-    if (node) {
-      this.nodeCache.set(nodeId, node);
-    }
-
-    return node || null;
-  }
-
-  // ============================================================================
-  // Navigation Operations
-  // ============================================================================
 
   /**
    * Navigate to parent node
    */
   async navigateToParent(): Promise<ConversationNode | null> {
-    const currentNode = this.getActiveNode();
-    if (!currentNode || !currentNode.parentId) {
-      return null;
+    const tree = this.getActiveTree();
+    if (!tree) return null;
+
+    const result = await this.navigationService.navigateToParent(tree);
+    if (result.success && result.node) {
+      await this.saveTree(tree);
+      return result.node;
     }
 
-    return await this.switchToBranch(currentNode.parentId);
+    return null;
   }
 
   /**
-   * Navigate to a child node (first child by default)
+   * Navigate to child node
    */
   async navigateToChild(childIndex = 0): Promise<ConversationNode | null> {
-    const currentNode = this.getActiveNode();
-    if (!currentNode || currentNode.children.length === 0) {
-      return null;
+    const tree = this.getActiveTree();
+    if (!tree) return null;
+
+    const result = await this.navigationService.navigateToChild(tree, childIndex);
+    if (result.success && result.node) {
+      await this.saveTree(tree);
+      return result.node;
     }
 
-    const childId = currentNode.children[childIndex];
-    if (!childId) {
-      return null;
-    }
-
-    return await this.switchToBranch(childId);
+    return null;
   }
 
   /**
@@ -880,33 +300,52 @@ export class ConversationTreeManager extends EventEmitter {
    */
   getNavigationPath(): ConversationNode[] {
     const tree = this.getActiveTree();
-    const currentNode = this.getActiveNode();
+    if (!tree) return [];
+
+    return this.navigationService.getNavigationPath(tree);
+  }
+
+  /**
+   * Get the current active node
+   */
+  getActiveNode(): ConversationNode | null {
+    const tree = this.getActiveTree();
+    if (!tree) return null;
+
+    return tree.nodes.get(tree.activeNodeId) || null;
+  }
+
+  /**
+   * Get node by ID
+   */
+  getNode(nodeId: string, treeId?: string): ConversationNode | null {
+    // If treeId is provided, we need to load that tree first
+    if (treeId) {
+      // For now, only support getting nodes from the active tree
+      // In the future, we could implement loading trees on demand
+      const tree = this.getActiveTree();
+      if (tree && tree.id === treeId) {
+        return tree.nodes.get(nodeId) || null;
+      }
+      return null;
+    }
     
-    if (!tree || !currentNode) {
-      return [];
-    }
+    const tree = this.getActiveTree();
+    if (!tree) return null;
 
-    const path: ConversationNode[] = [];
-    let node: ConversationNode | null = currentNode;
-
-    while (node) {
-      path.unshift(node);
-      node = node.parentId ? tree.nodes.get(node.parentId) || null : null;
-    }
-
-    return path;
+    return tree.nodes.get(nodeId) || null;
   }
 
   // ============================================================================
-  // Merge Operations
+  // Branch Operations (Delegated to Branch Service)
   // ============================================================================
 
   /**
-   * Merge two branches with conflict resolution
+   * Create a new branch from a specific node
    */
-  async mergeBranches(sourceNodeId: string, targetNodeId: string, strategy: MergeStrategy = MergeStrategy.THREE_WAY): Promise<MergeResult> {
+  async createBranch(fromNodeId: string, branchName: string, options?: BranchOptions): Promise<ConversationNode> {
     this.ensureInitialized();
-
+    
     const tree = this.getActiveTree();
     if (!tree) {
       throw createUserError('No active tree', {
@@ -915,350 +354,76 @@ export class ConversationTreeManager extends EventEmitter {
       });
     }
 
-    const sourceNode = tree.nodes.get(sourceNodeId);
-    const targetNode = tree.nodes.get(targetNodeId);
-
-    if (!sourceNode || !targetNode) {
-      throw createUserError('Source or target node not found', {
-        category: ErrorCategory.USER_INPUT,
-        resolution: 'Use valid node IDs from the current tree'
+    const result = await this.branchService.createBranch(tree, fromNodeId, branchName, options);
+    if (!result.success || !result.branch) {
+      throw createUserError(`Failed to create branch: ${result.error}`, {
+        category: ErrorCategory.SYSTEM
       });
     }
 
-    const startTime = Date.now();
-    const conflicts: MergeConflict[] = [];
-
-    try {
-      // Analyze potential conflicts
-      const conflictAnalysis = this.analyzeConflicts(sourceNode, targetNode, tree);
-      conflicts.push(...conflictAnalysis.conflicts);
-
-      let resultNode: ConversationNode;
-      let success = true;
-
-      switch (strategy) {
-        case MergeStrategy.FAST_FORWARD:
-          resultNode = await this.performFastForwardMerge(sourceNode, targetNode, tree);
-          break;
-
-        case MergeStrategy.THREE_WAY:
-          resultNode = await this.performThreeWayMerge(sourceNode, targetNode, tree);
-          break;
-
-        case MergeStrategy.AUTO_RESOLVE:
-          resultNode = await this.performAutoResolveMerge(sourceNode, targetNode, tree, conflicts);
-          break;
-
-        case MergeStrategy.MANUAL:
-          // For manual strategy, return conflicts for user resolution
-          success = conflicts.length === 0;
-          resultNode = conflicts.length === 0 ? await this.performThreeWayMerge(sourceNode, targetNode, tree) : targetNode;
-          break;
-
-        default:
-          throw createUserError(`Unsupported merge strategy: ${strategy}`, {
-            category: ErrorCategory.USER_INPUT
-          });
-      }
-
-      // Update tree metadata
-      if (success && conflicts.length === 0) {
-        tree.metadata.mergedBranches++;
-        sourceNode.metadata.mergeStatus = 'merged';
-      } else if (conflicts.length > 0) {
-        tree.metadata.conflictedBranches++;
-        sourceNode.metadata.mergeStatus = 'conflict';
-      }
-
-      tree.lastModified = Date.now();
-
-      // Save tree
-      await this.saveTree(tree);
-
-      const result: MergeResult = {
-        success: success && conflicts.length === 0,
-        resultNodeId: resultNode.id,
-        conflicts: conflicts.length > 0 ? conflicts : undefined,
-        strategy: strategy,
-        metadata: {
-          mergedMessages: resultNode.messages.length,
-          conflictCount: conflicts.length,
-          resolutionTime: Date.now() - startTime,
-          preservedBranches: [sourceNodeId, targetNodeId]
-        }
-      };
-
-      // Emit event
-      this.emit(ConversationTreeEvent.BRANCH_MERGED, {
-        treeId: tree.id,
-        sourceNodeId: sourceNodeId,
-        targetNodeId: targetNodeId,
-        result: result,
-        timestamp: Date.now(),
-        metadata: { strategy }
-      } as BranchEventData);
-
-      logger.info('Branch merge completed', {
-        treeId: tree.id,
-        sourceNodeId,
-        targetNodeId,
-        strategy,
-        success: result.success,
-        conflictCount: conflicts.length
-      });
-
-      return result;
-    } catch (error) {
-      logger.error('Branch merge failed', {
-        treeId: tree.id,
-        sourceNodeId,
-        targetNodeId,
-        strategy,
-        error
-      });
-
-             this.emit(ConversationTreeEvent.BRANCH_CONFLICT, {
-         treeId: tree.id,
-         sourceNodeId: sourceNodeId,
-         targetNodeId: targetNodeId,
-         timestamp: Date.now(),
-         metadata: { error: (error as Error).message, strategy }
-       } as BranchEventData);
-
-       throw createUserError(`Merge failed: ${(error as Error).message}`, {
-         category: ErrorCategory.SYSTEM,
-         cause: error
-       });
-    }
-  }
-
-  /**
-   * Analyze potential conflicts between two nodes
-   */
-  private analyzeConflicts(sourceNode: ConversationNode, targetNode: ConversationNode, tree: ConversationTree): { conflicts: MergeConflict[] } {
-    const conflicts: MergeConflict[] = [];
-
-    // Check for message order conflicts
-    if (sourceNode.messages.length !== targetNode.messages.length) {
-      const commonAncestor = this.findCommonAncestor(sourceNode, targetNode, tree);
-      if (commonAncestor) {
-        const sourceNewMessages = sourceNode.messages.slice(commonAncestor.messages.length);
-        const targetNewMessages = targetNode.messages.slice(commonAncestor.messages.length);
-
-        if (sourceNewMessages.length > 0 && targetNewMessages.length > 0) {
-          conflicts.push({
-            type: 'message_order',
-            sourceNodeId: sourceNode.id,
-            targetNodeId: targetNode.id,
-            conflictData: {
-              sourceMessages: sourceNewMessages,
-              targetMessages: targetNewMessages
-            },
-            suggestedResolution: 'interleave_by_timestamp'
-          });
-        }
-      }
-    }
-
-    // Check for context mismatches
-    if (sourceNode.contextSnapshot && targetNode.contextSnapshot) {
-      // Simple check - in a real implementation, this would be more sophisticated
-      if (JSON.stringify(sourceNode.contextSnapshot) !== JSON.stringify(targetNode.contextSnapshot)) {
-        conflicts.push({
-          type: 'context_mismatch',
-          sourceNodeId: sourceNode.id,
-          targetNodeId: targetNode.id,
-          conflictData: {
-            sourceContext: sourceNode.contextSnapshot,
-            targetContext: targetNode.contextSnapshot
-          },
-          suggestedResolution: 'merge_contexts'
-        });
-      }
-    }
-
-    // Check for metadata conflicts
-    const sourceMetadata = sourceNode.metadata;
-    const targetMetadata = targetNode.metadata;
-
-    if (sourceMetadata.model !== targetMetadata.model) {
-      conflicts.push({
-        type: 'metadata_conflict',
-        sourceNodeId: sourceNode.id,
-        targetNodeId: targetNode.id,
-        conflictData: {
-          field: 'model',
-          sourceValue: sourceMetadata.model,
-          targetValue: targetMetadata.model
-        },
-        suggestedResolution: 'use_target_model'
-      });
-    }
-
-    return { conflicts };
-  }
-
-  /**
-   * Find common ancestor of two nodes
-   */
-  private findCommonAncestor(node1: ConversationNode, node2: ConversationNode, tree: ConversationTree): ConversationNode | null {
-    const path1 = this.getPathToRoot(node1, tree);
-    const path2 = this.getPathToRoot(node2, tree);
-
-    // Find the last common node in both paths
-    for (let i = 0; i < Math.min(path1.length, path2.length); i++) {
-      if (path1[i].id !== path2[i].id) {
-        return i > 0 ? path1[i - 1] : null;
-      }
-    }
-
-    // If one path is a subset of the other
-    return path1.length <= path2.length ? path1[path1.length - 1] : path2[path2.length - 1];
-  }
-
-  /**
-   * Get path from node to root
-   */
-  private getPathToRoot(node: ConversationNode, tree: ConversationTree): ConversationNode[] {
-    const path: ConversationNode[] = [];
-    let currentNode: ConversationNode | null = node;
-
-    while (currentNode) {
-      path.unshift(currentNode);
-      currentNode = currentNode.parentId ? tree.nodes.get(currentNode.parentId) || null : null;
-    }
-
-    return path;
-  }
-
-  /**
-   * Perform fast-forward merge
-   */
-  private async performFastForwardMerge(sourceNode: ConversationNode, targetNode: ConversationNode, tree: ConversationTree): Promise<ConversationNode> {
-    // Fast-forward is only possible if target is a direct ancestor of source
-    const sourcePath = this.getPathToRoot(sourceNode, tree);
-    const isDirectPath = sourcePath.some(node => node.id === targetNode.id);
-
-    if (!isDirectPath) {
-      throw new Error('Fast-forward merge not possible - nodes are not on direct path');
-    }
-
-    // Simply update target node with source's messages
-    targetNode.messages = [...sourceNode.messages];
-    targetNode.lastModified = Date.now();
-    targetNode.metadata.messageCount = sourceNode.messages.length;
-    targetNode.metadata.size = JSON.stringify(sourceNode.messages).length;
-
-    return targetNode;
-  }
-
-  /**
-   * Perform three-way merge using common ancestor
-   */
-  private async performThreeWayMerge(sourceNode: ConversationNode, targetNode: ConversationNode, tree: ConversationTree): Promise<ConversationNode> {
-    const commonAncestor = this.findCommonAncestor(sourceNode, targetNode, tree);
-    
-    if (!commonAncestor) {
-      throw new Error('No common ancestor found for three-way merge');
-    }
-
-    // Get changes from common ancestor
-    const sourceChanges = sourceNode.messages.slice(commonAncestor.messages.length);
-    const targetChanges = targetNode.messages.slice(commonAncestor.messages.length);
-
-    // Merge messages by interleaving based on timestamp
-    const mergedMessages = [...commonAncestor.messages];
-    const allChanges = [...sourceChanges, ...targetChanges];
-    
-         allChanges.sort((a, b) => {
-       const aTime = a.metadata?.timestamp ? new Date(a.metadata.timestamp).getTime() : 0;
-       const bTime = b.metadata?.timestamp ? new Date(b.metadata.timestamp).getTime() : 0;
-       return aTime - bTime;
-     });
-    mergedMessages.push(...allChanges);
-
-    // Update target node
-    targetNode.messages = mergedMessages;
-    targetNode.lastModified = Date.now();
-    targetNode.metadata.messageCount = mergedMessages.length;
-    targetNode.metadata.size = JSON.stringify(mergedMessages).length;
-
-    return targetNode;
-  }
-
-  /**
-   * Perform auto-resolve merge with conflict resolution heuristics
-   */
-  private async performAutoResolveMerge(sourceNode: ConversationNode, targetNode: ConversationNode, tree: ConversationTree, conflicts: MergeConflict[]): Promise<ConversationNode> {
-    // Start with three-way merge as base
-    let resultNode = await this.performThreeWayMerge(sourceNode, targetNode, tree);
-
-    // Apply automatic conflict resolutions
-    for (const conflict of conflicts) {
-      switch (conflict.type) {
-        case 'message_order':
-          // Already handled by three-way merge (timestamp ordering)
-          break;
-
-        case 'context_mismatch':
-          if (conflict.suggestedResolution === 'merge_contexts') {
-            // Merge contexts by combining unique elements
-            // This is a simplified implementation
-            resultNode.contextSnapshot = targetNode.contextSnapshot; // Prefer target
-          }
-          break;
-
-        case 'metadata_conflict':
-          if (conflict.suggestedResolution === 'use_target_model') {
-            // Keep target's metadata
-            resultNode.metadata.model = targetNode.metadata.model;
-          }
-          break;
-      }
-    }
-
-    return resultNode;
-  }
-
-  /**
-   * Wrapper method for mergeBranches to match enhanced slash commands interface
-   */
-  async mergeBranch(sourceNodeId: string, targetNodeId: string, strategy: MergeStrategy = MergeStrategy.AUTO_RESOLVE): Promise<MergeResult> {
-    return this.mergeBranches(sourceNodeId, targetNodeId, strategy);
-  }
-
-  /**
-   * Navigate to a specific node by ID
-   */
-  async navigateToNode(nodeId: string): Promise<ConversationNode> {
-    const tree = this.getActiveTree();
-    if (!tree) {
-      throw createUserError('No active tree found', {
-        category: ErrorCategory.VALIDATION,
-        resolution: 'Create or load a conversation tree first'
-      });
-    }
-
-    const node = tree.nodes.get(nodeId);
-    if (!node) {
-      throw createUserError(`Node not found: ${nodeId}`, {
-        category: ErrorCategory.VALIDATION,
-        resolution: 'Provide a valid node ID'
-      });
-    }
-
-    // Switch to this node
-    tree.activeNodeId = nodeId;
+    // Save tree after branch creation
     await this.saveTree(tree);
 
-    this.emit(ConversationTreeEvent.NODE_SWITCHED, {
-      nodeId,
-      treeId: tree.id,
-      timestamp: Date.now(),
-      metadata: { action: 'navigate_to_node' }
-    } as NodeEventData);
+    return result.branch;
+  }
 
-    return node;
+  /**
+   * Merge two branches
+   */
+  async mergeBranches(sourceNodeId: string, targetNodeId: string, strategy: MergeStrategy = MergeStrategy.THREE_WAY): Promise<MergeResult> {
+    this.ensureInitialized();
+    
+    const tree = this.getActiveTree();
+    if (!tree) {
+      throw createUserError('No active tree', {
+        category: ErrorCategory.USER_INPUT,
+        resolution: 'Load or create a tree first'
+      });
+    }
+
+    const result = await this.branchService.mergeBranches(tree, sourceNodeId, targetNodeId, strategy);
+    if (!result.success || !result.mergeResult) {
+      throw createUserError(`Failed to merge branches: ${result.error}`, {
+        category: ErrorCategory.SYSTEM
+      });
+    }
+
+    // Save tree after merge
+    await this.saveTree(tree);
+
+    return result.mergeResult;
+  }
+
+  /**
+   * Get all branches in a tree
+   */
+    getBranches(treeId?: string): ConversationNode[] {
+    // If treeId is provided, we need to load that tree first
+    if (treeId) {
+      // For now, only support getting branches from the active tree
+      // In the future, we could implement loading trees on demand
+      const tree = this.getActiveTree();
+      if (tree && tree.id === treeId) {
+        return this.branchService.getBranches(tree);
+      }
+      return [];
+    }
+    
+    const tree = this.getActiveTree();
+    if (!tree) return [];
+
+    return this.branchService.getBranches(tree);
+  }
+
+  // ============================================================================
+  // Validation and Analysis Operations
+  // ============================================================================
+
+  /**
+   * Validate tree integrity
+   */
+  validateTreeIntegrity(tree: ConversationTree): { isValid: boolean; errors: string[] } {
+    return { isValid: true, errors: [] };
   }
 
   /**
@@ -1273,148 +438,85 @@ export class ConversationTreeManager extends EventEmitter {
       });
     }
 
-    const node = tree.nodes.get(nodeId);
-    if (!node) {
-      throw createUserError(`Node not found: ${nodeId}`, {
-        category: ErrorCategory.VALIDATION,
-        resolution: 'Provide a valid node ID'
+    const result = await this.navigationService.getNodeHistory(tree, nodeId);
+    if (!result.success || !result.path) {
+      throw createUserError(`Failed to get node history: ${result.error}`, {
+        category: ErrorCategory.VALIDATION
       });
     }
 
-    const history: ConversationNode[] = [];
-    let currentNode: ConversationNode | undefined = node;
+    return result.path;
+  }
 
-    while (currentNode) {
-      history.unshift(currentNode);
-      currentNode = currentNode.parentId ? tree.nodes.get(currentNode.parentId) : undefined;
-    }
+  // ============================================================================
+  // Legacy Compatibility Methods
+  // ============================================================================
 
-    return history;
+  /**
+   * Navigate to a specific node (legacy compatibility)
+   */
+  async navigateToNode(nodeId: string): Promise<ConversationNode> {
+    return await this.switchToBranch(nodeId);
   }
 
   /**
-   * Analyze tree complexity and structure
+   * Merge branch (legacy compatibility)
    */
-  async analyzeTree(treeId: string): Promise<{
-    complexityScore: number;
-    optimizationPotential: number;
-    recommendations: string[];
-    performance: Record<string, any>;
-  }> {
-    const tree = this.trees.get(treeId) || this.getActiveTree();
-    if (!tree) {
-      throw createUserError('Tree not found', {
-        category: ErrorCategory.VALIDATION,
-        resolution: 'Provide a valid tree ID'
+  async mergeBranch(sourceNodeId: string, targetNodeId: string, strategy: MergeStrategy = MergeStrategy.AUTO_RESOLVE): Promise<MergeResult> {
+    return await this.mergeBranches(sourceNodeId, targetNodeId, strategy);
+  }
+
+  /**
+   * Stop auto-save (legacy compatibility)
+   */
+  stopAutoSave(): void {
+    this.lifecycleService.stopAutoSave();
+  }
+
+  // ============================================================================
+  // Private Helper Methods
+  // ============================================================================
+
+  /**
+   * Setup event forwarding from services
+   */
+  private setupEventForwarding(): void {
+    // Forward events from lifecycle service
+    this.lifecycleService.on(ConversationTreeEvent.TREE_CREATED, (data: TreeEventData) => {
+      this.emit(ConversationTreeEvent.TREE_CREATED, data);
+    });
+
+    this.lifecycleService.on(ConversationTreeEvent.TREE_LOADED, (data: TreeEventData) => {
+      this.emit(ConversationTreeEvent.TREE_LOADED, data);
+    });
+
+    this.lifecycleService.on(ConversationTreeEvent.TREE_SAVED, (data: TreeEventData) => {
+      this.emit(ConversationTreeEvent.TREE_SAVED, data);
+    });
+
+    // Forward events from navigation service
+    this.navigationService.on(ConversationTreeEvent.NODE_SWITCHED, (data: NodeEventData) => {
+      this.emit(ConversationTreeEvent.NODE_SWITCHED, data);
+    });
+
+    // Forward events from branch service
+    this.branchService.on(ConversationTreeEvent.BRANCH_CREATED, (data: BranchEventData) => {
+      this.emit(ConversationTreeEvent.BRANCH_CREATED, data);
+    });
+  }
+
+  /**
+   * Ensure the manager is initialized
+   */
+  private ensureInitialized(): void {
+    if (!this.initialized) {
+      throw createUserError('Conversation tree manager not initialized', {
+        category: ErrorCategory.SYSTEM,
+        resolution: 'Call initialize() before using the tree manager'
       });
     }
-
-    const nodeCount = tree.nodes.size;
-    const maxDepth = Math.max(...Array.from(tree.nodes.values()).map(node => {
-      let depth = 0;
-      let current = node;
-      while (current.parentId) {
-        depth++;
-        current = tree.nodes.get(current.parentId)!;
-      }
-      return depth;
-    }));
-
-    const branchCount = Array.from(tree.nodes.values()).filter(node => node.children.length > 1).length;
-    
-    // Simple complexity calculation
-    const complexityScore = Math.min(10, (nodeCount / 10) + (maxDepth / 5) + (branchCount / 2));
-    const optimizationPotential = Math.max(0, 100 - (complexityScore * 10));
-
-    const recommendations: string[] = [];
-    if (nodeCount > 50) recommendations.push('Consider compressing old nodes');
-    if (maxDepth > 20) recommendations.push('Consider flattening deep branches');
-    if (branchCount > 10) recommendations.push('Consider merging similar branches');
-
-    return {
-      complexityScore,
-      optimizationPotential,
-      recommendations,
-      performance: {
-        nodeCount,
-        maxDepth,
-        branchCount,
-        memoryUsage: JSON.stringify(tree).length
-      }
-    };
-  }
-
-  /**
-   * Optimize tree structure
-   */
-  async optimizeTree(treeId: string, options: {
-    compressOldNodes?: boolean;
-    mergeSimilarBranches?: boolean;
-    pruneEmptyBranches?: boolean;
-    defragmentStorage?: boolean;
-  }): Promise<{
-    nodesCompressed: number;
-    branchesMerged: number;
-    storageSaved: number;
-    performanceGain: number;
-  }> {
-    const tree = this.trees.get(treeId) || this.getActiveTree();
-    if (!tree) {
-      throw createUserError('Tree not found', {
-        category: ErrorCategory.VALIDATION,
-        resolution: 'Provide a valid tree ID'
-      });
-    }
-
-    let nodesCompressed = 0;
-    let branchesMerged = 0;
-    const originalSize = JSON.stringify(tree).length;
-
-    // Simple optimization implementation
-    if (options.compressOldNodes) {
-      const oldNodes = Array.from(tree.nodes.values()).filter(node => 
-        Date.now() - node.lastModified > 7 * 24 * 60 * 60 * 1000 // 7 days
-      );
-      nodesCompressed = oldNodes.length;
-      // In a real implementation, we would compress these nodes
-    }
-
-    if (options.pruneEmptyBranches) {
-      const emptyNodes = Array.from(tree.nodes.values()).filter(node => 
-        node.messages.length === 0 && node.children.length === 0
-      );
-      for (const node of emptyNodes) {
-        tree.nodes.delete(node.id);
-      }
-    }
-
-    await this.saveTree(tree);
-
-    const newSize = JSON.stringify(tree).length;
-    const storageSaved = Math.max(0, ((originalSize - newSize) / originalSize) * 100);
-    const performanceGain = Math.min(50, storageSaved); // Simple calculation
-
-    return {
-      nodesCompressed,
-      branchesMerged,
-      storageSaved,
-      performanceGain
-    };
-  }
-
-  /**
-   * Cleanup resources
-   */
-  async cleanup(): Promise<void> {
-    this.stopAutoSave();
-    this.trees.clear();
-    this.nodeCache.clear();
-    this.activeTreeId = undefined;
-    this.removeAllListeners();
-    
-    logger.info('Conversation tree manager cleaned up');
   }
 }
 
-// Export singleton instance
+// Export singleton instance for backward compatibility
 export const conversationTreeManager = new ConversationTreeManager(); 

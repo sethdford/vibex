@@ -1,11 +1,17 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Error Handling Integration Tests
  * 
  * These tests verify the integration between different components of the error
  * handling system, ensuring they work together correctly.
  */
 
-import { expect, jest, test, describe } from '@jest/globals';
+import { expect, jest, test, describe } from 'vitest';
 import { analyzeError } from './analyzer.js';
 import { createUserError } from './formatter.js';
 import { UserError, ErrorCategory, ErrorLevel } from './types.js';
@@ -14,12 +20,12 @@ import { UserError, ErrorCategory, ErrorLevel } from './types.js';
 import { UnifiedClaudeClient } from '../ai/unified-client.js';
 
 // Mock the client implementation
-jest.mock('@anthropic-ai/sdk', () => {
+vi.mock('@anthropic-ai/sdk', () => {
   return {
     __esModule: true,
     default: class MockAnthropic {
       messages = {
-        create: jest.fn()
+        create: vi.fn()
       };
       
       constructor() {

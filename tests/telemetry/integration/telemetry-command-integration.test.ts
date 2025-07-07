@@ -1,17 +1,23 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Integration tests for telemetry with command system
  */
 
-import { describe, test, expect, jest, beforeEach } from '@jest/globals';
+import { describe, test, expect, jest, beforeEach } from 'vitest';
 import { TelemetryService, TelemetryEventType } from '../../../src/telemetry/index.js';
 
 // Mock dependencies
-jest.mock('../../../src/utils/logger.js', () => ({
+vi.mock('../../../src/utils/logger.js', () => ({
   logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn()
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
   }
 }));
 
@@ -26,7 +32,7 @@ describe('Telemetry Command Integration', () => {
   let telemetryService: TelemetryService;
   
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     telemetryService = new TelemetryService({ 
       enabled: true,
       environment: 'test',
@@ -34,15 +40,15 @@ describe('Telemetry Command Integration', () => {
     });
     
     // Use fake timers for command timing tests
-    jest.useFakeTimers();
+    vi.useFakeTimers();
   });
   
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
   
   test('should track successful command execution', () => {
-    const trackEventSpy = jest.spyOn(telemetryService, 'trackEvent');
+    const trackEventSpy = vi.spyOn(telemetryService, 'trackEvent');
     
     telemetryService.trackCommand('init', { force: true }, true, 150);
     
@@ -59,7 +65,7 @@ describe('Telemetry Command Integration', () => {
   });
   
   test('should track failed command execution', () => {
-    const trackEventSpy = jest.spyOn(telemetryService, 'trackEvent');
+    const trackEventSpy = vi.spyOn(telemetryService, 'trackEvent');
     
     telemetryService.trackCommand('build', { watch: true }, false, 250);
     
@@ -76,7 +82,7 @@ describe('Telemetry Command Integration', () => {
   });
   
   test('should not track sensitive commands like login/logout', () => {
-    const trackEventSpy = jest.spyOn(telemetryService, 'trackEvent');
+    const trackEventSpy = vi.spyOn(telemetryService, 'trackEvent');
     
     telemetryService.trackCommand('login', { token: 'secret-token' }, true, 100);
     telemetryService.trackCommand('logout', {}, true, 50);
@@ -85,7 +91,7 @@ describe('Telemetry Command Integration', () => {
   });
   
   test('should sanitize sensitive arguments in command tracking', () => {
-    const sanitizeArgsSpy = jest.spyOn(telemetryService as any, 'sanitizeArgs');
+    const sanitizeArgsSpy = vi.spyOn(telemetryService as any, 'sanitizeArgs');
     
     const args = {
       apiKey: 'secret-key',
@@ -108,7 +114,7 @@ describe('Telemetry Command Integration', () => {
   });
   
   test('should track metrics for command duration', async () => {
-    const trackMetricSpy = jest.spyOn(telemetryService, 'trackMetric');
+    const trackMetricSpy = vi.spyOn(telemetryService, 'trackMetric');
     
     // Mock a command execution that takes 100ms
     const startTime = Date.now();
@@ -118,14 +124,14 @@ describe('Telemetry Command Integration', () => {
     telemetryService.trackCommand('test', {}, true, 100);
     
     // Advance time and check metrics
-    jest.advanceTimersByTime(100);
+    vi.advanceTimersByTime(100);
     
     // Check that duration is tracked as a metric
     expect(trackMetricSpy).toHaveBeenCalled();
   });
   
   test('should create appropriate breadcrumbs for command execution', () => {
-    const addBreadcrumbSpy = jest.spyOn(telemetryService, 'addBreadcrumb');
+    const addBreadcrumbSpy = vi.spyOn(telemetryService, 'addBreadcrumb');
     
     // Execute a command
     telemetryService.trackCommand('deploy', { environment: 'production' }, true, 200);
@@ -143,7 +149,7 @@ describe('Telemetry Command Integration', () => {
   });
   
   test('should track a sequence of commands', () => {
-    const captureMessageSpy = jest.spyOn(telemetryService, 'captureMessage');
+    const captureMessageSpy = vi.spyOn(telemetryService, 'captureMessage');
     
     // Simulate a sequence of commands
     telemetryService.trackCommand('init', {}, true, 100);

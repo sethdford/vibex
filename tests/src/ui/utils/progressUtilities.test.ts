@@ -1,8 +1,15 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Progress Utilities Tests
  */
 
 import {
+import { describe, it, test, expect, beforeEach, afterEach, beforeAll, afterAll, vi } from 'vitest';
   calculateEstimatedTimeRemaining,
   formatTimeDuration,
   determineProgressStatus,

@@ -1,0 +1,17 @@
+{
+  "id": "summary_1751828049843",
+  "content": "Session 2 memory.",
+  "timestamp": "2025-07-06T18:54:09.843Z",
+  "type": "conversation",
+  "importance": 0.6,
+  "metadata": {
+    "source": "system",
+    "session_id": "session-2",
+    "tags": [
+      "compressed"
+    ],
+    "references": [
+      "mem_1751828049843_dr5xepf34"
+    ]
+  }
+}

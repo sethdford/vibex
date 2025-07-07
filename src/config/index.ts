@@ -621,12 +621,8 @@ export default new ConfigManager(defaults, appConfigSchema as z.ZodType<AppConfi
   workspaceDir: process.cwd()
 });
 
-// Export enterprise Config class for Gemini CLI compatibility
-export { Config, createConfig, createDefaultConfig } from './enterprise-config.js';
-export type { ServiceContainer, SessionState, EnterpriseConfigParameters } from './enterprise-config.js';
-
-// Export Claude-optimized configuration integration
-export * from './claude-integration.js';
+// Enterprise and Claude-optimized configs removed during cleanup
+// These were over-engineered and unused - use simple-config.ts instead
 
 // Export generic LoadedSettings for type-safe hierarchical configuration
 export { 

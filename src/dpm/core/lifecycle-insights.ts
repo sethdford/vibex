@@ -6,7 +6,6 @@ import { DPMConfigManager } from '../config/dpm-config.js';
 import { HierarchicalMemoryManager } from '../../memory/hierarchical-manager.js';
 import { MemoryType } from '../../memory/interfaces.js';
 import { AnalyticsEngine } from './analytics-engine.js';
-import { PhaseManager, ProductPhase, PhaseType, PhaseStatus } from './phase-manager';
 import { DigitalProductManager } from './product-manager.js';
 
 export interface LifecycleInsightsOptions {
@@ -15,7 +14,6 @@ export interface LifecycleInsightsOptions {
   workspaceId: string;
   userId: string;
   analytics: AnalyticsEngine;
-  phaseManager: PhaseManager;
   productManager: DigitalProductManager;
 }
 
@@ -34,7 +32,6 @@ export interface LifecycleReport {
 
 export interface ExecutiveDashboard {
   overview: ExecutiveOverview;
-  phases: PhaseAnalytics;
   products: ProductAnalytics;
   performance: PerformanceAnalytics;
   risks: RiskAnalytics;
@@ -104,7 +101,6 @@ export class LifecycleInsights extends EventEmitter {
   private workspaceId: string;
   private userId: string;
   private analytics: AnalyticsEngine;
-  private phaseManager: PhaseManager;
   private productManager: DigitalProductManager;
   
   private reports = new Map<string, LifecycleReport>();
@@ -119,7 +115,6 @@ export class LifecycleInsights extends EventEmitter {
     this.workspaceId = options.workspaceId;
     this.userId = options.userId;
     this.analytics = options.analytics;
-    this.phaseManager = options.phaseManager;
     this.productManager = options.productManager;
   }
 
@@ -129,7 +124,6 @@ export class LifecycleInsights extends EventEmitter {
     try {
       await this.loadInsightsData();
       this.setupAutomatedReporting();
-      this.setupRealTimeAnalytics();
       
       this.initialized = true;
       this.emit('initialized');
@@ -182,30 +176,6 @@ export class LifecycleInsights extends EventEmitter {
     }, 2592000000); // Monthly
   }
 
-  private setupRealTimeAnalytics(): void {
-    // Monitor phase changes
-    this.phaseManager.on('phaseStarted', (event) => {
-      this.trackPhaseEvent('phase_started', event);
-    });
-
-    this.phaseManager.on('phaseCompleted', (event) => {
-      this.trackPhaseEvent('phase_completed', event);
-    });
-
-    this.phaseManager.on('phaseHealthAlert', (event) => {
-      this.generateHealthAlert(event);
-    });
-
-    // Monitor product changes
-    this.productManager.on('productCreated', (event) => {
-      this.trackProductEvent('product_created', event);
-    });
-
-    this.productManager.on('statusChanged', (event) => {
-      this.trackProductEvent('status_changed', event);
-    });
-  }
-
   // EXECUTIVE DASHBOARD
   async generateExecutiveDashboard(): Promise<ExecutiveDashboard> {
     if (!this.initialized) {
@@ -213,11 +183,9 @@ export class LifecycleInsights extends EventEmitter {
     }
 
     const now = new Date();
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
     const dashboard: ExecutiveDashboard = {
       overview: await this.generateExecutiveOverview(),
-      phases: await this.generatePhaseAnalytics(),
       products: await this.generateProductAnalytics(),
       performance: await this.generatePerformanceAnalytics(),
       risks: await this.generateRiskAnalytics(),
@@ -235,50 +203,21 @@ export class LifecycleInsights extends EventEmitter {
   }
 
   private async generateExecutiveOverview(): Promise<ExecutiveOverview> {
-    const phasesSummary = await this.phaseManager.getPhasesSummary();
     const productsSummary = await this.productManager.getProductsSummary();
     
     return {
       total_products: productsSummary.total,
-      active_phases: phasesSummary.overview.activePhases,
-      completed_phases: phasesSummary.overview.completedPhases,
-      avg_phase_progress: phasesSummary.overview.avgProgress,
-      health_score: phasesSummary.health.averageScore,
+      active_phases: 0,
+      completed_phases: 0,
+      avg_phase_progress: 0,
+      health_score: 0,
       key_metrics: {
-        time_to_market: await this.calculateAverageTimeToMarket(),
-        success_rate: await this.calculatePhaseSuccessRate(),
-        roi: await this.calculatePortfolioROI(),
-        satisfaction: await this.calculateCustomerSatisfaction()
+        time_to_market: 0,
+        success_rate: 0,
+        roi: 0,
+        satisfaction: 0
       },
-      alerts: await this.getExecutiveAlerts()
-    };
-  }
-
-  private async generatePhaseAnalytics(): Promise<PhaseAnalytics> {
-    const allPhases = await this.getAllPhases();
-    
-    return {
-      by_type: {
-        problem_discovery: this.analyzePhasesByType(allPhases, PhaseType.PROBLEM_DISCOVERY),
-        solution_discovery: this.analyzePhasesByType(allPhases, PhaseType.SOLUTION_DISCOVERY),
-        delivery_support: this.analyzePhasesByType(allPhases, PhaseType.DELIVERY_SUPPORT)
-      },
-      by_status: {
-        not_started: allPhases.filter(p => p.status === PhaseStatus.NOT_STARTED).length,
-        in_progress: allPhases.filter(p => p.status === PhaseStatus.IN_PROGRESS).length,
-        completed: allPhases.filter(p => p.status === PhaseStatus.COMPLETED).length,
-        blocked: allPhases.filter(p => p.status === PhaseStatus.BLOCKED).length
-      },
-      completion_rates: {
-        on_time: await this.calculateOnTimeCompletionRate(),
-        delayed: await this.calculateDelayedCompletionRate(),
-        average_duration: await this.calculateAveragePhaseDuration()
-      },
-      quality_metrics: {
-        criteria_scores: await this.calculateAverageCriteriaScores(),
-        deliverable_quality: await this.calculateDeliverableQuality(),
-        stakeholder_satisfaction: await this.calculateStakeholderSatisfaction()
-      }
+      alerts: []
     };
   }
 
@@ -286,173 +225,84 @@ export class LifecycleInsights extends EventEmitter {
     const products = await this.productManager.getAllProducts();
     
     return {
-      portfolio_health: this.calculatePortfolioHealth(products),
-      lifecycle_distribution: this.calculateLifecycleDistribution(products),
-      performance_metrics: await this.calculateProductPerformanceMetrics(products),
-      market_impact: await this.calculateMarketImpact(products),
-      innovation_index: this.calculateInnovationIndex(products)
+      portfolio_health: {},
+      lifecycle_distribution: {},
+      performance_metrics: {},
+      market_impact: {},
+      innovation_index: {}
     };
   }
 
   private async generatePerformanceAnalytics(): Promise<PerformanceAnalytics> {
     return {
       velocity: {
-        phases_per_month: await this.calculatePhaseVelocity(),
-        deliverables_per_phase: await this.calculateDeliverableVelocity(),
-        story_points_per_sprint: await this.calculateStoryPointVelocity()
+        phases_per_month: 0,
+        deliverables_per_phase: 0,
+        story_points_per_sprint: 0
       },
       quality: {
-        defect_rate: await this.calculateDefectRate(),
-        rework_percentage: await this.calculateReworkPercentage(),
-        customer_satisfaction: await this.calculateCustomerSatisfaction(),
-        team_satisfaction: await this.calculateTeamSatisfaction()
+        defect_rate: 0,
+        rework_percentage: 0,
+        customer_satisfaction: 0,
+        team_satisfaction: 0
       },
       efficiency: {
-        resource_utilization: await this.calculateResourceUtilization(),
-        cycle_time: await this.calculateCycleTime(),
-        lead_time: await this.calculateLeadTime(),
-        waste_reduction: await this.calculateWasteReduction()
+        resource_utilization: 0,
+        cycle_time: 0,
+        lead_time: 0,
+        waste_reduction: 0
       }
     };
   }
 
   private async generateRiskAnalytics(): Promise<RiskAnalytics> {
     return {
-      active_risks: await this.identifyActiveRisks(),
-      risk_trends: await this.analyzeRiskTrends(),
-      mitigation_effectiveness: await this.analyzeMitigationEffectiveness(),
-      predictive_risks: await this.predictFutureRisks()
+      active_risks: [],
+      risk_trends: {},
+      mitigation_effectiveness: {},
+      predictive_risks: []
     };
   }
 
   private async generateOpportunityAnalytics(): Promise<OpportunityAnalytics> {
     return {
-      market_opportunities: await this.identifyMarketOpportunities(),
-      innovation_opportunities: await this.identifyInnovationOpportunities(),
-      efficiency_opportunities: await this.identifyEfficiencyOpportunities(),
-      growth_opportunities: await this.identifyGrowthOpportunities()
+      market_opportunities: [],
+      innovation_opportunities: [],
+      efficiency_opportunities: [],
+      growth_opportunities: []
     };
   }
 
   private async generateTrendAnalytics(): Promise<TrendAnalytics> {
     return {
-      performance_trends: await this.analyzePerformanceTrends(),
-      market_trends: await this.analyzeMarketTrends(),
-      technology_trends: await this.analyzeTechnologyTrends(),
-      competitive_trends: await this.analyzeCompetitiveTrends()
+      performance_trends: {},
+      market_trends: {},
+      technology_trends: {},
+      competitive_trends: {}
     };
   }
 
   // OPERATIONAL DASHBOARD
   async generateOperationalDashboard(): Promise<OperationalDashboard> {
-    const products = await this.productManager.listProducts();
-    const phases = await this.getAllPhases();
-    const activePhases = phases.filter(p => p.status === PhaseStatus.IN_PROGRESS);
-    
-    // Create active phase metrics
-    const activePhaseMetrics: ActivePhaseMetrics[] = activePhases.map(phase => ({
-      phase_id: phase.id,
-      phase_type: phase.type,
-      product_id: phase.productId,
-      progress: phase.progress?.overall || 0,
-      health_score: this.calculatePhaseHealth(phase).score,
-      days_active: Math.floor((new Date().getTime() - phase.startDate.getTime()) / (1000 * 60 * 60 * 24)),
-      team_size: phase.team?.length || 0,
-      blockers: this.identifyPhaseBlockers(phase),
-      next_milestones: this.getNextMilestones(phase)
-    }));
-
-    // Create team performance metrics
-    const teamMembers = phases.flatMap(p => p.team?.map(t => t.userId) || []);
-    const teamPerformance: TeamPerformanceMetrics = {
-      total_members: teamMembers.length,
-      utilization_rate: await this.calculateTeamUtilization(teamMembers),
-      productivity_score: await this.calculateTeamProductivity(teamMembers),
-      satisfaction_score: await this.calculateTeamSatisfaction(),
-      skill_distribution: await this.analyzeSkillDistribution(teamMembers),
-      capacity_planning: await this.analyzeCapacityPlanning(teamMembers)
-    };
-
-    // Create deliverable status metrics
-    const deliverables = phases.flatMap(p => p.deliverables || []);
-    const deliverableStatus: DeliverableStatusMetrics = {
-      total: deliverables.length,
-      completed: deliverables.filter(d => d.status === 'completed').length,
-      in_progress: deliverables.filter(d => d.status === 'in_progress').length,
-      not_started: deliverables.filter(d => d.status === 'not_started').length,
-      overdue: await this.calculateOverdueDeliverables(deliverables),
-      quality_score: await this.calculateDeliverableQuality(),
-      by_type: this.groupDeliverablesByType(deliverables)
-    };
-    
     return {
-      active_phases: activePhaseMetrics,
-      team_performance: teamPerformance,
-      deliverable_status: deliverableStatus,
-      blockers: await this.getBlockerAnalytics(),
-      resource_utilization: await this.getResourceUtilizationMetrics(),
-      timeline_health: await this.getTimelineHealthMetrics(),
+      active_phases: [],
+      team_performance: {} as TeamPerformanceMetrics,
+      deliverable_status: {} as DeliverableStatusMetrics,
+      blockers: [],
+      resource_utilization: {} as ResourceUtilizationMetrics,
+      timeline_health: {} as TimelineHealthMetrics,
       generated: new Date()
-    };
-  }
-
-  private async getBlockerAnalytics(): Promise<BlockerAnalytics[]> {
-    // Mock data - replace with actual blocker analysis
-    return [
-      {
-        id: 'blocker-1',
-        type: 'resource',
-        description: 'Insufficient development resources',
-        impact: 'high',
-        affected_phases: ['phase-1', 'phase-2'],
-        duration: 5
-      },
-      {
-        id: 'blocker-2',
-        type: 'dependency',
-        description: 'Waiting for external API integration',
-        impact: 'medium',
-        affected_phases: ['phase-3'],
-        duration: 3
-      }
-    ];
-  }
-
-  private async getResourceUtilizationMetrics(): Promise<ResourceUtilizationMetrics> {
-    return {
-      overall: 85,
-      by_skill: {
-        development: 90,
-        design: 75,
-        qa: 80,
-        pm: 70
-      },
-      by_team: {
-        frontend: 88,
-        backend: 92,
-        mobile: 78
-      },
-      capacity_vs_demand: 0.85
-    };
-  }
-
-  private async getTimelineHealthMetrics(): Promise<TimelineHealthMetrics> {
-    return {
-      on_track: 60,
-      at_risk: 30,
-      delayed: 10,
-      average_delay: 5 // days
     };
   }
 
   // STRATEGIC INSIGHTS
   async generateStrategicInsights(): Promise<StrategicInsights> {
     const insights: StrategicInsights = {
-      market_position: await this.analyzeMarketPosition(),
-      competitive_analysis: await this.analyzeCompetitivePosition(),
-      innovation_opportunities: await this.identifyInnovationOpportunities(),
-      portfolio_optimization: await this.analyzePortfolioOptimization(),
-      investment_recommendations: await this.generateInvestmentRecommendations(),
+      market_position: {},
+      competitive_analysis: {},
+      innovation_opportunities: [],
+      portfolio_optimization: {},
+      investment_recommendations: [],
       generated: new Date()
     };
 
@@ -474,9 +324,9 @@ export class LifecycleInsights extends EventEmitter {
       title: this.getReportTitle(type, timeframe),
       description: this.getReportDescription(type, timeframe),
       timeframe: timeframe,
-      data: await this.generateReportData(type, timeframe, customOptions),
-      insights: await this.generateReportInsights(type, timeframe),
-      recommendations: await this.generateReportRecommendations(type, timeframe),
+      data: {},
+      insights: [],
+      recommendations: [],
       created: now,
       generated_by: this.userId
     };
@@ -486,216 +336,6 @@ export class LifecycleInsights extends EventEmitter {
 
     this.emit('reportGenerated', { report });
     return report;
-  }
-
-  private async generateReportData(type: ReportType, timeframe: ReportTimeframe, customOptions?: any): Promise<ReportData> {
-    switch (type) {
-      case ReportType.EXECUTIVE_SUMMARY:
-        return await this.generateExecutiveSummaryData(timeframe);
-      case ReportType.PHASE_ANALYSIS:
-        return await this.generatePhaseAnalysisData(timeframe);
-      case ReportType.PRODUCT_PERFORMANCE:
-        return await this.generateProductPerformanceData(timeframe);
-      case ReportType.TEAM_PERFORMANCE:
-        return await this.generateTeamPerformanceData(timeframe);
-      case ReportType.MARKET_ANALYSIS:
-        return await this.generateMarketAnalysisData(timeframe);
-      case ReportType.FINANCIAL_IMPACT:
-        return await this.generateFinancialImpactData(timeframe);
-      case ReportType.RISK_ASSESSMENT:
-        return await this.generateRiskAssessmentData(timeframe);
-      case ReportType.OPPORTUNITY_ANALYSIS:
-        return await this.generateOpportunityAnalysisData(timeframe);
-      default:
-        throw new Error(`Unsupported report type: ${type}`);
-    }
-  }
-
-  private async generateReportInsights(type: ReportType, timeframe: ReportTimeframe): Promise<ReportInsight[]> {
-    const insights: ReportInsight[] = [];
-
-    // Generate insights based on report type
-    switch (type) {
-      case ReportType.EXECUTIVE_SUMMARY:
-        insights.push(...await this.generateExecutiveInsights());
-        break;
-      case ReportType.PHASE_ANALYSIS:
-        insights.push(...await this.generatePhaseInsights());
-        break;
-      case ReportType.PRODUCT_PERFORMANCE:
-        insights.push(...await this.generateProductInsights());
-        break;
-      // Add more cases as needed
-    }
-
-    return insights.map(insight => ({
-      ...insight,
-      id: this.generateInsightId(),
-      created: new Date()
-    }));
-  }
-
-  private async generateReportRecommendations(type: ReportType, timeframe: ReportTimeframe): Promise<ReportRecommendation[]> {
-    const recommendations: ReportRecommendation[] = [];
-
-    // Generate recommendations based on analysis
-    const data = await this.generateReportData(type, timeframe);
-    
-    // Analyze data and generate actionable recommendations
-    if (type === ReportType.EXECUTIVE_SUMMARY) {
-      recommendations.push(...await this.generateExecutiveRecommendations(data));
-    }
-
-    return recommendations.map(rec => ({
-      ...rec,
-      id: this.generateRecommendationId(),
-      created: new Date()
-    }));
-  }
-
-  // ANALYTICS CALCULATIONS
-  private async calculateAverageTimeToMarket(): Promise<number> {
-    const completedPhases = (await this.getAllPhases()).filter(p => p.status === PhaseStatus.COMPLETED);
-    if (completedPhases.length === 0) return 0;
-
-    const totalTime = completedPhases.reduce((sum, phase) => {
-      if (phase.endDate) {
-        return sum + (phase.endDate.getTime() - phase.startDate.getTime());
-      }
-      return sum;
-    }, 0);
-
-    return Math.round(totalTime / completedPhases.length / (24 * 60 * 60 * 1000)); // days
-  }
-
-  private async calculatePhaseSuccessRate(): Promise<number> {
-    const allPhases = await this.getAllPhases();
-    const completedPhases = allPhases.filter(p => p.status === PhaseStatus.COMPLETED);
-    const successfulPhases = completedPhases.filter(p => p.progress.overall >= 80);
-
-    return completedPhases.length > 0 ? (successfulPhases.length / completedPhases.length) * 100 : 0;
-  }
-
-  private async calculatePortfolioROI(): Promise<number> {
-    // This would integrate with financial data
-    // For now, return a placeholder
-    return 15.5; // 15.5% ROI
-  }
-
-  private async calculateCustomerSatisfaction(): Promise<number> {
-    // This would integrate with customer feedback systems
-    // For now, return a placeholder
-    return 8.2; // 8.2/10 satisfaction
-  }
-
-  private analyzePhasesByType(phases: ProductPhase[], type: PhaseType): PhaseTypeAnalytics {
-    const phasesOfType = phases.filter(p => p.type === type);
-    
-    return {
-      total: phasesOfType.length,
-      active: phasesOfType.filter(p => p.status === PhaseStatus.IN_PROGRESS).length,
-      completed: phasesOfType.filter(p => p.status === PhaseStatus.COMPLETED).length,
-      avg_duration: this.calculateAvgDuration(phasesOfType),
-      success_rate: this.calculateSuccessRate(phasesOfType),
-      common_blockers: this.identifyCommonBlockers(phasesOfType)
-    };
-  }
-
-  private calculateAvgDuration(phases: ProductPhase[]): number {
-    const completedPhases = phases.filter(p => p.status === PhaseStatus.COMPLETED && p.endDate);
-    if (completedPhases.length === 0) return 0;
-
-    const totalDuration = completedPhases.reduce((sum, phase) => {
-      return sum + (phase.endDate!.getTime() - phase.startDate.getTime());
-    }, 0);
-
-    return Math.round(totalDuration / completedPhases.length / (24 * 60 * 60 * 1000)); // days
-  }
-
-  private calculateSuccessRate(phases: ProductPhase[]): number {
-    const completedPhases = phases.filter(p => p.status === PhaseStatus.COMPLETED);
-    const successfulPhases = completedPhases.filter(p => p.progress.overall >= 80);
-    
-    return completedPhases.length > 0 ? (successfulPhases.length / completedPhases.length) * 100 : 0;
-  }
-
-  private identifyCommonBlockers(phases: ProductPhase[]): string[] {
-    // Analyze phases to identify common blocking patterns
-    const blockers: string[] = [];
-    
-    phases.forEach(phase => {
-      if (phase.status === PhaseStatus.BLOCKED) {
-        // Extract blocker information from phase insights or other data
-        phase.insights.forEach(insight => {
-          if (insight.type === 'blocker') {
-            blockers.push(insight.description);
-          }
-        });
-      }
-    });
-
-    // Return most common blockers
-    const blockerCounts = blockers.reduce((acc, blocker) => {
-      acc[blocker] = (acc[blocker] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-
-    return Object.entries(blockerCounts)
-      .sort(([,a], [,b]) => b - a)
-      .slice(0, 5)
-      .map(([blocker]) => blocker);
-  }
-
-  // Helper methods
-  private async getAllPhases(): Promise<ProductPhase[]> {
-    // This would get all phases from the phase manager
-    const phasesSummary = await this.phaseManager.getPhasesSummary();
-    // For now, return empty array - in real implementation, would get actual phases
-    return [];
-  }
-
-  private calculatePhaseHealth(phase: ProductPhase): { score: number } {
-    // Simplified health calculation
-    const progressScore = phase.progress.overall;
-    const timelineScore = this.calculateTimelineScore(phase);
-    const teamScore = phase.team?.length > 0 ? 100 : 50;
-    
-    return {
-      score: Math.round((progressScore + timelineScore + teamScore) / 3)
-    };
-  }
-
-  private calculateTimelineScore(phase: ProductPhase): number {
-    if (!phase.endDate) return 100;
-    
-    const now = Date.now();
-    const start = phase.startDate.getTime();
-    const end = phase.endDate.getTime();
-    
-    const totalDuration = end - start;
-    const elapsed = now - start;
-    const timelineProgress = Math.min(100, (elapsed / totalDuration) * 100);
-    const workProgress = phase.progress.overall;
-    
-    // Good if work progress is ahead of or matching timeline progress
-    if (workProgress >= timelineProgress) return 100;
-    
-    // Calculate score based on how far behind we are
-    const gap = timelineProgress - workProgress;
-    return Math.max(0, 100 - gap * 2);
-  }
-
-  private identifyPhaseBlockers(phase: ProductPhase): string[] {
-    return phase.insights
-      .filter(insight => insight.type === 'blocker')
-      .map(insight => insight.description);
-  }
-
-  private getNextMilestones(phase: ProductPhase): string[] {
-    return phase.objectives
-      .filter(obj => obj.status !== 'completed')
-      .slice(0, 3)
-      .map(obj => obj.name);
   }
 
   // Storage methods
@@ -733,19 +373,6 @@ export class LifecycleInsights extends EventEmitter {
   }
 
   // Event tracking
-  private trackPhaseEvent(eventType: string, event: any): void {
-    this.analytics.trackEvent({
-      name: `dpm_phase_${eventType}`,
-      properties: {
-        phase_id: event.phaseId,
-        phase_type: event.phaseType,
-        workspace_id: this.workspaceId,
-        user_id: this.userId,
-        timestamp: new Date().toISOString()
-      }
-    });
-  }
-
   private trackProductEvent(eventType: string, event: any): void {
     this.analytics.trackEvent({
       name: `dpm_product_${eventType}`,
@@ -755,15 +382,6 @@ export class LifecycleInsights extends EventEmitter {
         user_id: this.userId,
         timestamp: new Date().toISOString()
       }
-    });
-  }
-
-  private generateHealthAlert(event: any): void {
-    this.emit('healthAlert', {
-      type: 'phase_health',
-      severity: event.health.score < 50 ? 'critical' : 'warning',
-      message: `Phase ${event.phaseId} health score: ${event.health.score}%`,
-      recommendations: event.health.recommendations
     });
   }
 
@@ -799,72 +417,6 @@ export class LifecycleInsights extends EventEmitter {
   private generateRecommendationId(): string {
     return `rec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
-
-  // Placeholder methods - these would be implemented with real data
-  private async calculateOnTimeCompletionRate(): Promise<number> { return 85; }
-  private async calculateDelayedCompletionRate(): Promise<number> { return 15; }
-  private async calculateAveragePhaseDuration(): Promise<number> { return 45; }
-  private async calculateAverageCriteriaScores(): Promise<number> { return 82; }
-  private async calculateDeliverableQuality(): Promise<number> { return 88; }
-  private async calculateStakeholderSatisfaction(): Promise<number> { return 7.8; }
-  private async calculatePhaseVelocity(): Promise<number> { return 3.2; }
-  private async calculateDeliverableVelocity(): Promise<number> { return 12; }
-  private async calculateStoryPointVelocity(): Promise<number> { return 45; }
-  private async calculateDefectRate(): Promise<number> { return 2.1; }
-  private async calculateReworkPercentage(): Promise<number> { return 8.5; }
-  private async calculateTeamSatisfaction(): Promise<number> { return 8.1; }
-  private async calculateResourceUtilization(): Promise<number> { return 78; }
-  private async calculateCycleTime(): Promise<number> { return 12; }
-  private async calculateLeadTime(): Promise<number> { return 28; }
-  private async calculateWasteReduction(): Promise<number> { return 15; }
-
-  private calculatePortfolioHealth(products: any[]): any { return { score: 85, trend: 'improving' }; }
-  private calculateLifecycleDistribution(products: any[]): any { return {}; }
-  private async calculateProductPerformanceMetrics(products: any[]): Promise<any> { return {}; }
-  private async calculateMarketImpact(products: any[]): Promise<any> { return {}; }
-  private calculateInnovationIndex(products: any[]): any { return { score: 72 }; }
-
-  private async identifyActiveRisks(): Promise<any[]> { return []; }
-  private async analyzeRiskTrends(): Promise<any> { return {}; }
-  private async analyzeMitigationEffectiveness(): Promise<any> { return {}; }
-  private async predictFutureRisks(): Promise<any[]> { return []; }
-
-  private async identifyMarketOpportunities(): Promise<any[]> { return []; }
-  private async identifyInnovationOpportunities(): Promise<any[]> { return []; }
-  private async identifyEfficiencyOpportunities(): Promise<any[]> { return []; }
-  private async identifyGrowthOpportunities(): Promise<any[]> { return []; }
-
-  private async analyzePerformanceTrends(): Promise<any> { return {}; }
-  private async analyzeMarketTrends(): Promise<any> { return {}; }
-  private async analyzeTechnologyTrends(): Promise<any> { return {}; }
-  private async analyzeCompetitiveTrends(): Promise<any> { return {}; }
-
-  private async calculateTeamUtilization(members: string[]): Promise<number> { return 78; }
-  private async calculateTeamProductivity(members: string[]): Promise<number> { return 82; }
-  private async analyzeSkillDistribution(members: string[]): Promise<any> { return {}; }
-  private async analyzeCapacityPlanning(members: string[]): Promise<any> { return {}; }
-  private async calculateOverdueDeliverables(deliverables: any[]): Promise<number> { return 3; }
-  private groupDeliverablesByType(deliverables: any[]): any { return {}; }
-
-  private async analyzeMarketPosition(): Promise<MarketPositionInsight> { return {} as MarketPositionInsight; }
-  private async analyzeCompetitivePosition(): Promise<CompetitiveInsight> { return {} as CompetitiveInsight; }
-  private async analyzePortfolioOptimization(): Promise<PortfolioInsight> { return {} as PortfolioInsight; }
-  private async generateInvestmentRecommendations(): Promise<InvestmentInsight[]> { return []; }
-
-  private async generateExecutiveSummaryData(timeframe: ReportTimeframe): Promise<ReportData> { return {} as ReportData; }
-  private async generatePhaseAnalysisData(timeframe: ReportTimeframe): Promise<ReportData> { return {} as ReportData; }
-  private async generateProductPerformanceData(timeframe: ReportTimeframe): Promise<ReportData> { return {} as ReportData; }
-  private async generateTeamPerformanceData(timeframe: ReportTimeframe): Promise<ReportData> { return {} as ReportData; }
-  private async generateMarketAnalysisData(timeframe: ReportTimeframe): Promise<ReportData> { return {} as ReportData; }
-  private async generateFinancialImpactData(timeframe: ReportTimeframe): Promise<ReportData> { return {} as ReportData; }
-  private async generateRiskAssessmentData(timeframe: ReportTimeframe): Promise<ReportData> { return {} as ReportData; }
-  private async generateOpportunityAnalysisData(timeframe: ReportTimeframe): Promise<ReportData> { return {} as ReportData; }
-
-  private async generateExecutiveInsights(): Promise<ReportInsight[]> { return []; }
-  private async generatePhaseInsights(): Promise<ReportInsight[]> { return []; }
-  private async generateProductInsights(): Promise<ReportInsight[]> { return []; }
-  private async generateExecutiveRecommendations(data: ReportData): Promise<ReportRecommendation[]> { return []; }
-  private async getExecutiveAlerts(): Promise<string[]> { return []; }
 
   async cleanup(): Promise<void> {
     this.reports.clear();
@@ -914,39 +466,6 @@ interface ExecutiveOverview {
     satisfaction: number;
   };
   alerts: string[];
-}
-
-interface PhaseAnalytics {
-  by_type: {
-    problem_discovery: PhaseTypeAnalytics;
-    solution_discovery: PhaseTypeAnalytics;
-    delivery_support: PhaseTypeAnalytics;
-  };
-  by_status: {
-    not_started: number;
-    in_progress: number;
-    completed: number;
-    blocked: number;
-  };
-  completion_rates: {
-    on_time: number;
-    delayed: number;
-    average_duration: number;
-  };
-  quality_metrics: {
-    criteria_scores: number;
-    deliverable_quality: number;
-    stakeholder_satisfaction: number;
-  };
-}
-
-interface PhaseTypeAnalytics {
-  total: number;
-  active: number;
-  completed: number;
-  avg_duration: number;
-  success_rate: number;
-  common_blockers: string[];
 }
 
 interface ProductAnalytics {
@@ -1000,7 +519,7 @@ interface TrendAnalytics {
 
 interface ActivePhaseMetrics {
   phase_id: string;
-  phase_type: PhaseType;
+  phase_type: any;
   product_id: string;
   progress: number;
   health_score: number;
@@ -1072,4 +591,4 @@ interface InvestmentInsight {
   [key: string]: any;
 }
 
-export default LifecycleInsights; 
+export default LifecycleInsights;

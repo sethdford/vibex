@@ -14,6 +14,7 @@ import { ErrorCategory } from '../errors/types.js';
 
 export interface MCPServerConfig {
   name: string;
+  url: string; // Added URL property
   command: string;
   args?: string[];
   env?: Record<string, string>;

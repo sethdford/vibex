@@ -1,34 +1,40 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Performance Monitoring Tests
  * 
  * Tests for the performance monitoring system with bottleneck detection
  * and function tracking capabilities.
  */
 
-import { jest } from '@jest/globals';
+import { jest } from 'vitest';
 import { performanceMonitoring, PerformanceMonitoringSystem, PerformanceScope } from './performance-monitoring.js';
 import { enhancedTelemetry } from './enhanced-telemetry.js';
 import { telemetry } from './index.js';
 
 // Mock dependencies
-jest.mock('./index.js', () => ({
+vi.mock('./index.js', () => ({
   telemetry: {
-    isEnabled: jest.fn().mockReturnValue(true),
-    trackMetric: jest.fn(),
-    addBreadcrumb: jest.fn(),
+    isEnabled: vi.fn().mockReturnValue(true),
+    trackMetric: vi.fn(),
+    addBreadcrumb: vi.fn(),
   }
 }));
 
-jest.mock('./enhanced-telemetry.js', () => ({
+vi.mock('./enhanced-telemetry.js', () => ({
   enhancedTelemetry: {
-    startSpan: jest.fn().mockReturnValue({
+    startSpan: vi.fn().mockReturnValue({
       traceId: 'test-trace-id',
       spanId: 'test-span-id',
       name: 'test-span',
     }),
-    endSpan: jest.fn(),
-    markPerformance: jest.fn(),
-    measurePerformance: jest.fn().mockReturnValue(100),
+    endSpan: vi.fn(),
+    markPerformance: vi.fn(),
+    measurePerformance: vi.fn().mockReturnValue(100),
   },
   SpanStatus: {
     OK: 'ok',
@@ -41,23 +47,23 @@ const originalPerformance = global.performance;
 beforeEach(() => {
   let counter = 1000;
   (global.performance as any) = {
-    now: jest.fn().mockImplementation(() => counter += 100),
-    mark: jest.fn(),
-    measure: jest.fn(),
-    getEntriesByName: jest.fn(),
+    now: vi.fn().mockImplementation(() => counter += 100),
+    mark: vi.fn(),
+    measure: vi.fn(),
+    getEntriesByName: vi.fn(),
   };
 });
 
 afterEach(() => {
   global.performance = originalPerformance;
-  jest.clearAllMocks();
+  vi.clearAllMocks();
 });
 
 describe('PerformanceMonitoringSystem', () => {
   describe('trackFunction', () => {
     it('should wrap synchronous functions correctly', () => {
       const system = new PerformanceMonitoringSystem();
-      const originalFunction = jest.fn().mockReturnValue('test-result');
+      const originalFunction = vi.fn().mockReturnValue('test-result');
       const wrappedFunction = system.trackFunction(
         originalFunction,
         'test-function',
@@ -78,7 +84,7 @@ describe('PerformanceMonitoringSystem', () => {
 
     it('should wrap async functions correctly', async () => {
       const system = new PerformanceMonitoringSystem();
-      const originalFunction = jest.fn().mockResolvedValue('test-result');
+      const originalFunction = vi.fn().mockResolvedValue('test-result');
       const wrappedFunction = system.trackFunction(
         originalFunction,
         'test-async-function',
@@ -96,7 +102,7 @@ describe('PerformanceMonitoringSystem', () => {
     it('should handle errors in sync functions', () => {
       const system = new PerformanceMonitoringSystem();
       const testError = new Error('test error');
-      const originalFunction = jest.fn().mockImplementation(() => {
+      const originalFunction = vi.fn().mockImplementation(() => {
         throw testError;
       });
       
@@ -113,7 +119,7 @@ describe('PerformanceMonitoringSystem', () => {
     it('should handle errors in async functions', async () => {
       const system = new PerformanceMonitoringSystem();
       const testError = new Error('test async error');
-      const originalFunction = jest.fn().mockRejectedValue(testError);
+      const originalFunction = vi.fn().mockRejectedValue(testError);
       
       const wrappedFunction = system.trackFunction(
         originalFunction,

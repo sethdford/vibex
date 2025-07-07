@@ -1,6 +1,12 @@
 import { logger } from '../../utils/logger.js';
-import { WorkflowDefinition, TaskDefinition, TaskExecutionContext } from '../../ui/components/TaskOrchestrator.js';
+import { WorkflowDefinition, TaskDefinition, TaskExecutionContext } from '../../ui/components/task-orchestrator/index.js';
 import { EventEmitter } from 'events';
+import {
+  saveTemplates,
+  loadTemplates,
+  saveCollections,
+  loadCollections,
+} from './template-storage.js';
 
 /**
  * Workflow template metadata
@@ -102,8 +108,6 @@ export class WorkflowTemplateManager extends EventEmitter {
   private templates: Map<string, WorkflowTemplate> = new Map();
   private collections: Map<string, TemplateCollection> = new Map();
   private categories: Set<string> = new Set();
-  private storageKey = 'vibex-workflow-templates';
-  private collectionsKey = 'vibex-template-collections';
   private isInitialized = false;
 
   constructor() {
@@ -692,15 +696,10 @@ export class WorkflowTemplateManager extends EventEmitter {
 
   private async loadTemplatesFromStorage(): Promise<void> {
     try {
-      if (typeof localStorage !== 'undefined') {
-        const stored = localStorage.getItem(this.storageKey);
-        if (stored) {
-          const data = JSON.parse(stored);
-          for (const [id, template] of Object.entries(data)) {
-            this.templates.set(id, template as WorkflowTemplate);
-            this.categories.add((template as WorkflowTemplate).metadata.category);
-          }
-        }
+      const stored = await loadTemplates();
+      this.templates = stored;
+      for (const template of this.templates.values()) {
+        this.categories.add(template.metadata.category);
       }
     } catch (error) {
       logger.warn('Failed to load templates from storage', { error });
@@ -709,10 +708,7 @@ export class WorkflowTemplateManager extends EventEmitter {
 
   private async saveTemplatesToStorage(): Promise<void> {
     try {
-      if (typeof localStorage !== 'undefined') {
-        const data = Object.fromEntries(this.templates.entries());
-        localStorage.setItem(this.storageKey, JSON.stringify(data));
-      }
+      await saveTemplates(this.templates);
     } catch (error) {
       logger.warn('Failed to save templates to storage', { error });
     }
@@ -720,15 +716,8 @@ export class WorkflowTemplateManager extends EventEmitter {
 
   private async loadCollectionsFromStorage(): Promise<void> {
     try {
-      if (typeof localStorage !== 'undefined') {
-        const stored = localStorage.getItem(this.collectionsKey);
-        if (stored) {
-          const data = JSON.parse(stored);
-          for (const [name, collection] of Object.entries(data)) {
-            this.collections.set(name, collection as TemplateCollection);
-          }
-        }
-      }
+      const stored = await loadCollections();
+      this.collections = stored;
     } catch (error) {
       logger.warn('Failed to load collections from storage', { error });
     }
@@ -736,10 +725,7 @@ export class WorkflowTemplateManager extends EventEmitter {
 
   private async saveCollectionsToStorage(): Promise<void> {
     try {
-      if (typeof localStorage !== 'undefined') {
-        const data = Object.fromEntries(this.collections.entries());
-        localStorage.setItem(this.collectionsKey, JSON.stringify(data));
-      }
+      await saveCollections(this.collections);
     } catch (error) {
       logger.warn('Failed to save collections to storage', { error });
     }
@@ -838,8 +824,13 @@ export class WorkflowTemplateManager extends EventEmitter {
             workingDirectory: process.cwd(),
             environment: {},
             sharedState: {},
-            availableTools: ['file_ops', 'npm', 'git'],
             timeout: 60000,
+            config: {},
+            logger: {
+              info: (message: string, data?: any) => {},
+              error: (message: string, data?: any) => {},
+              debug: (message: string, data?: any) => {},
+            },
           },
           status: 'idle' as const,
           progress: 0,
@@ -870,9 +861,10 @@ export class WorkflowTemplateManager extends EventEmitter {
       }
     }
 
-    // Extract context dependencies
-    if (definition.context?.availableTools) {
-      for (const tool of definition.context.availableTools) {
+    // Extract context dependencies from any additional properties
+    const contextTools = (definition.context as any)?.availableTools;
+    if (contextTools && Array.isArray(contextTools)) {
+      for (const tool of contextTools) {
         deps.add(tool);
       }
     }
@@ -943,4 +935,4 @@ export class WorkflowTemplateManager extends EventEmitter {
 }
 
 // Export singleton instance
-export const templateManager = new WorkflowTemplateManager(); 
+export const templateManager = new WorkflowTemplateManager();

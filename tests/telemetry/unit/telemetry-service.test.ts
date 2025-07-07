@@ -1,16 +1,22 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Comprehensive unit tests for TelemetryService
  */
 
-import { describe, test, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import { describe, test, expect, jest, beforeEach, afterEach } from 'vitest';
 import { TelemetryService, TelemetryEventType } from '../../../src/telemetry/index.js';
 
 // Mock dependencies
-jest.mock('uuid', () => ({
-  v4: jest.fn(() => 'mock-uuid')
+vi.mock('uuid', () => ({
+  v4: vi.fn(() => 'mock-uuid')
 }));
 
-jest.mock('events', () => {
+vi.mock('events', () => {
   return {
     EventEmitter: class MockEventEmitter {
       listeners = {};
@@ -29,12 +35,12 @@ jest.mock('events', () => {
   };
 });
 
-jest.mock('../../../src/utils/logger.js', () => ({
+vi.mock('../../../src/utils/logger.js', () => ({
   logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn()
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
   }
 }));
 
@@ -49,10 +55,10 @@ describe('TelemetryService - Comprehensive Tests', () => {
     originalConsole = { ...console };
     
     // Mock process.on to prevent actual event handlers from being registered
-    process.on = jest.fn().mockReturnValue(process) as any;
+    process.on = vi.fn().mockReturnValue(process) as any;
     
     // Reset mocks between tests
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Create a new instance with telemetry explicitly enabled for most tests
     // Disable CLI start tracking for tests to avoid auto-generated events
@@ -75,7 +81,7 @@ describe('TelemetryService - Comprehensive Tests', () => {
     });
     
     // Clear any timers
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
   
   test('should initialize with provided configuration', () => {
@@ -84,8 +90,8 @@ describe('TelemetryService - Comprehensive Tests', () => {
   });
 
   test('should track events when enabled', () => {
-    const addBreadcrumbSpy = jest.spyOn(telemetryService, 'addBreadcrumb');
-    const captureMessageSpy = jest.spyOn(telemetryService, 'captureMessage');
+    const addBreadcrumbSpy = vi.spyOn(telemetryService, 'addBreadcrumb');
+    const captureMessageSpy = vi.spyOn(telemetryService, 'captureMessage');
     
     telemetryService.trackEvent(TelemetryEventType.CLI_START);
     
@@ -99,7 +105,7 @@ describe('TelemetryService - Comprehensive Tests', () => {
   });
   
   test('should track errors when enabled', () => {
-    const captureExceptionSpy = jest.spyOn(telemetryService, 'captureException');
+    const captureExceptionSpy = vi.spyOn(telemetryService, 'captureException');
     const error = new Error('Test error');
     
     telemetryService.trackError(error);
@@ -108,7 +114,7 @@ describe('TelemetryService - Comprehensive Tests', () => {
   });
   
   test('should track command execution', () => {
-    const trackEventSpy = jest.spyOn(telemetryService, 'trackEvent');
+    const trackEventSpy = vi.spyOn(telemetryService, 'trackEvent');
     
     telemetryService.trackCommand('test-command', { flag: true }, true, 100);
     
@@ -122,7 +128,7 @@ describe('TelemetryService - Comprehensive Tests', () => {
   });
 
   test('should track command failures', () => {
-    const trackEventSpy = jest.spyOn(telemetryService, 'trackEvent');
+    const trackEventSpy = vi.spyOn(telemetryService, 'trackEvent');
     
     telemetryService.trackCommand('test-command', { flag: true }, false, 100);
     
@@ -136,7 +142,7 @@ describe('TelemetryService - Comprehensive Tests', () => {
   });
 
   test('should add breadcrumbs correctly', () => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     jest.setSystemTime(new Date(2025, 0, 1));
     
     telemetryService.addBreadcrumb({
@@ -225,8 +231,8 @@ describe('TelemetryService - Comprehensive Tests', () => {
   });
   
   test('should track API calls with proper metrics', () => {
-    const trackMetricSpy = jest.spyOn(telemetryService, 'trackMetric');
-    const addBreadcrumbSpy = jest.spyOn(telemetryService, 'addBreadcrumb');
+    const trackMetricSpy = vi.spyOn(telemetryService, 'trackMetric');
+    const addBreadcrumbSpy = vi.spyOn(telemetryService, 'addBreadcrumb');
     
     telemetryService.trackApiCall('test-endpoint', 150, 200, 'test-model');
     
@@ -256,7 +262,7 @@ describe('TelemetryService - Comprehensive Tests', () => {
   });
 
   test('should track API calls with error status', () => {
-    const addBreadcrumbSpy = jest.spyOn(telemetryService, 'addBreadcrumb');
+    const addBreadcrumbSpy = vi.spyOn(telemetryService, 'addBreadcrumb');
     
     telemetryService.trackApiCall('test-endpoint', 150, 500);
     
@@ -271,7 +277,7 @@ describe('TelemetryService - Comprehensive Tests', () => {
   });
   
   test('should manage sessions correctly', () => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     const now = Date.now();
     jest.setSystemTime(now);
     
@@ -282,7 +288,7 @@ describe('TelemetryService - Comprehensive Tests', () => {
     expect(session?.startTime).toBe(now);
     
     // Move time forward
-    jest.advanceTimersByTime(5000);
+    vi.advanceTimersByTime(5000);
     
     telemetryService.endSession('test-session', 'completed');
     
@@ -376,28 +382,28 @@ describe('TelemetryService - Comprehensive Tests', () => {
   });
 
   test('should flush events when interval elapses', async () => {
-    jest.useFakeTimers();
-    const flushSpy = jest.spyOn(telemetryService, 'flush');
+    vi.useFakeTimers();
+    const flushSpy = vi.spyOn(telemetryService, 'flush');
     
     // Capture a message to add an event
     telemetryService.captureMessage('test message');
     
     // Fast forward past the flush interval
-    jest.advanceTimersByTime(200);
+    vi.advanceTimersByTime(200);
     
     expect(flushSpy).toHaveBeenCalled();
   });
 
   test('should track CLI start when enabled', () => {
     // Create a new instance with CLI start tracking enabled
-    const trackEventSpy = jest.fn();
+    const trackEventSpy = vi.fn();
     const newService = new TelemetryService({ 
       enabled: true, 
       trackCliStart: true 
     });
     
     // Spy on the trackEvent method after creation
-    jest.spyOn(newService, 'trackEvent').mockImplementation(trackEventSpy);
+    vi.spyOn(newService, 'trackEvent').mockImplementation(trackEventSpy);
     
     // Manually trigger CLI start (since it happens in constructor)
     newService.trackEvent(TelemetryEventType.CLI_START);

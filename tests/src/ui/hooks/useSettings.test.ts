@@ -1,4 +1,10 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Settings Hook Tests
  */
 
@@ -6,23 +12,24 @@ import { renderHook, act } from '@testing-library/react';
 import { useSettings } from '../../../../src/ui/hooks/useSettings.js';
 import fs from 'fs/promises';
 import { existsSync } from 'fs';
+import { describe, it, test, expect, beforeEach, afterEach, beforeAll, afterAll, vi } from 'vitest';
 
 // Mock fs modules
-jest.mock('fs/promises', () => ({
-  mkdir: jest.fn().mockResolvedValue(undefined),
-  readFile: jest.fn(),
-  writeFile: jest.fn().mockResolvedValue(undefined),
+vi.mock('fs/promises', () => ({
+  mkdir: vi.fn().mockResolvedValue(undefined),
+  readFile: vi.fn(),
+  writeFile: vi.fn().mockResolvedValue(undefined),
 }));
 
-jest.mock('fs', () => ({
-  existsSync: jest.fn()
+vi.mock('fs', () => ({
+  existsSync: vi.fn()
 }));
 
 // Mock logger
-jest.mock('../../../../src/utils/logger.js', () => ({
+vi.mock('../../../../src/utils/logger.js', () => ({
   logger: {
-    debug: jest.fn(),
-    error: jest.fn(),
+    debug: vi.fn(),
+    error: vi.fn(),
   }
 }));
 
@@ -33,7 +40,7 @@ describe('useSettings Hook', () => {
   };
   
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
   
   it('should initialize with default settings when no settings file exists', async () => {

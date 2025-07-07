@@ -1,10 +1,16 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Memory System Tests
  * 
  * Unit tests for the memory loading system
  */
 
-import { describe, test, expect, beforeEach, afterEach, jest, beforeAll, afterAll } from '@jest/globals';
+import { describe, test, expect, beforeEach, afterEach, jest, beforeAll, afterAll } from 'vitest';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';

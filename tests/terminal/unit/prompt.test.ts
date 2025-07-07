@@ -1,54 +1,69 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Unit tests for terminal prompt utilities
  */
 
-import { jest } from '@jest/globals';
+import { jest } from 'vitest';
 import { Prompt, createPrompt, promptText, promptPassword, promptConfirm, promptList, promptCheckbox, promptEditor } from '../../../src/terminal/prompt.js';
 import type { PromptOptions, TerminalConfig } from '../../../src/terminal/types.js';
 
 // Mock dependencies
-jest.mock('readline', () => ({
-  createInterface: jest.fn().mockImplementation(() => ({
-    question: jest.fn((query, cb) => setTimeout(() => cb('mocked-answer'), 0)),
-    close: jest.fn(),
-    on: jest.fn()
+vi.mock('readline', () => ({
+  default: {
+    createInterface: vi.fn().mockImplementation(() => ({
+      question: vi.fn((query, cb) => setTimeout(() => cb('mocked-answer'), 0)),
+      close: vi.fn(),
+      on: vi.fn()
+    }))
+  },
+  createInterface: vi.fn().mockImplementation(() => ({
+    question: vi.fn((query, cb) => setTimeout(() => cb('mocked-answer'), 0)),
+    close: vi.fn(),
+    on: vi.fn()
   }))
 }));
 
-jest.mock('inquirer', () => ({
-  prompt: jest.fn().mockImplementation((questions) => {
-    const question = questions[0];
-    let result: any = 'mocked-answer';
-    
-    // Return different values based on prompt type
-    switch (question.type) {
-      case 'confirm':
-        result = true;
-        break;
-      case 'list':
-        result = question.choices && question.choices.length > 0 
-          ? question.choices[0].value || question.choices[0]
-          : 'mocked-choice';
-        break;
-      case 'checkbox':
-        result = question.choices && question.choices.length > 0 
-          ? [question.choices[0].value || question.choices[0]]
-          : ['mocked-choice'];
-        break;
-      default:
-        result = 'mocked-answer';
-    }
-    
-    return Promise.resolve({ [question.name]: result });
-  })
+vi.mock('inquirer', () => ({
+  default: {
+    prompt: vi.fn().mockImplementation((questions) => {
+      const question = questions[0];
+      let result: any = 'mocked-answer';
+      
+      // Return different values based on prompt type
+      switch (question.type) {
+        case 'confirm':
+          result = true;
+          break;
+        case 'list':
+          result = question.choices && question.choices.length > 0 
+            ? question.choices[0].value || question.choices[0]
+            : 'mocked-choice';
+          break;
+        case 'checkbox':
+          result = question.choices && question.choices.length > 0 
+            ? [question.choices[0].value || question.choices[0]]
+            : ['mocked-choice'];
+          break;
+        default:
+          result = 'mocked-answer';
+      }
+      
+      return Promise.resolve({ [question.name]: result });
+    })
+  }
 }));
 
-jest.mock('../../../src/utils/logger.js', () => ({
+vi.mock('../../../src/utils/logger.js', () => ({
   logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn()
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
   }
 }));
 
@@ -61,7 +76,7 @@ describe('Terminal Prompts', () => {
   };
   
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Mock TTY properties
     Object.defineProperty(process.stdin, 'isTTY', { value: true });

@@ -1,10 +1,16 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Integrated AI Tests
  *
  * Testing the AI module components working together to improve overall coverage
  */
 
-import { jest } from '@jest/globals';
+import { jest } from 'vitest';
 import { EventEmitter } from 'events';
 import { UnifiedClaudeClient, createUnifiedClient } from '../../src/ai/unified-client.js';
 import { TurnManager, TurnEvent, TurnStatus, createTurnManager } from '../../src/ai/turn-manager.js';
@@ -13,12 +19,12 @@ import { MemoryManager, MemoryOptimizationStrategy } from '../../src/ai/memory-m
 import { ContentStreamManager, StreamEventType } from '../../src/ai/content-stream.js';
 
 // Mock dependencies
-jest.mock('../../src/utils/logger.js', () => ({
+vi.mock('../../src/utils/logger.js', () => ({
   logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn()
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
   }
 }));
 
@@ -28,12 +34,12 @@ class MockContentGenerator extends EventEmitter implements ContentGenerator {
     super();
   }
   
-  public generate = jest.fn().mockResolvedValue({
+  public generate = vi.fn().mockResolvedValue({
     content: "This is a test response",
     usage: { inputTokens: 10, outputTokens: 15 }
   });
   
-  public generateStream = jest.fn().mockImplementation(() => {
+  public generateStream = vi.fn().mockImplementation(() => {
     // Simulate content streaming
     setTimeout(() => this.emit(ContentEvent.CONTENT, 'Hello'), 10);
     setTimeout(() => this.emit(ContentEvent.CONTENT, ' world!'), 20);
@@ -41,16 +47,16 @@ class MockContentGenerator extends EventEmitter implements ContentGenerator {
     return Promise.resolve();
   });
   
-  public countTokens = jest.fn().mockResolvedValue({
+  public countTokens = vi.fn().mockResolvedValue({
     messageCount: 3,
     tokenCount: 50,
     tokensPerMessage: [10, 20, 20],
     contextLimit: 4000
   });
   
-  public isModelAvailable = jest.fn().mockReturnValue(true);
-  public getDefaultModel = jest.fn().mockReturnValue('claude-3-sonnet');
-  public getModelContextSize = jest.fn().mockReturnValue(4000);
+  public isModelAvailable = vi.fn().mockReturnValue(true);
+  public getDefaultModel = vi.fn().mockReturnValue('claude-3-sonnet');
+  public getModelContextSize = vi.fn().mockReturnValue(4000);
 }
 
 // Create mock for Memory Manager
@@ -59,14 +65,14 @@ class MockMemoryManager extends EventEmitter implements MemoryManager {
     super();
   }
   
-  public isCompressionNeeded = jest.fn().mockResolvedValue(false);
-  public optimizeMemory = jest.fn().mockResolvedValue({
+  public isCompressionNeeded = vi.fn().mockResolvedValue(false);
+  public optimizeMemory = vi.fn().mockResolvedValue({
     originalTokenCount: 1000,
     newTokenCount: 500,
     compressionRatio: 0.5,
     removedMessages: 2
   });
-  public getMemoryStats = jest.fn().mockResolvedValue({
+  public getMemoryStats = vi.fn().mockResolvedValue({
     currentTokens: 500,
     maxTokens: 4000,
     utilizationPercentage: 12.5
@@ -98,13 +104,13 @@ class MockContentStream extends EventEmitter implements ContentStreamManager {
 }
 
 // Mock module factories
-jest.mock('../../src/ai/claude-content-generator.js', () => ({
-  createClaudeContentGenerator: jest.fn().mockImplementation(() => new MockContentGenerator()),
+vi.mock('../../src/ai/claude-content-generator.js', () => ({
+  createClaudeContentGenerator: vi.fn().mockImplementation(() => new MockContentGenerator()),
   ClaudeContentGenerator: jest.requireActual('events').EventEmitter
 }));
 
-jest.mock('../../src/ai/memory-manager.js', () => ({
-  createMemoryManager: jest.fn().mockImplementation(() => new MockMemoryManager()),
+vi.mock('../../src/ai/memory-manager.js', () => ({
+  createMemoryManager: vi.fn().mockImplementation(() => new MockMemoryManager()),
   MemoryOptimizationStrategy: {
     SUMMARIZE: 'summarize',
     PRUNE: 'prune',
@@ -112,9 +118,9 @@ jest.mock('../../src/ai/memory-manager.js', () => ({
   }
 }));
 
-jest.mock('../../src/ai/content-stream.js', () => {
+vi.mock('../../src/ai/content-stream.js', () => {
   return {
-    createContentStream: jest.fn().mockImplementation((turnManager) => new MockContentStream(turnManager)),
+    createContentStream: vi.fn().mockImplementation((turnManager) => new MockContentStream(turnManager)),
     StreamEventType: {
       CONTENT: 'content',
       COMPLETE: 'complete',
@@ -129,7 +135,7 @@ describe('Integrated AI System', () => {
   let mockConfig: any;
   
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Setup mock config
     mockConfig = {
@@ -250,8 +256,8 @@ describe('Integrated AI System', () => {
       });
       
       // Mock the turn manager methods
-      turnManager.hasPendingToolCalls = jest.fn().mockReturnValue(true);
-      turnManager.submitToolResult = jest.fn().mockResolvedValue({
+      turnManager.hasPendingToolCalls = vi.fn().mockReturnValue(true);
+      turnManager.submitToolResult = vi.fn().mockResolvedValue({
         content: 'Tool result processed',
         toolCalls: []
       });
@@ -287,7 +293,7 @@ describe('Integrated AI System', () => {
       });
       
       // Mock no pending tool calls
-      turnManager.hasPendingToolCalls = jest.fn().mockReturnValue(false);
+      turnManager.hasPendingToolCalls = vi.fn().mockReturnValue(false);
       
       // Set the turn manager
       (unifiedClient as any).turnManager = turnManager;
@@ -312,7 +318,7 @@ describe('Integrated AI System', () => {
     });
     
     test('should handle thinking events', async () => {
-      const thinkingHandler = jest.fn();
+      const thinkingHandler = vi.fn();
       turnManager.on(TurnEvent.THINKING, thinkingHandler);
       
       await turnManager.execute('Hello AI!');
@@ -371,7 +377,7 @@ describe('Integrated AI System', () => {
       const controller = new AbortController();
       
       // Mock the generateStream to throw AbortError when signal is detected
-      contentGenerator.generateStream = jest.fn().mockImplementation((messages, config) => {
+      contentGenerator.generateStream = vi.fn().mockImplementation((messages, config) => {
         if (config.abortSignal && config.abortSignal.aborted) {
           const error = new Error('Request aborted');
           error.name = 'AbortError';
@@ -417,7 +423,7 @@ describe('Integrated AI System', () => {
     
     test('should handle tool call event properly', () => {
       // Setup
-      const toolCallHandler = jest.fn();
+      const toolCallHandler = vi.fn();
       turnManager.on(TurnEvent.TOOL_CALL, toolCallHandler);
       
       // Simulate tool call event from content generator

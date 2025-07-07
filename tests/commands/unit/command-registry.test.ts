@@ -1,19 +1,25 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Unit tests for CommandRegistry class
  */
 
-import { jest } from '@jest/globals';
+import { jest } from 'vitest';
 import { CommandRegistry, generateCommandHelp } from '../../../src/commands/index.js';
 import { CommandCategory } from '../../../src/commands/types.js';
 import type { UnifiedCommand, CommandContext, CommandResult } from '../../../src/commands/types.js';
 
 // Mock dependencies
-jest.mock('../../../src/utils/logger.js', () => ({
+vi.mock('../../../src/utils/logger.js', () => ({
   logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn()
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
   }
 }));
 
@@ -36,10 +42,10 @@ describe('CommandRegistry', () => {
 
   beforeEach(() => {
     // Reset mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Create mock handler
-    mockHandler = jest.fn().mockResolvedValue({
+    mockHandler = vi.fn().mockResolvedValue({
       success: true,
       message: 'Command executed successfully'
     });
@@ -212,7 +218,7 @@ describe('CommandRegistry', () => {
           required: true
         }
       ],
-      handler: jest.fn().mockResolvedValue({
+      handler: vi.fn().mockResolvedValue({
         success: true,
         message: 'Executed with args'
       }),
@@ -335,7 +341,7 @@ describe('Command Help', () => {
       description: 'Show help information',
       category: CommandCategory.HELP,
       parameters: [],
-      handler: jest.fn()
+      handler: vi.fn()
     };
     
     const helpText = generateCommandHelp(command);
@@ -366,7 +372,7 @@ describe('Command Help', () => {
           default: 42
         }
       ],
-      handler: jest.fn(),
+      handler: vi.fn(),
       aliases: ['cplx'],
       examples: ['complex example1', 'complex example2']
     };
@@ -390,7 +396,7 @@ describe('Command Help', () => {
       description: 'Custom usage command',
       category: CommandCategory.SYSTEM,
       parameters: [],
-      handler: jest.fn(),
+      handler: vi.fn(),
       usage: 'custom <special usage>'
     };
     

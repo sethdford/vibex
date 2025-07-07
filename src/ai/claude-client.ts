@@ -7,9 +7,9 @@
 
 import { EventEmitter } from 'events';
 import type { MessageParam } from '@anthropic-ai/sdk/resources/messages';
-import { ContentGenerator } from './content-generator.js';
+import { ContentGenerator } from '../infrastructure/content-generator.js';
 import { ClaudeContentGenerator } from './claude-content-generator.js';
-import { TurnManager } from './turn-manager.js';
+import { TurnManager } from '../core/turn/turn-manager.js';
 import { ContentStreamManager, createContentStream } from './content-stream.js';
 import { MemoryManager, MemoryOptimizationStrategy } from './memory-manager.js';
 import type { AppConfigType } from '../config/schema.js';

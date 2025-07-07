@@ -1,8 +1,14 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Integration tests for the authentication flow
  */
 
-import { jest } from '@jest/globals';
+import { jest } from 'vitest';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
@@ -13,22 +19,22 @@ import * as tokenModule from '../../../src/auth/tokens.js';
 import * as oauthModule from '../../../src/auth/oauth.js';
 
 // Mock dependencies
-jest.mock('fs/promises');
-jest.mock('../../../src/utils/logger.js', () => ({
+vi.mock('fs/promises');
+vi.mock('../../../src/utils/logger.js', () => ({
   logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn()
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
   }
 }));
 
-jest.mock('../../../src/auth/oauth.js', () => {
+vi.mock('../../../src/auth/oauth.js', () => {
   const originalModule = jest.requireActual('../../../src/auth/oauth.js');
   return {
     ...originalModule,
-    performOAuthFlow: jest.fn(),
-    refreshOAuthToken: jest.fn(),
+    performOAuthFlow: vi.fn(),
+    refreshOAuthToken: vi.fn(),
   };
 });
 
@@ -43,10 +49,10 @@ const TEST_TOKEN = {
 describe('Authentication Flow Integration', () => {
   // Create mocks for token storage
   const mockTokenStorage = {
-    saveToken: jest.fn(),
-    getToken: jest.fn(),
-    deleteToken: jest.fn(),
-    clearTokens: jest.fn()
+    saveToken: vi.fn(),
+    getToken: vi.fn(),
+    deleteToken: vi.fn(),
+    clearTokens: vi.fn()
   };
 
   // Set up authentication manager for integration tests
@@ -54,12 +60,12 @@ describe('Authentication Flow Integration', () => {
 
   beforeAll(() => {
     // Ensure mock setup is consistent
-    (tokenModule.createTokenStorage as jest.Mock) = jest.fn().mockReturnValue(mockTokenStorage);
+    (tokenModule.createTokenStorage as jest.Mock) = vi.fn().mockReturnValue(mockTokenStorage);
   });
 
   // Reset mocks before each test
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Reset token storage mock
     mockTokenStorage.getToken.mockResolvedValue(null);
@@ -114,7 +120,7 @@ describe('Authentication Flow Integration', () => {
       mockTokenStorage.getToken.mockResolvedValue(expiredToken);
       
       // Mock isTokenExpired to return true
-      jest.spyOn(tokenModule, 'isTokenExpired').mockReturnValue(true);
+      vi.spyOn(tokenModule, 'isTokenExpired').mockReturnValue(true);
       
       // 2. Initialize - should try to refresh
       await auth.initialize();
@@ -144,7 +150,7 @@ describe('Authentication Flow Integration', () => {
     test('should handle token refresh failures', async () => {
       // 1. Initialize with token that needs refresh
       mockTokenStorage.getToken.mockResolvedValue(TEST_TOKEN);
-      jest.spyOn(tokenModule, 'isTokenExpired').mockReturnValue(true);
+      vi.spyOn(tokenModule, 'isTokenExpired').mockReturnValue(true);
       
       // 2. Make refresh token fail
       (oauthModule.refreshOAuthToken as jest.Mock).mockRejectedValue(new Error('Refresh failed'));

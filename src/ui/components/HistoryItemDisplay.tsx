@@ -15,7 +15,7 @@ import { ToolMessage } from './ToolMessage.js';
 import { ClipboardActions } from './ClipboardActions.js';
 import { ImageDisplay } from './image/ImageDisplay.js';
 import { isImageFile } from '../utils/imageUtils.js';
-import { AdvancedStreamingDisplay, StreamingMode, StreamingState } from './AdvancedStreamingDisplay.js';
+import { StreamingOrchestrator, StreamingMode, StreamingState } from './StreamingOrchestrator.js';
 
 /**
  * App configuration interface
@@ -269,7 +269,7 @@ export const HistoryItemDisplay: React.FC<HistoryItemDisplayProps> = ({
       <Box flexDirection="column" marginTop={1}>
         <Box>
           {shouldStream ? (
-            <AdvancedStreamingDisplay
+            <StreamingOrchestrator
               mode={StreamingMode.BASIC}
               streamingState={shouldStream ? StreamingState.RESPONDING : StreamingState.IDLE}
               content={content}

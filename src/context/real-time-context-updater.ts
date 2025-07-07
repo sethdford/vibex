@@ -17,7 +17,7 @@ import { watch, FSWatcher } from 'fs';
 import { access, stat } from 'fs/promises';
 import { basename, dirname, relative, resolve, join } from 'path';
 import { logger } from '../utils/logger.js';
-import { ContextSystem, ContextMergeResult, ContextEntry, ContextEvent } from './context-system.js';
+import { ContextSystem, ContextMergeResult, ContextEntry, ContextEvent } from './context-system-refactored.js';
 
 /**
  * File change event types

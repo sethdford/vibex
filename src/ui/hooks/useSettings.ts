@@ -363,4 +363,4 @@ function generateSettingDefinitions(schema: ConfigSchema): SettingDefinition[] {
   });
   
   return definitions;
-}
+} 

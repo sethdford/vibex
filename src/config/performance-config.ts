@@ -18,7 +18,7 @@
 import { z } from 'zod';
 import { EventEmitter } from 'events';
 import { logger } from '../utils/logger.js';
-import type { PerformanceMetrics } from '../ui/components/PerformanceMonitor.js';
+import type { PerformanceMetrics } from '../ui/components/performance-monitor/types.js';
 import type { PerformanceMonitoringSystem } from '../telemetry/performance-monitoring.js';
 
 /**
@@ -400,7 +400,7 @@ export const performanceConfigSchema = z.object({
   version: z.string().default('1.0.0'),
   
   /** Last updated timestamp */
-  lastUpdated: z.coerce.date().default(() => new Date())
+  lastUpdated: z.string().default(() => new Date().toISOString())
 }).default({});
 
 /**
@@ -466,7 +466,7 @@ export class PerformanceConfigManager extends EventEmitter {
     
     const oldConfig = this.config;
     this.config = result.data;
-    this.config.lastUpdated = new Date();
+    this.config.lastUpdated = new Date().toISOString();
     
     this.emit('configUpdated', { oldConfig, newConfig: this.config });
     
@@ -495,17 +495,43 @@ export class PerformanceConfigManager extends EventEmitter {
             enableParallelProcessing: true,
             maxConcurrentOperations: 3,
             maxConcurrentAIRequests: 1,
-            maxConcurrentFileOps: 5
+            maxConcurrentFileOps: 5,
+            maxConcurrentContextOps: 2,
+            enableRequestBatching: false,
+            aiBatchSize: 1,
+            batchTimeoutMs: 200,
+            enableWorkerThreads: false,
+            workerThreadPoolSize: 2
           },
           caching: {
             enableResponseCaching: true,
             cacheTTL: 180000, // 3 minutes
-            maxCacheSizeMB: 25
+            maxCacheSizeMB: 25,
+            enableAIResponseCaching: true,
+            aiCacheTTL: 300000,
+            enableContextCaching: true,
+            contextCacheTTL: 120000,
+            enableFileMetadataCaching: true,
+            fileMetadataCacheTTL: 60000,
+            cacheCompressionLevel: 3,
+            enableCachePersistence: false,
+            cacheCleanupInterval: 300000
           },
           memoryOptimization: {
             enableMemoryOptimization: true,
             gcThresholdMB: 30,
-            enableAutoGC: true
+            enableAutoGC: true,
+            gcIntervalMs: 60000,
+            maxHeapSizeMB: 100,
+            enableMemoryLeakDetection: true,
+            memoryLeakThresholdMB: 80,
+            enableObjectPooling: false,
+            objectPoolSizes: {
+              stringPool: 500,
+              arrayPool: 250,
+              objectPool: 100
+            },
+            enableWeakRefOptimization: false
           }
         };
         
@@ -515,17 +541,43 @@ export class PerformanceConfigManager extends EventEmitter {
             enableParallelProcessing: true,
             maxConcurrentOperations: 6,
             maxConcurrentAIRequests: 2,
-            maxConcurrentFileOps: 8
+            maxConcurrentFileOps: 8,
+            maxConcurrentContextOps: 4,
+            enableRequestBatching: true,
+            aiBatchSize: 2,
+            batchTimeoutMs: 100,
+            enableWorkerThreads: false,
+            workerThreadPoolSize: 3
           },
           caching: {
             enableResponseCaching: true,
             cacheTTL: 300000, // 5 minutes
-            maxCacheSizeMB: 50
+            maxCacheSizeMB: 50,
+            enableAIResponseCaching: true,
+            aiCacheTTL: 600000,
+            enableContextCaching: true,
+            contextCacheTTL: 180000,
+            enableFileMetadataCaching: true,
+            fileMetadataCacheTTL: 60000,
+            cacheCompressionLevel: 6,
+            enableCachePersistence: true,
+            cacheCleanupInterval: 600000
           },
           memoryOptimization: {
             enableMemoryOptimization: true,
             gcThresholdMB: 50,
-            enableAutoGC: true
+            enableAutoGC: true,
+            gcIntervalMs: 30000,
+            maxHeapSizeMB: 150,
+            enableMemoryLeakDetection: true,
+            memoryLeakThresholdMB: 100,
+            enableObjectPooling: true,
+            objectPoolSizes: {
+              stringPool: 1000,
+              arrayPool: 500,
+              objectPool: 200
+            },
+            enableWeakRefOptimization: true
           }
         };
         
@@ -535,18 +587,43 @@ export class PerformanceConfigManager extends EventEmitter {
             enableParallelProcessing: true,
             maxConcurrentOperations: 10,
             maxConcurrentAIRequests: 4,
-            maxConcurrentFileOps: 15
+            maxConcurrentFileOps: 15,
+            maxConcurrentContextOps: 6,
+            enableRequestBatching: true,
+            aiBatchSize: 3,
+            batchTimeoutMs: 50,
+            enableWorkerThreads: true,
+            workerThreadPoolSize: 4
           },
           caching: {
             enableResponseCaching: true,
             cacheTTL: 600000, // 10 minutes
-            maxCacheSizeMB: 100
+            maxCacheSizeMB: 100,
+            enableAIResponseCaching: true,
+            aiCacheTTL: 1200000,
+            enableContextCaching: true,
+            contextCacheTTL: 300000,
+            enableFileMetadataCaching: true,
+            fileMetadataCacheTTL: 120000,
+            cacheCompressionLevel: 8,
+            enableCachePersistence: true,
+            cacheCleanupInterval: 900000
           },
           memoryOptimization: {
             enableMemoryOptimization: true,
             gcThresholdMB: 80,
             enableAutoGC: true,
-            enableObjectPooling: true
+            gcIntervalMs: 15000,
+            maxHeapSizeMB: 200,
+            enableMemoryLeakDetection: true,
+            memoryLeakThresholdMB: 150,
+            enableObjectPooling: true,
+            objectPoolSizes: {
+              stringPool: 2000,
+              arrayPool: 1000,
+              objectPool: 500
+            },
+            enableWeakRefOptimization: true
           },
           enableExperimentalOptimizations: true
         };
@@ -558,19 +635,41 @@ export class PerformanceConfigManager extends EventEmitter {
             maxConcurrentOperations: 16,
             maxConcurrentAIRequests: 6,
             maxConcurrentFileOps: 20,
-            enableWorkerThreads: true
+            maxConcurrentContextOps: 8,
+            enableRequestBatching: true,
+            aiBatchSize: 5,
+            batchTimeoutMs: 25,
+            enableWorkerThreads: true,
+            workerThreadPoolSize: 6
           },
           caching: {
             enableResponseCaching: true,
             cacheTTL: 1800000, // 30 minutes
             maxCacheSizeMB: 200,
-            enableCachePersistence: true
+            enableAIResponseCaching: true,
+            aiCacheTTL: 3600000,
+            enableContextCaching: true,
+            contextCacheTTL: 600000,
+            enableFileMetadataCaching: true,
+            fileMetadataCacheTTL: 300000,
+            cacheCompressionLevel: 9,
+            enableCachePersistence: true,
+            cacheCleanupInterval: 1800000
           },
           memoryOptimization: {
             enableMemoryOptimization: true,
             gcThresholdMB: 100,
             enableAutoGC: true,
+            gcIntervalMs: 10000,
+            maxHeapSizeMB: 300,
+            enableMemoryLeakDetection: true,
+            memoryLeakThresholdMB: 200,
             enableObjectPooling: true,
+            objectPoolSizes: {
+              stringPool: 5000,
+              arrayPool: 2000,
+              objectPool: 1000
+            },
             enableWeakRefOptimization: true
           },
           enableExperimentalOptimizations: true
@@ -879,10 +978,10 @@ export function applyPerformanceOptimizations(config: PerformanceConfig = defaul
   // ENHANCED: Apply aggressive memory optimizations
   if (config.enableAggressiveGC) {
     // Force garbage collection more frequently
-    if (global.gc) {
+    if (typeof global !== 'undefined' && global.gc) {
       setInterval(() => {
         try {
-          global.gc();
+          global.gc!();
         } catch (e) {
           // Ignore GC errors
         }
@@ -912,8 +1011,8 @@ export function applyPerformanceOptimizations(config: PerformanceConfig = defaul
   
   // Set process priority for better resource management
   try {
-    if (process.platform !== 'win32') {
-      process.setpriority?.(0, 10); // Lower priority to be nice to system
+    if (process.platform !== 'win32' && 'setpriority' in process) {
+      (process as any).setpriority(0, 10); // Lower priority to be nice to system
     }
   } catch (e) {
     // Ignore priority setting errors
@@ -951,7 +1050,7 @@ export class MemoryManager {
     
     if (memUsage.heapUsed > this.memoryThreshold) {
       // Force garbage collection
-      if (global.gc) {
+      if (typeof global !== 'undefined' && global.gc) {
         global.gc();
       }
       
@@ -963,21 +1062,31 @@ export class MemoryManager {
   }
   
   private clearNonEssentialCache(): void {
+    // Check if require.cache exists (it might not in some environments)
+    if (!require.cache || typeof require.cache !== 'object') {
+      return;
+    }
+    
     const essentialModules = new Set([
       'fs', 'path', 'util', 'events', 'stream',
       'crypto', 'os', 'process'
     ]);
     
-    Object.keys(require.cache).forEach(key => {
-      const isEssential = essentialModules.has(key) || 
-                         key.includes('node_modules') ||
-                         key.includes('src/core') ||
-                         key.includes('src/config');
-      
-      if (!isEssential) {
-        delete require.cache[key];
-      }
-    });
+    try {
+      Object.keys(require.cache).forEach(key => {
+        const isEssential = essentialModules.has(key) || 
+                           key.includes('node_modules') ||
+                           key.includes('src/core') ||
+                           key.includes('src/config');
+        
+        if (!isEssential) {
+          delete require.cache[key];
+        }
+      });
+    } catch (error) {
+      // Silently ignore cache clearing errors
+      // This prevents crashes while still allowing cleanup when possible
+    }
   }
   
   getMemoryUsage(): { used: number; total: number; percentage: number } {

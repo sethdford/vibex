@@ -1,22 +1,22 @@
 /**
- * Turn Manager Tests
- * 
- * Tests for the conversation turn management system
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
  */
 
-import { jest } from '@jest/globals';
-import { TurnManager, TurnEvent, TurnStatus, createTurnManager } from '../../src/ai/turn-manager.js';
-import { ContentGenerator, ContentEvent, ContentRequestConfig } from '../../src/ai/content-generator.js';
+import { TurnManager, TurnEvent, TurnStatus, createTurnManager } from '../../../src/ai/turn-manager.js';
+import { ContentGenerator, ContentEvent, ContentRequestConfig } from '../../../src/ai/content-generator.js';
 import { EventEmitter } from 'events';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 // Mock ContentGenerator
 class MockContentGenerator extends EventEmitter implements ContentGenerator {
-  public generate = jest.fn().mockResolvedValue({
+  public generate = vi.fn().mockResolvedValue({
     content: [{ type: 'text', text: 'Test response' }],
     usage: { inputTokens: 10, outputTokens: 20 }
   });
   
-  public generateStream = jest.fn().mockImplementation(() => {
+  public generateStream = vi.fn().mockImplementation(() => {
     // Simulate streaming events
     setTimeout(() => this.emit(ContentEvent.CONTENT, 'Hello'), 10);
     setTimeout(() => this.emit(ContentEvent.CONTENT, ' world'), 20);
@@ -24,21 +24,21 @@ class MockContentGenerator extends EventEmitter implements ContentGenerator {
     return Promise.resolve();
   });
   
-  public countTokens = jest.fn().mockResolvedValue({ 
+  public countTokens = vi.fn().mockResolvedValue({ 
     messageCount: 2, 
     tokenCount: 50,
     tokensPerMessage: [20, 30],
     contextLimit: 4000
   });
   
-  public isModelAvailable = jest.fn().mockReturnValue(true);
-  public getDefaultModel = jest.fn().mockReturnValue('claude-3-7-sonnet');
-  public getModelContextSize = jest.fn().mockReturnValue(4000);
+  public isModelAvailable = vi.fn().mockReturnValue(true);
+  public getDefaultModel = vi.fn().mockReturnValue('claude-3-7-sonnet');
+  public getModelContextSize = vi.fn().mockReturnValue(4000);
 }
 
 // Mock ContentGenerator with tool calls
 class MockToolContentGenerator extends MockContentGenerator {
-  public generateStream = jest.fn().mockImplementation(() => {
+  public generateStream = vi.fn().mockImplementation(() => {
     // Simulate content and tool calls
     setTimeout(() => this.emit(ContentEvent.CONTENT, 'I need to use a tool'), 10);
     setTimeout(() => this.emit(ContentEvent.TOOL_CALL, {
@@ -67,14 +67,14 @@ describe('TurnManager', () => {
   });
   
   afterEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
   
   describe('execute', () => {
     it('should handle a simple conversation turn', async () => {
-      const startHandler = jest.fn();
-      const contentHandler = jest.fn();
-      const completeHandler = jest.fn();
+      const startHandler = vi.fn();
+      const contentHandler = vi.fn();
+      const completeHandler = vi.fn();
       
       turnManager.on(TurnEvent.START, startHandler);
       turnManager.on(TurnEvent.CONTENT, contentHandler);
@@ -111,7 +111,7 @@ describe('TurnManager', () => {
     });
     
     it('should handle tool calls correctly', async () => {
-      const toolCallHandler = jest.fn();
+      const toolCallHandler = vi.fn();
       toolTurnManager.on(TurnEvent.TOOL_CALL, toolCallHandler);
       
       const result = await toolTurnManager.execute('Use a tool');
@@ -138,12 +138,12 @@ describe('TurnManager', () => {
       await toolTurnManager.execute('Use a tool');
       
       // Mock second stream response
-      toolContentGenerator.generateStream = jest.fn().mockImplementation(() => {
+      toolContentGenerator.generateStream = vi.fn().mockImplementation(() => {
         setTimeout(() => toolContentGenerator.emit(ContentEvent.CONTENT, 'Tool result received!'), 10);
         return Promise.resolve();
       });
       
-      const toolResultHandler = jest.fn();
+      const toolResultHandler = vi.fn();
       toolTurnManager.on(TurnEvent.TOOL_RESULT, toolResultHandler);
       
       const result = await toolTurnManager.submitToolResult({

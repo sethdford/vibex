@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { StreamingState } from '../components/AdvancedStreamingDisplay.js';
+import { StreamingState } from '../components/StreamingOrchestrator.js';
 
 // Loading phrases to display during processing - inspired by Claude Code's informative UX
 const LOADING_PHRASES = [

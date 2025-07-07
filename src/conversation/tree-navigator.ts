@@ -9,7 +9,7 @@ import { EventEmitter } from 'events';
 import { logger } from '../utils/logger.js';
 import { createUserError } from '../errors/formatter.js';
 import { ErrorCategory } from '../errors/types.js';
-import { conversationTreeManager } from './conversation-tree-manager.js';
+import { createConversationTreeServices } from '../services/conversation-tree-services/index.js';
 import { conversationTreeVisualizer } from './tree-visualizer.js';
 import type {
   ConversationTree,
@@ -85,6 +85,8 @@ export class ConversationTreeNavigator extends EventEmitter {
   private keyBuffer: string[] = [];
   private keyTimeout: NodeJS.Timeout | null = null;
   private refreshInterval: NodeJS.Timeout | null = null;
+  private treeServices = createConversationTreeServices();
+  private treeManager = this.treeServices.orchestrator;
 
   constructor() {
     super();
@@ -95,7 +97,7 @@ export class ConversationTreeNavigator extends EventEmitter {
    * Start interactive navigation for a tree
    */
   async startInteractiveMode(): Promise<void> {
-    const tree = conversationTreeManager.getActiveTree();
+    const tree = this.treeManager.getActiveTree();
     if (!tree) {
       throw new Error('No active tree found for navigation');
     }
@@ -103,18 +105,22 @@ export class ConversationTreeNavigator extends EventEmitter {
     await this.startNavigation(tree.id);
   }
 
-  async startNavigation(treeId: string): Promise<void> {
+    async startNavigation(treeId: string): Promise<void> {
     try {
       // Load the tree
-      const tree = await conversationTreeManager.loadTree(treeId);
-      if (!tree) {
+      const result = await this.treeServices.lifecycleService.loadTree(treeId);
+      if (!result.success) {
         throw createUserError(`Tree not found: ${treeId}`, {
           category: ErrorCategory.USER_INPUT,
           resolution: 'Check tree ID and try again'
         });
       }
+      const tree = result.tree;
 
       // Initialize navigation context
+      if (!tree) {
+        throw new Error('Failed to load tree');
+      }
       this.context = {
         tree,
         state: {
@@ -403,7 +409,10 @@ export class ConversationTreeNavigator extends EventEmitter {
     if (!this.context) return;
 
     try {
-      await conversationTreeManager.switchToBranch(this.context.state.selectedNodeId);
+      const result = await this.treeServices.navigationService.navigateToNode(this.context.tree, this.context.state.selectedNodeId);
+      if (!result.success) {
+        throw new Error('Failed to switch to selected node');
+      }
       this.context.tree.activeNodeId = this.context.state.selectedNodeId;
       this.emit('node_switched', { nodeId: this.context.state.selectedNodeId });
     } catch (error) {
@@ -545,10 +554,10 @@ export class ConversationTreeNavigator extends EventEmitter {
     if (!this.context) return;
 
     try {
-      const updatedTree = await conversationTreeManager.loadTree(this.context.tree.id);
-      if (updatedTree) {
-        this.context.tree = updatedTree;
-        this.emit('tree_refreshed', { treeId: updatedTree.id });
+      const result = await this.treeServices.lifecycleService.loadTree(this.context.tree.id);
+      if (result.success && result.tree) {
+        this.context.tree = result.tree;
+        this.emit('tree_refreshed', { treeId: result.tree.id });
       }
     } catch (error) {
       logger.error('Failed to refresh tree', { error });

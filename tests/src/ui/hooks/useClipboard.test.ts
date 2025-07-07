@@ -1,28 +1,39 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Clipboard Hook Tests
  */
 
 import { renderHook, act } from '@testing-library/react';
 import { useClipboard } from '../../../../src/ui/hooks/useClipboard.js';
 import clipboard from 'clipboardy';
+import { describe, it, test, expect, beforeEach, afterEach, beforeAll, afterAll, vi } from 'vitest';
 
 // Mock clipboardy
-jest.mock('clipboardy', () => ({
-  write: jest.fn(),
-  read: jest.fn()
+vi.mock('clipboardy', () => ({
+  default: {
+    write: vi.fn(),
+    read: vi.fn()
+  },
+  write: vi.fn(),
+  read: vi.fn()
 }));
 
 // Mock logger
-jest.mock('../../../../src/utils/logger.js', () => ({
+vi.mock('../../../../src/utils/logger.js', () => ({
   logger: {
-    debug: jest.fn(),
-    error: jest.fn()
+    debug: vi.fn(),
+    error: vi.fn()
   }
 }));
 
 describe('useClipboard Hook', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
   
   it('should copy text to clipboard successfully', async () => {

@@ -1,4 +1,10 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * End-to-End Tests for Claude Code UI
  * 
  * Tests the full UI system from startup to interaction.
@@ -9,49 +15,50 @@ import { startUI } from '../../../../../src/ui/index.js';
 import { getAIClient } from '../../../../../src/ai/index.js';
 import { loadConfig } from '../../../../../src/config/index.js';
 import { defaults } from '../../../../../src/config/defaults.js';
+import { describe, it, test, expect, beforeEach, afterEach, beforeAll, afterAll, vi } from 'vitest';
 
 // Mock the render function from Ink
-jest.mock('ink', () => {
+vi.mock('ink', () => {
   const originalModule = jest.requireActual('ink');
   
   return {
     __esModule: true,
     ...originalModule,
-    render: jest.fn().mockReturnValue({
-      waitUntilExit: jest.fn().mockResolvedValue(undefined),
-      cleanup: jest.fn(),
-      rerender: jest.fn(),
-      unmount: jest.fn(),
-      clear: jest.fn(),
+    render: vi.fn().mockReturnValue({
+      waitUntilExit: vi.fn().mockResolvedValue(undefined),
+      cleanup: vi.fn(),
+      rerender: vi.fn(),
+      unmount: vi.fn(),
+      clear: vi.fn(),
     }),
   };
 });
 
 // Mock stdin/stdout
 const mockStdout = {
-  write: jest.fn(),
+  write: vi.fn(),
   columns: 80,
   rows: 24,
-  on: jest.fn(),
-  removeListener: jest.fn(),
+  on: vi.fn(),
+  removeListener: vi.fn(),
   isTTY: true,
 };
 
 const mockStdin = {
-  on: jest.fn(),
-  removeListener: jest.fn(),
-  setRawMode: jest.fn(),
+  on: vi.fn(),
+  removeListener: vi.fn(),
+  setRawMode: vi.fn(),
   isTTY: true,
-  push: jest.fn(),
+  push: vi.fn(),
 };
 
 // Mock AI client
-jest.mock('../../../../../src/ai/index.js', () => {
+vi.mock('../../../../../src/ai/index.js', () => {
   let messageHandler: (message: string) => void;
   
   return {
-    getAIClient: jest.fn().mockReturnValue({
-      query: jest.fn().mockImplementation(async (messages: any[], options: any) => {
+    getAIClient: vi.fn().mockReturnValue({
+      query: vi.fn().mockImplementation(async (messages: any[], options: any) => {
         // Simulate AI response
         const userMessage = messages[messages.length - 1].content;
         let response = 'I\'m not sure how to respond to that.';
@@ -88,7 +95,7 @@ jest.mock('../../../../../src/ai/index.js', () => {
       }),
       onMessage: (handler: (message: string) => void) => {
         messageHandler = handler;
-        return { unsubscribe: jest.fn() };
+        return { unsubscribe: vi.fn() };
       },
       sendMessage: (message: string) => {
         if (messageHandler) {
@@ -96,13 +103,13 @@ jest.mock('../../../../../src/ai/index.js', () => {
         }
       }
     }),
-    initAI: jest.fn().mockResolvedValue({})
+    initAI: vi.fn().mockResolvedValue({})
   };
 });
 
 // Mock config
-jest.mock('../../../../../src/config/index.js', () => ({
-  loadConfig: jest.fn().mockResolvedValue({
+vi.mock('../../../../../src/config/index.js', () => ({
+  loadConfig: vi.fn().mockResolvedValue({
     terminal: {
       theme: 'dark',
       useColors: true,
@@ -118,7 +125,7 @@ jest.mock('../../../../../src/config/index.js', () => ({
 
 describe('UI System End-to-End', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Set up process.stdout and process.stdin mocks
     Object.defineProperty(process, 'stdout', { value: mockStdout, writable: true });

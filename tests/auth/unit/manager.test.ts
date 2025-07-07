@@ -1,8 +1,14 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Unit tests for the AuthManager class
  */
 
-import { jest } from '@jest/globals';
+import { jest } from 'vitest';
 import { EventEmitter } from 'events';
 import { 
   AuthManager,
@@ -15,23 +21,23 @@ import * as tokenModule from '../../../src/auth/tokens.js';
 import * as oauthModule from '../../../src/auth/oauth.js';
 
 // Mock dependencies
-jest.mock('../../../src/utils/logger.js', () => ({
+vi.mock('../../../src/utils/logger.js', () => ({
   logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn()
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
   }
 }));
 
-jest.mock('../../../src/auth/tokens.js', () => ({
-  createTokenStorage: jest.fn(),
-  isTokenExpired: jest.fn()
+vi.mock('../../../src/auth/tokens.js', () => ({
+  createTokenStorage: vi.fn(),
+  isTokenExpired: vi.fn()
 }));
 
-jest.mock('../../../src/auth/oauth.js', () => ({
-  performOAuthFlow: jest.fn(),
-  refreshOAuthToken: jest.fn(),
+vi.mock('../../../src/auth/oauth.js', () => ({
+  performOAuthFlow: vi.fn(),
+  refreshOAuthToken: vi.fn(),
   DEFAULT_OAUTH_CONFIG: {
     clientId: 'test-client-id',
     authorizationEndpoint: 'https://test.com/auth',
@@ -70,16 +76,16 @@ const mockConfig: AuthManagerConfig = {
 describe('AuthManager', () => {
   // Create mocks for token storage
   const mockTokenStorage = {
-    saveToken: jest.fn(),
-    getToken: jest.fn(),
-    deleteToken: jest.fn(),
-    clearTokens: jest.fn()
+    saveToken: vi.fn(),
+    getToken: vi.fn(),
+    deleteToken: vi.fn(),
+    clearTokens: vi.fn()
   };
 
   // Reset mocks before each test
   beforeEach(() => {
-    jest.clearAllMocks();
-    jest.useFakeTimers();
+    vi.clearAllMocks();
+    vi.useFakeTimers();
 
     // Reset token storage mock
     (tokenModule.createTokenStorage as jest.Mock).mockReturnValue(mockTokenStorage);
@@ -96,7 +102,7 @@ describe('AuthManager', () => {
   });
 
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   describe('constructor', () => {
@@ -181,7 +187,7 @@ describe('AuthManager', () => {
       mockTokenStorage.getToken.mockRejectedValue(new Error('Storage error'));
 
       const auth = new AuthManager(mockConfig);
-      const errorSpy = jest.spyOn(auth, 'emit');
+      const errorSpy = vi.spyOn(auth, 'emit');
       
       await auth.initialize();
 
@@ -325,7 +331,7 @@ describe('AuthManager', () => {
       
       // Access private refreshTimer (for test purposes)
       const authAny = auth as any;
-      const clearTimeoutSpy = jest.spyOn(global, 'clearTimeout');
+      const clearTimeoutSpy = vi.spyOn(global, 'clearTimeout');
       
       // Should have a refresh timer
       expect(authAny.refreshTimer).not.toBeNull();
@@ -344,11 +350,11 @@ describe('AuthManager', () => {
       const auth = new AuthManager(mockConfig);
       await auth.initialize();
 
-      const setTimeoutSpy = jest.spyOn(global, 'setTimeout');
+      const setTimeoutSpy = vi.spyOn(global, 'setTimeout');
       expect(setTimeoutSpy).toHaveBeenCalled();
       
       // Fast-forward timer
-      jest.advanceTimersByTime(3300 * 1000); // Past the refresh threshold
+      vi.advanceTimersByTime(3300 * 1000); // Past the refresh threshold
       
       // Should have refreshed token
       expect(oauthModule.refreshOAuthToken).toHaveBeenCalled();
@@ -372,11 +378,11 @@ describe('AuthManager', () => {
       (oauthModule.refreshOAuthToken as jest.Mock).mockRejectedValue(new Error('Refresh failed'));
 
       const auth = new AuthManager(mockConfig);
-      const errorSpy = jest.spyOn(auth, 'emit');
+      const errorSpy = vi.spyOn(auth, 'emit');
       await auth.initialize();
       
       // Fast-forward timer
-      jest.advanceTimersByTime(3300 * 1000);
+      vi.advanceTimersByTime(3300 * 1000);
       
       // Wait for promise to resolve
       await new Promise(resolve => setTimeout(resolve, 0));

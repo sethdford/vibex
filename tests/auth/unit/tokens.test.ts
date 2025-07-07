@@ -1,8 +1,14 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Unit tests for the tokens module
  */
 
-import { describe, test, expect, beforeEach, jest } from '@jest/globals';
+import { describe, test, expect, beforeEach, jest } from 'vitest';
 import path from 'path';
 import fs from 'fs/promises';
 import {
@@ -17,18 +23,18 @@ import {
 import type { AuthToken } from '../../../src/auth/types.js';
 
 // Mock console to prevent test pollution
-jest.mock('console', () => ({
-  log: jest.fn(),
-  warn: jest.fn(),
-  error: jest.fn()
+vi.mock('console', () => ({
+  log: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn()
 }));
 
 // Define mock constants before using them in jest.mock
 const mockHomedir = '/mock/home/dir';
 
 // Mock os module
-jest.mock('os', () => ({
-  homedir: jest.fn(() => mockHomedir)
+vi.mock('os', () => ({
+  homedir: vi.fn(() => mockHomedir)
 }));
 
 // Test constants
@@ -43,7 +49,7 @@ const TEST_TOKEN: AuthToken = {
 describe('Auth Token Management', () => {
   // Reset mocks before each test
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('isTokenExpired', () => {

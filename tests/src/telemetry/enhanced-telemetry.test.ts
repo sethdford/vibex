@@ -1,21 +1,27 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Enhanced Telemetry Tests
  * 
  * Tests for the enhanced telemetry system with distributed tracing
  * and resource monitoring capabilities.
  */
 
-import { jest } from '@jest/globals';
+import { jest } from 'vitest';
 import { enhancedTelemetry, EnhancedTelemetrySystem, SpanStatus } from './enhanced-telemetry.js';
 import { telemetry } from './index.js';
 
 // Mock dependencies
-jest.mock('./index.js', () => ({
+vi.mock('./index.js', () => ({
   telemetry: {
-    isEnabled: jest.fn().mockReturnValue(true),
-    trackMetric: jest.fn(),
-    addBreadcrumb: jest.fn(),
-    trackEvent: jest.fn(),
+    isEnabled: vi.fn().mockReturnValue(true),
+    trackMetric: vi.fn(),
+    addBreadcrumb: vi.fn(),
+    trackEvent: vi.fn(),
   }
 }));
 
@@ -24,16 +30,16 @@ const originalPerformance = global.performance;
 beforeEach(() => {
   let counter = 1000;
   (global.performance as any) = {
-    now: jest.fn().mockImplementation(() => counter += 100),
-    mark: jest.fn(),
-    measure: jest.fn(),
-    getEntriesByName: jest.fn(),
+    now: vi.fn().mockImplementation(() => counter += 100),
+    mark: vi.fn(),
+    measure: vi.fn(),
+    getEntriesByName: vi.fn(),
   };
 });
 
 afterEach(() => {
   global.performance = originalPerformance;
-  jest.clearAllMocks();
+  vi.clearAllMocks();
 });
 
 describe('EnhancedTelemetrySystem', () => {

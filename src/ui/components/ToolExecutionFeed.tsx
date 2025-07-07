@@ -8,8 +8,8 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { Colors } from '../colors.js';
-import { ToolExecutionDisplay, useToolExecutionTracking } from './ToolExecutionDisplay.js';
-import type { ToolExecutionEntry } from './ToolExecutionDisplay.js';
+import { ToolExecutionDisplay, useToolExecutionTracking } from './tool-execution-display/index.js';
+import type { ToolExecutionEntry } from './tool-execution-display/index.js';
 
 /**
  * Feed display mode

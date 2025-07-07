@@ -1,4 +1,10 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Tests for theme.ts
  * 
  * These tests verify that the theme types are properly defined and exported.
@@ -6,6 +12,7 @@
 
 import { defaultTheme } from '../../../src/ui/themes/default.js';
 import type { Theme, ThemeOption, ThemeMode } from '../../../src/ui/themes/theme.js';
+import { describe, it, test, expect, beforeEach, afterEach, beforeAll, afterAll, vi } from 'vitest';
 
 describe('Theme Types', () => {
   describe('Theme interface', () => {

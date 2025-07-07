@@ -1,12 +1,19 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * useTemplateManager Hook Tests
  * 
  * NOTE: This test file is currently skipped due to complex mock initialization issues
- * with jest.mock() and reference timing. To be resolved in a future update.
+ * with vi.mock() and reference timing. To be resolved in a future update.
  */
 
 import { renderHook, act } from '@testing-library/react';
 import { useTemplateManager } from '../../../src/ui/hooks/useTemplateManager';
+import { describe, it, test, expect, beforeEach, afterEach, beforeAll, afterAll, vi } from 'vitest';
 
 // Mock template data
 const mockTemplates = [
@@ -41,31 +48,31 @@ const mockTemplates = [
 ];
 
 // Mock the template manager module
-jest.mock('../../../src/core/templates/WorkflowTemplateManager', () => {
-  const mockSearchTemplates = jest.fn().mockReturnValue(mockTemplates);
-  const mockInitialize = jest.fn().mockResolvedValue(undefined);
-  const mockCreateTemplate = jest.fn().mockImplementation(async (definition, metadata) => ({
+vi.mock('../../../src/core/templates/WorkflowTemplateManager', () => {
+  const mockSearchTemplates = vi.fn().mockReturnValue(mockTemplates);
+  const mockInitialize = vi.fn().mockResolvedValue(undefined);
+  const mockCreateTemplate = vi.fn().mockImplementation(async (definition, metadata) => ({
     metadata: { id: 'new-template', ...metadata },
     definition,
     validation: { isValid: true, errors: [] },
   }));
-  const mockUpdateTemplate = jest.fn().mockImplementation(async (id, updates) => ({
+  const mockUpdateTemplate = vi.fn().mockImplementation(async (id, updates) => ({
     metadata: { id, ...updates.metadata },
     definition: updates.definition || {},
     validation: { isValid: true, errors: [] },
   }));
-  const mockDeleteTemplate = jest.fn().mockResolvedValue(true);
-  const mockInstantiateTemplate = jest.fn().mockImplementation((id) => ({
+  const mockDeleteTemplate = vi.fn().mockResolvedValue(true);
+  const mockInstantiateTemplate = vi.fn().mockImplementation((id) => ({
     id: `workflow-${Date.now()}`,
     templateId: id,
     tasks: [],
   }));
-  const mockExportTemplates = jest.fn().mockResolvedValue('{"templates":[]}');
-  const mockImportTemplates = jest.fn().mockResolvedValue(mockTemplates);
-  const mockGetCategories = jest.fn().mockReturnValue(['Development', 'Testing', 'Deployment']);
-  const mockGetTags = jest.fn().mockReturnValue(['web', 'setup', 'testing', 'e2e']);
-  const mockOn = jest.fn();
-  const mockOff = jest.fn();
+  const mockExportTemplates = vi.fn().mockResolvedValue('{"templates":[]}');
+  const mockImportTemplates = vi.fn().mockResolvedValue(mockTemplates);
+  const mockGetCategories = vi.fn().mockReturnValue(['Development', 'Testing', 'Deployment']);
+  const mockGetTags = vi.fn().mockReturnValue(['web', 'setup', 'testing', 'e2e']);
+  const mockOn = vi.fn();
+  const mockOff = vi.fn();
   
   return {
     templateManager: {
@@ -101,10 +108,10 @@ jest.mock('../../../src/core/templates/WorkflowTemplateManager', () => {
 });
 
 // Mock the logger
-jest.mock('../../../src/utils/logger', () => ({
+vi.mock('../../../src/utils/logger', () => ({
   logger: {
-    info: jest.fn(),
-    error: jest.fn(),
+    info: vi.fn(),
+    error: vi.fn(),
   }
 }));
 
@@ -115,7 +122,7 @@ const mocks = templateManagerMock._mocks;
 // Skip all tests for now
 describe.skip('useTemplateManager Hook', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('initializes automatically by default', async () => {

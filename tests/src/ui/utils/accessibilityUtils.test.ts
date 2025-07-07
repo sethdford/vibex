@@ -1,4 +1,10 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Accessibility Utilities Tests
  */
 
@@ -10,6 +16,7 @@ import {
   generateAriaLabel
 } from '../../../../src/ui/utils/accessibilityUtils';
 import { defaults } from '../../../../src/config/defaults.js';
+import { describe, it, test, expect, beforeEach, afterEach, beforeAll, afterAll, vi } from 'vitest';
 
 describe('Accessibility Utilities', () => {
   describe('formatForScreenReader', () => {

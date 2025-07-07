@@ -1,8 +1,14 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Integration tests for error handling system
  */
 
-import { jest } from '@jest/globals';
+import { jest } from 'vitest';
 import { 
   UserError, 
   ErrorCategory, 
@@ -15,12 +21,12 @@ import { analyzeError, getResolutionSteps } from '../../../src/errors/analyzer.j
 import { reportErrorToSentry } from '../../../src/errors/sentry.js';
 
 // Mock dependencies
-jest.mock('../../../src/utils/logger.js', () => ({
+vi.mock('../../../src/utils/logger.js', () => ({
   logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn()
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
   }
 }));
 
@@ -35,7 +41,7 @@ enum ErrorLevel {
 
 describe('Error System Integration', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('End-to-end error flow', () => {
@@ -75,7 +81,7 @@ describe('Error System Integration', () => {
     
     test('should correctly process authentication errors through the system', () => {
       // Reset mocks to ensure clean state
-      jest.clearAllMocks();
+      vi.clearAllMocks();
       
       // Simulated authentication error
       const originalError = new Error('401 Unauthorized: Invalid API key');

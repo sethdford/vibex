@@ -1,18 +1,24 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Unit tests for telemetry utilities
  */
 
-import { describe, test, expect, jest, beforeEach } from '@jest/globals';
+import { describe, test, expect, jest, beforeEach } from 'vitest';
 import * as telemetryUtils from '../../../src/telemetry/telemetry-utils.js';
 import { telemetry } from '../../../src/telemetry/index.js';
 import { enhancedTelemetry } from '../../../src/telemetry/enhanced-telemetry.js';
 import { performanceMonitoring, PerformanceScope } from '../../../src/telemetry/performance-monitoring.js';
 
 // Mock dependencies
-jest.mock('../../../src/telemetry/index.js', () => ({
+vi.mock('../../../src/telemetry/index.js', () => ({
   telemetry: {
-    trackEvent: jest.fn(),
-    addBreadcrumb: jest.fn()
+    trackEvent: vi.fn(),
+    addBreadcrumb: vi.fn()
   },
   TelemetryEventType: {
     AI_REQUEST: 'ai_request',
@@ -20,15 +26,15 @@ jest.mock('../../../src/telemetry/index.js', () => ({
   }
 }));
 
-jest.mock('../../../src/telemetry/enhanced-telemetry.js', () => ({
+vi.mock('../../../src/telemetry/enhanced-telemetry.js', () => ({
   enhancedTelemetry: {
-    startSpan: jest.fn().mockReturnValue({ 
+    startSpan: vi.fn().mockReturnValue({ 
       traceId: 'mock-trace-id', 
       spanId: 'mock-span-id', 
       name: 'mock-span' 
     }),
-    endSpan: jest.fn(),
-    getResourceStats: jest.fn().mockReturnValue({
+    endSpan: vi.fn(),
+    getResourceStats: vi.fn().mockReturnValue({
       memoryUsage: {
         rss: 200 * 1024 * 1024, // 200MB
         heapUsed: 100 * 1024 * 1024 // 100MB
@@ -41,13 +47,13 @@ jest.mock('../../../src/telemetry/enhanced-telemetry.js', () => ({
   }
 }));
 
-jest.mock('../../../src/telemetry/performance-monitoring.js', () => ({
+vi.mock('../../../src/telemetry/performance-monitoring.js', () => ({
   performanceMonitoring: {
-    trackFunction: jest.fn().mockImplementation((fn) => fn),
-    startMarker: jest.fn().mockReturnValue('mock-marker-id'),
-    endMarker: jest.fn(),
-    trackComponentRender: jest.fn(),
-    detectBottlenecks: jest.fn().mockReturnValue([])
+    trackFunction: vi.fn().mockImplementation((fn) => fn),
+    startMarker: vi.fn().mockReturnValue('mock-marker-id'),
+    endMarker: vi.fn(),
+    trackComponentRender: vi.fn(),
+    detectBottlenecks: vi.fn().mockReturnValue([])
   },
   PerformanceScope: {
     SYSTEM: 'system',
@@ -68,7 +74,7 @@ afterAll(() => {
 describe('telemetry-utils', () => {
   beforeEach(() => {
     // Reset all mocks between tests
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
   
   test('anonymizePath should handle empty path', () => {
@@ -94,7 +100,7 @@ describe('telemetry-utils', () => {
   });
   
   test('wrapFunctionWithTelemetry should use performanceMonitoring', () => {
-    const fn = jest.fn();
+    const fn = vi.fn();
     
     telemetryUtils.wrapFunctionWithTelemetry(fn, 'test-function', PerformanceScope.SYSTEM);
     
@@ -106,7 +112,7 @@ describe('telemetry-utils', () => {
   });
   
   test('trackAsyncOperation should track operation with span', async () => {
-    const operation = jest.fn().mockResolvedValue('result');
+    const operation = vi.fn().mockResolvedValue('result');
     
     const result = await telemetryUtils.trackAsyncOperation(
       operation,
@@ -127,7 +133,7 @@ describe('telemetry-utils', () => {
   
   test('trackAsyncOperation should handle errors', async () => {
     const error = new Error('Test error');
-    const operation = jest.fn().mockRejectedValue(error);
+    const operation = vi.fn().mockRejectedValue(error);
     
     await expect(telemetryUtils.trackAsyncOperation(
       operation,

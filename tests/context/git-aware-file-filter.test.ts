@@ -1,8 +1,14 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Tests for Enhanced Git-Aware File Filtering System
  */
 
-import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globals';
+import { describe, test, expect, beforeEach, afterEach, jest } from 'vitest';
 import { GitAwareFileFilter, FileTypeCategory } from '../../src/context/git-aware-file-filter.js';
 import { join } from 'path';
 
@@ -21,7 +27,7 @@ describe('GitAwareFileFilter', () => {
     });
 
     // Reset mocks before each test
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   afterEach(() => {
@@ -33,7 +39,7 @@ describe('GitAwareFileFilter', () => {
       const filePath = join(mockRootPath, 'src/main.ts');
       
       // Mock stat to return a regular file
-      const mockStat = jest.fn().mockResolvedValue({
+      const mockStat = vi.fn().mockResolvedValue({
         isFile: () => true,
         size: 1024,
         mtime: new Date()
@@ -59,7 +65,7 @@ describe('GitAwareFileFilter', () => {
       const filePath = join(mockRootPath, 'README.md');
       
       // Mock stat to return a regular file
-      const mockStat = jest.fn().mockResolvedValue({
+      const mockStat = vi.fn().mockResolvedValue({
         isFile: () => true,
         size: 1024,
         mtime: new Date()
@@ -87,7 +93,7 @@ describe('GitAwareFileFilter', () => {
       const filePath = join(mockRootPath, 'image.png');
       
       // Mock stat to return a regular file
-      const mockStat = jest.fn().mockResolvedValue({
+      const mockStat = vi.fn().mockResolvedValue({
         isFile: () => true,
         size: 1024,
         mtime: new Date()
@@ -117,7 +123,7 @@ describe('GitAwareFileFilter', () => {
       const sourceFile = join(mockRootPath, 'components/Button.tsx');
       
       // Mock stat to return a regular file
-      const mockStat = jest.fn().mockResolvedValue({
+      const mockStat = vi.fn().mockResolvedValue({
         isFile: () => true,
         size: 1024,
         mtime: new Date()
@@ -140,7 +146,7 @@ describe('GitAwareFileFilter', () => {
       const configFile = join(mockRootPath, 'package.json');
       
       // Mock stat to return a regular file
-      const mockStat = jest.fn().mockResolvedValue({
+      const mockStat = vi.fn().mockResolvedValue({
         isFile: () => true,
         size: 512,
         mtime: new Date()
@@ -160,7 +166,7 @@ describe('GitAwareFileFilter', () => {
       const nonExistentFile = join(mockRootPath, 'does-not-exist.ts');
       
       // Mock access to throw an error
-      const mockAccess = jest.fn().mockRejectedValue(new Error('File not found')) as jest.MockedFunction<any>;
+      const mockAccess = vi.fn().mockRejectedValue(new Error('File not found')) as jest.MockedFunction<any>;
       (global as any).mockAccess = mockAccess;
 
       const result = await filter.filterSingleFile(nonExistentFile, mockRootPath);
@@ -216,7 +222,7 @@ describe('GitAwareFileFilter', () => {
       const filePath = join(mockRootPath, 'image.png');
       
       // Mock stat to return a regular file
-      const mockStat = jest.fn().mockResolvedValue({
+      const mockStat = vi.fn().mockResolvedValue({
         isFile: () => true,
         size: 1024,
         mtime: new Date()

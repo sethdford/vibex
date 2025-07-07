@@ -1,12 +1,19 @@
+/**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
 import { initAI, resetAIClient } from '../../../src/ai/index.js';
 import { UnifiedClaudeClient } from '../../../src/ai/unified-client.js';
+import { describe, it, test, expect, beforeEach, afterEach, beforeAll, afterAll, vi } from 'vitest';
 
 // Mock the API calls with tool calls
-jest.mock('../../../src/ai/claude-content-generator.js', () => {
+vi.mock('../../../src/ai/claude-content-generator.js', () => {
   const EventEmitter = require('events');
   
   class MockClaudeContentGenerator extends EventEmitter {
-    generate = jest.fn().mockImplementation(async (messages, options) => {
+    generate = vi.fn().mockImplementation(async (messages, options) => {
       // Return a tool call on first invocation
       if (this.generate.mock.calls.length === 1) {
         return {
@@ -30,7 +37,7 @@ jest.mock('../../../src/ai/claude-content-generator.js', () => {
       };
     });
     
-    generateStream = jest.fn(async function* (messages, options) {
+    generateStream = vi.fn(async function* (messages, options) {
       // Return a tool call on first invocation
       if (this.generateStream.mock.calls.length === 1) {
         return {
@@ -58,11 +65,11 @@ jest.mock('../../../src/ai/claude-content-generator.js', () => {
       };
     });
 
-    countTokens = jest.fn().mockResolvedValue(10);
+    countTokens = vi.fn().mockResolvedValue(10);
   }
   
   return {
-    createClaudeContentGenerator: jest.fn().mockImplementation(() => new MockClaudeContentGenerator()),
+    createClaudeContentGenerator: vi.fn().mockImplementation(() => new MockClaudeContentGenerator()),
     ClaudeContentGenerator: MockClaudeContentGenerator
   };
 });

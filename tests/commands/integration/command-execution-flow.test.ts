@@ -1,8 +1,14 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Integration tests for the command execution flow
  */
 
-import { jest } from '@jest/globals';
+import { jest } from 'vitest';
 import {
   commandRegistry,
   executeCommand
@@ -11,12 +17,12 @@ import { CommandCategory } from '../../../src/commands/types.js';
 import type { UnifiedCommand, CommandContext } from '../../../src/commands/types.js';
 
 // Mock dependencies
-jest.mock('../../../src/utils/logger.js', () => ({
+vi.mock('../../../src/utils/logger.js', () => ({
   logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn()
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
   }
 }));
 
@@ -30,7 +36,7 @@ describe('Command Execution Flow Integration', () => {
   
   // Reset state before each test
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     testState.lastValue = null;
     testState.callCount = 0;
     testState.commands = [];
@@ -291,11 +297,11 @@ describe('Command Execution Flow Integration', () => {
     test('should preserve and merge context between commands', async () => {
       // Create a test terminal with spy functions
       const terminal = {
-        info: jest.fn(),
-        error: jest.fn(),
-        warn: jest.fn(),
-        success: jest.fn(),
-        prompt: jest.fn().mockResolvedValue('test')
+        info: vi.fn(),
+        error: vi.fn(),
+        warn: vi.fn(),
+        success: vi.fn(),
+        prompt: vi.fn().mockResolvedValue('test')
       };
       
       // Register a command that checks context

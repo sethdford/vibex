@@ -9,7 +9,7 @@ import React, { useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 import type { ProgressData } from '../contexts/ProgressContext.js';
 import { useProgress } from '../contexts/ProgressContext.js';
-import { ProgressSystem } from './progress/ProgressSystem.js';
+import { ProgressSystem } from './progress-system/index.js';
 import { DetailedProgressInfo } from './DetailedProgressInfo.js';
 import { Colors } from '../colors.js';
 

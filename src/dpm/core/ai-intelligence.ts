@@ -5,7 +5,7 @@ import { EventEmitter } from 'events';
 import { DPMConfigManager } from '../config/dpm-config';
 import { HierarchicalMemoryManager } from '../../memory/hierarchical-manager';
 import { MemoryType } from '../../memory/interfaces';
-import { ContentGeneratorOptions } from '../../ai/content-generator';
+import { ContentGeneratorOptions } from '../../infrastructure/content-generator';
 
 export interface AIIntelligenceOptions {
   config: DPMConfigManager;

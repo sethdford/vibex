@@ -1,4 +1,10 @@
-import { describe, test, expect, beforeEach } from '@jest/globals';
+/**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+import { describe, test, expect, beforeEach } from 'vitest';
 import { createIntegratedClaudeConfig, validateClaudeIntegration, loadClaudeConfigFromApp } from '../../src/config/claude-integration.js';
 import { ClaudeOptimizedConfigManager } from '../../src/config/claude-optimized-config.js';
 import { EnhancedModernUIConfigManager } from '../../src/config/enhanced-modern-ui-config.js';

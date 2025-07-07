@@ -6,7 +6,7 @@
  */
 
 import React, { createContext, useContext } from 'react';
-import { StreamingState } from '../components/ModernInterface.js';
+import { StreamingState } from '../components/types/interface-types.js';
 
 /**
  * Create the streaming context with a default value

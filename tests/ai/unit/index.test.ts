@@ -1,16 +1,22 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * AI Module Tests
  * 
  * Tests for the main AI module that uses the integrated architecture
  */
 
-import { jest } from '@jest/globals';
+import { jest } from 'vitest';
 import { initAI, getAIClient, resetAIClient, getEnhancedClient } from '../../src/ai/index.js';
 import { UnifiedClaudeClient } from '../../src/ai/unified-client.js';
 import type { QueryOptions, AIResponse } from '../../src/ai/unified-client.js';
 
 // Mock the unified client
-jest.mock('../../src/ai/unified-client.js', () => {
+vi.mock('../../src/ai/unified-client.js', () => {
   const EventEmitter = require('events');
   
   class MockUnifiedClient extends EventEmitter {
@@ -18,31 +24,31 @@ jest.mock('../../src/ai/unified-client.js', () => {
       message: { content: 'Test response' }
     });
     queryStream = jest.fn<(prompt: string, options?: QueryOptions) => Promise<void>>().mockResolvedValue(undefined);
-    isAvailable = jest.fn().mockReturnValue(true);
-    getModel = jest.fn().mockReturnValue('claude-3-7-sonnet');
-    setModel = jest.fn();
+    isAvailable = vi.fn().mockReturnValue(true);
+    getModel = vi.fn().mockReturnValue('claude-3-7-sonnet');
+    setModel = vi.fn();
     submitToolResult = jest.fn<(toolCallId: string, result: any) => Promise<void>>().mockResolvedValue(undefined);
-    clearConversation = jest.fn();
-    getConversation = jest.fn().mockReturnValue([]);
-    setConversation = jest.fn();
+    clearConversation = vi.fn();
+    getConversation = vi.fn().mockReturnValue([]);
+    setConversation = vi.fn();
     getMemoryStats = jest.fn<() => Promise<any>>().mockResolvedValue({});
   }
   
   return {
     UnifiedClaudeClient: MockUnifiedClient,
-    createUnifiedClient: jest.fn().mockImplementation(() => new MockUnifiedClient()),
+    createUnifiedClient: vi.fn().mockImplementation(() => new MockUnifiedClient()),
   };
 });
 
 // Mock auth manager
-jest.mock('../../src/auth/index.js', () => ({
+vi.mock('../../src/auth/index.js', () => ({
   authManager: {
-    getToken: jest.fn().mockReturnValue({ accessToken: 'mock-token' }),
+    getToken: vi.fn().mockReturnValue({ accessToken: 'mock-token' }),
   },
 }));
 
 // Mock config
-jest.mock('../../src/config/index.js', () => ({
+vi.mock('../../src/config/index.js', () => ({
   loadConfig: jest.fn<() => Promise<any>>().mockResolvedValue({
     ai: { model: 'claude-3-7-sonnet' }
   }),
@@ -51,7 +57,7 @@ jest.mock('../../src/config/index.js', () => ({
 describe('AI Module', () => {
   beforeEach(() => {
     // Reset AI client by calling the exported function directly
-    jest.spyOn(require('../../src/ai/index.js'), 'resetAIClient').mockImplementation(() => {
+    vi.spyOn(require('../../src/ai/index.js'), 'resetAIClient').mockImplementation(() => {
       (require('../../src/ai/index.js') as any).aiClient = null;
     });
     require('../../src/ai/index.js').resetAIClient();
@@ -60,7 +66,7 @@ describe('AI Module', () => {
   
   afterEach(() => {
     delete process.env.ANTHROPIC_API_KEY;
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
   
   describe('initAI', () => {

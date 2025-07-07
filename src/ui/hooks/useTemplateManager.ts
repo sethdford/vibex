@@ -1,287 +1,238 @@
-import { useState, useEffect, useCallback } from 'react';
-import { templateManager, WorkflowTemplate, TemplateSearchOptions } from '../../core/templates/WorkflowTemplateManager';
-import { logger } from '../../utils/logger';
+/**
+ * Template Manager Hook
+ * 
+ * Manages templates for commands and prompts.
+ */
+
+import { useState, useCallback, useEffect } from 'react';
+
+export interface Template {
+  id: string;
+  name: string;
+  description?: string;
+  content: string;
+  variables?: string[];
+  category?: string;
+  tags?: string[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface TemplateVariable {
+  name: string;
+  value: string;
+  description?: string;
+}
 
 export interface UseTemplateManagerOptions {
-  autoInitialize?: boolean;
-  enableRealTimeUpdates?: boolean;
+  storageKey?: string;
+  autoSave?: boolean;
 }
 
-export interface UseTemplateManagerReturn {
-  // State
-  templates: WorkflowTemplate[];
-  categories: string[];
-  tags: string[];
-  isLoading: boolean;
-  isInitialized: boolean;
-  error: string | null;
-  
-  // Actions
-  initialize: () => Promise<void>;
-  searchTemplates: (options: TemplateSearchOptions) => WorkflowTemplate[];
-  createTemplate: (definition: any, metadata: any, variables?: any) => Promise<WorkflowTemplate>;
-  updateTemplate: (id: string, updates: any) => Promise<WorkflowTemplate>;
-  deleteTemplate: (id: string) => Promise<boolean>;
-  instantiateTemplate: (templateId: string, variables?: any) => any;
-  exportTemplates: (templateIds: string[]) => Promise<string>;
-  importTemplates: (data: string) => Promise<WorkflowTemplate[]>;
-  refreshTemplates: () => Promise<void>;
-  clearError: () => void;
-}
+export function useTemplateManager(options: UseTemplateManagerOptions = {}) {
+  const {
+    storageKey = 'vibex-templates',
+    autoSave = true
+  } = options;
 
-/**
- * Custom hook for template management operations
- */
-export function useTemplateManager(options: UseTemplateManagerOptions = {}): UseTemplateManagerReturn {
-  const { autoInitialize = true, enableRealTimeUpdates = false } = options;
-  
-  // State
-  const [templates, setTemplates] = useState<WorkflowTemplate[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
-  const [tags, setTags] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isInitialized, setIsInitialized] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [variables, setVariables] = useState<TemplateVariable[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
 
-  // Initialize template manager
-  const initialize = useCallback(async () => {
-    if (isInitialized) return;
-    
-    setIsLoading(true);
-    setError(null);
-    
+  // Load templates from storage
+  const loadTemplates = useCallback(() => {
     try {
-      await templateManager.initialize();
-      setIsInitialized(true);
-      await refreshTemplates();
-      
-      logger.info('Template manager initialized via hook');
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to initialize template manager';
-      setError(errorMessage);
-      logger.error('Template manager initialization failed', { error: err });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [isInitialized]);
-
-  // Refresh templates and metadata
-  const refreshTemplates = useCallback(async () => {
-    try {
-      const allTemplates = templateManager.searchTemplates({});
-      setTemplates(allTemplates);
-      setCategories(templateManager.getCategories());
-      setTags(templateManager.getTags());
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to refresh templates';
-      setError(errorMessage);
-      logger.error('Template refresh failed', { error: err });
-    }
-  }, []);
-
-  // Search templates with options
-  const searchTemplates = useCallback((searchOptions: TemplateSearchOptions): WorkflowTemplate[] => {
-    try {
-      return templateManager.searchTemplates(searchOptions);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Search failed';
-      setError(errorMessage);
-      logger.error('Template search failed', { error: err, searchOptions });
-      return [];
-    }
-  }, []);
-
-  // Create new template
-  const createTemplate = useCallback(async (
-    definition: any,
-    metadata: any,
-    variables?: any
-  ): Promise<WorkflowTemplate> => {
-    setError(null);
-    
-    try {
-      const newTemplate = await templateManager.createTemplate(definition, metadata, variables);
-      await refreshTemplates();
-      
-      logger.info('Template created via hook', { 
-        templateId: newTemplate.metadata.id,
-        name: newTemplate.metadata.name 
-      });
-      
-      return newTemplate;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to create template';
-      setError(errorMessage);
-      logger.error('Template creation failed', { error: err });
-      throw err;
-    }
-  }, [refreshTemplates]);
-
-  // Update existing template
-  const updateTemplate = useCallback(async (
-    id: string,
-    updates: any
-  ): Promise<WorkflowTemplate> => {
-    setError(null);
-    
-    try {
-      const updatedTemplate = await templateManager.updateTemplate(id, updates);
-      await refreshTemplates();
-      
-      logger.info('Template updated via hook', { 
-        templateId: id,
-        name: updatedTemplate.metadata.name 
-      });
-      
-      return updatedTemplate;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to update template';
-      setError(errorMessage);
-      logger.error('Template update failed', { error: err, templateId: id });
-      throw err;
-    }
-  }, [refreshTemplates]);
-
-  // Delete template
-  const deleteTemplate = useCallback(async (id: string): Promise<boolean> => {
-    setError(null);
-    
-    try {
-      const success = await templateManager.deleteTemplate(id);
-      if (success) {
-        await refreshTemplates();
-        logger.info('Template deleted via hook', { templateId: id });
+      const stored = localStorage.getItem(storageKey);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setTemplates(parsed.templates || []);
+        setVariables(parsed.variables || []);
       }
-      return success;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to delete template';
-      setError(errorMessage);
-      logger.error('Template deletion failed', { error: err, templateId: id });
-      return false;
+    } catch (error) {
+      console.error('Failed to load templates:', error);
     }
-  }, [refreshTemplates]);
+  }, [storageKey]);
 
-  // Instantiate template as workflow
-  const instantiateTemplate = useCallback((
-    templateId: string,
-    variables: Record<string, any> = {}
-  ): any => {
-    setError(null);
-    
+  // Save templates to storage
+  const saveTemplates = useCallback(() => {
     try {
-      const workflow = templateManager.instantiateTemplate(templateId, variables);
-      
-      logger.info('Template instantiated via hook', { 
-        templateId,
-        workflowId: workflow.id 
-      });
-      
-      return workflow;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to instantiate template';
-      setError(errorMessage);
-      logger.error('Template instantiation failed', { error: err, templateId });
-      throw err;
+      const data = {
+        templates,
+        variables,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(storageKey, JSON.stringify(data));
+    } catch (error) {
+      console.error('Failed to save templates:', error);
     }
+  }, [templates, variables, storageKey]);
+
+  // Create a new template
+  const createTemplate = useCallback((template: Omit<Template, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const newTemplate: Template = {
+      ...template,
+      id: `template-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
+
+    setTemplates(prev => [...prev, newTemplate]);
+    return newTemplate;
   }, []);
+
+  // Update an existing template
+  const updateTemplate = useCallback((id: string, updates: Partial<Omit<Template, 'id' | 'createdAt'>>) => {
+    setTemplates(prev => prev.map(template => 
+      template.id === id 
+        ? { ...template, ...updates, updatedAt: Date.now() }
+        : template
+    ));
+  }, []);
+
+  // Delete a template
+  const deleteTemplate = useCallback((id: string) => {
+    setTemplates(prev => prev.filter(template => template.id !== id));
+    if (selectedTemplate?.id === id) {
+      setSelectedTemplate(null);
+    }
+  }, [selectedTemplate]);
+
+  // Get template by ID
+  const getTemplate = useCallback((id: string) => {
+    return templates.find(template => template.id === id) || null;
+  }, [templates]);
+
+  // Search templates
+  const searchTemplates = useCallback((query: string) => {
+    const lowercaseQuery = query.toLowerCase();
+    return templates.filter(template => 
+      template.name.toLowerCase().includes(lowercaseQuery) ||
+      template.description?.toLowerCase().includes(lowercaseQuery) ||
+      template.content.toLowerCase().includes(lowercaseQuery) ||
+      template.tags?.some(tag => tag.toLowerCase().includes(lowercaseQuery))
+    );
+  }, [templates]);
+
+  // Get templates by category
+  const getTemplatesByCategory = useCallback((category: string) => {
+    return templates.filter(template => template.category === category);
+  }, [templates]);
+
+  // Extract variables from template content
+  const extractVariables = useCallback((content: string): string[] => {
+    const variableRegex = /\{\{(\w+)\}\}/g;
+    const matches = content.match(variableRegex);
+    return matches ? matches.map(match => match.slice(2, -2)) : [];
+  }, []);
+
+  // Render template with variables
+  const renderTemplate = useCallback((template: Template, variableValues: Record<string, string> = {}): string => {
+    let rendered = template.content;
+    
+    // Replace variables with values
+    for (const [key, value] of Object.entries(variableValues)) {
+      const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
+      rendered = rendered.replace(regex, value);
+    }
+    
+    return rendered;
+  }, []);
+
+  // Set variable value
+  const setVariable = useCallback((name: string, value: string, description?: string) => {
+    setVariables(prev => {
+      const existing = prev.find(v => v.name === name);
+      if (existing) {
+        return prev.map(v => v.name === name ? { ...v, value, description } : v);
+      } else {
+        return [...prev, { name, value, description }];
+      }
+    });
+  }, []);
+
+  // Get variable value
+  const getVariable = useCallback((name: string): string => {
+    const variable = variables.find(v => v.name === name);
+    return variable?.value || '';
+  }, [variables]);
+
+  // Get all variable values as object
+  const getVariableValues = useCallback((): Record<string, string> => {
+    return variables.reduce((acc, variable) => {
+      acc[variable.name] = variable.value;
+      return acc;
+    }, {} as Record<string, string>);
+  }, [variables]);
+
+  // Clone template
+  const cloneTemplate = useCallback((id: string, newName?: string) => {
+    const template = getTemplate(id);
+    if (!template) return null;
+
+    return createTemplate({
+      ...template,
+      name: newName || `${template.name} (Copy)`
+    });
+  }, [getTemplate, createTemplate]);
 
   // Export templates
-  const exportTemplates = useCallback(async (templateIds: string[]): Promise<string> => {
-    setError(null);
-    
-    try {
-      const exportData = await templateManager.exportTemplates(templateIds);
-      
-      logger.info('Templates exported via hook', { 
-        templateCount: templateIds.length,
-        size: exportData.length 
-      });
-      
-      return exportData;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to export templates';
-      setError(errorMessage);
-      logger.error('Template export failed', { error: err, templateIds });
-      throw err;
-    }
-  }, []);
+  const exportTemplates = useCallback(() => {
+    return {
+      templates,
+      variables,
+      exportedAt: Date.now()
+    };
+  }, [templates, variables]);
 
   // Import templates
-  const importTemplates = useCallback(async (data: string): Promise<WorkflowTemplate[]> => {
-    setError(null);
-    
-    try {
-      const importedTemplates = await templateManager.importTemplates(data);
-      await refreshTemplates();
-      
-      logger.info('Templates imported via hook', { 
-        importedCount: importedTemplates.length 
-      });
-      
-      return importedTemplates;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to import templates';
-      setError(errorMessage);
-      logger.error('Template import failed', { error: err });
-      throw err;
-    }
-  }, [refreshTemplates]);
+  const importTemplates = useCallback((data: { templates: Template[], variables?: TemplateVariable[] }) => {
+    setTemplates(prev => {
+      const existingIds = new Set(prev.map(t => t.id));
+      const newTemplates = data.templates.filter(t => !existingIds.has(t.id));
+      return [...prev, ...newTemplates];
+    });
 
-  // Clear error state
-  const clearError = useCallback(() => {
-    setError(null);
+    if (data.variables) {
+      setVariables(prev => {
+        const existingNames = new Set(prev.map(v => v.name));
+        const newVariables = data.variables!.filter(v => !existingNames.has(v.name));
+        return [...prev, ...newVariables];
+      });
+    }
   }, []);
 
-  // Auto-initialize on mount
+  // Auto-save effect
   useEffect(() => {
-    if (autoInitialize && !isInitialized) {
-      initialize();
+    if (autoSave && templates.length > 0) {
+      saveTemplates();
     }
-  }, [autoInitialize, isInitialized, initialize]);
+  }, [templates, variables, autoSave, saveTemplates]);
 
-  // Set up real-time updates
+  // Load on mount
   useEffect(() => {
-    if (!enableRealTimeUpdates || !isInitialized) return;
-
-    const handleTemplateCreated = () => refreshTemplates();
-    const handleTemplateUpdated = () => refreshTemplates();
-    const handleTemplateDeleted = () => refreshTemplates();
-    const handleTemplatesImported = () => refreshTemplates();
-
-    templateManager.on('templateCreated', handleTemplateCreated);
-    templateManager.on('templateUpdated', handleTemplateUpdated);
-    templateManager.on('templateDeleted', handleTemplateDeleted);
-    templateManager.on('templatesImported', handleTemplatesImported);
-
-    return () => {
-      templateManager.off('templateCreated', handleTemplateCreated);
-      templateManager.off('templateUpdated', handleTemplateUpdated);
-      templateManager.off('templateDeleted', handleTemplateDeleted);
-      templateManager.off('templatesImported', handleTemplatesImported);
-    };
-  }, [enableRealTimeUpdates, isInitialized, refreshTemplates]);
+    loadTemplates();
+  }, [loadTemplates]);
 
   return {
-    // State
     templates,
-    categories,
-    tags,
-    isLoading,
-    isInitialized,
-    error,
-    
-    // Actions
-    initialize,
-    searchTemplates,
+    variables,
+    selectedTemplate,
+    setSelectedTemplate,
     createTemplate,
     updateTemplate,
     deleteTemplate,
-    instantiateTemplate,
+    getTemplate,
+    searchTemplates,
+    getTemplatesByCategory,
+    extractVariables,
+    renderTemplate,
+    setVariable,
+    getVariable,
+    getVariableValues,
+    cloneTemplate,
     exportTemplates,
     importTemplates,
-    refreshTemplates,
-    clearError,
+    loadTemplates,
+    saveTemplates
   };
-}
-
-export default useTemplateManager; 
+} 

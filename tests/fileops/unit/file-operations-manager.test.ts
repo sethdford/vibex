@@ -1,8 +1,14 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Unit tests for FileOperationsManager
  */
 
-import { describe, test, expect, jest, beforeEach } from '@jest/globals';
+import { describe, test, expect, jest, beforeEach } from 'vitest';
 import path from 'path';
 import fs from 'fs/promises';
 import FileOperationsManager, { initFileOperations } from '../../../src/fileops/index.js';
@@ -10,26 +16,38 @@ import { SandboxPermission } from '../../../src/security/sandbox.js';
 import { ErrorCategory } from '../../../src/errors/types.js';
 
 // Mock dependencies
-jest.mock('fs/promises', () => ({
-  stat: jest.fn(),
-  readFile: jest.fn(),
-  writeFile: jest.fn(),
-  mkdir: jest.fn(),
-  readdir: jest.fn(),
-  unlink: jest.fn()
+vi.mock('fs/promises', () => ({
+  default: {
+    stat: vi.fn(),
+    readFile: vi.fn(),
+    writeFile: vi.fn(),
+    mkdir: vi.fn(),
+    readdir: vi.fn(),
+    unlink: vi.fn(),
+    cp: vi.fn(),
+    rename: vi.fn(),
+  },
+  stat: vi.fn(),
+  readFile: vi.fn(),
+  writeFile: vi.fn(),
+  mkdir: vi.fn(),
+  readdir: vi.fn(),
+  unlink: vi.fn(),
+  cp: vi.fn(),
+  rename: vi.fn(),
 }));
 
-jest.mock('../../../src/utils/logger.js', () => ({
+vi.mock('../../../src/utils/logger.js', () => ({
   logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn()
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
   }
 }));
 
-jest.mock('../../../src/errors/formatter.js', () => ({
-  createUserError: jest.fn((message, options) => {
+vi.mock('../../../src/errors/formatter.js', () => ({
+  createUserError: vi.fn((message, options) => {
     const error = new Error(message);
     error.category = options?.category;
     error.resolution = options?.resolution;
@@ -41,7 +59,7 @@ jest.mock('../../../src/errors/formatter.js', () => ({
 class MockSandboxService {
   config = { enabled: true };
   getConfig() { return this.config; }
-  checkFileAccess = jest.fn();
+  checkFileAccess = vi.fn();
 }
 
 // Mock config
@@ -57,7 +75,7 @@ describe('FileOperationsManager', () => {
   let mockSandbox: MockSandboxService;
   
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockSandbox = new MockSandboxService();
     fileOps = new FileOperationsManager(mockConfig, mockSandbox as any);
     

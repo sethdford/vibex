@@ -1,10 +1,16 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Error Analyzer Tests
  * 
  * Tests for the error analysis and categorization system
  */
 
-import { expect, jest, test, describe } from '@jest/globals';
+import { expect, jest, test, describe } from 'vitest';
 import { analyzeError, getResolutionSteps } from './analyzer.js';
 import { ErrorCategory, ErrorLevel } from './types.js';
 

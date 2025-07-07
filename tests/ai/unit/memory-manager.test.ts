@@ -1,11 +1,18 @@
+/**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
 import { createMemoryManager, MemoryOptimizationStrategy } from '../../../src/ai/index.js';
+import { describe, it, test, expect, beforeEach, afterEach, beforeAll, afterAll, vi } from 'vitest';
 
 // Mock the ContentGenerator for token counting
-jest.mock('../../../src/ai/claude-content-generator.js', () => {
+vi.mock('../../../src/ai/claude-content-generator.js', () => {
   const EventEmitter = require('events');
   
   class MockContentGenerator extends EventEmitter {
-    countTokens = jest.fn().mockImplementation((text) => {
+    countTokens = vi.fn().mockImplementation((text) => {
       // Simple mock implementation: 1 token per word
       if (typeof text === 'string') {
         return Promise.resolve(text.split(' ').filter(word => word.length > 0).length);
@@ -22,7 +29,7 @@ jest.mock('../../../src/ai/claude-content-generator.js', () => {
       return Promise.resolve(0);
     });
     
-    generate = jest.fn().mockImplementation(async (messages) => {
+    generate = vi.fn().mockImplementation(async (messages) => {
       // For summarization, return a summary that's 50% of the original length
       const originalContent = messages[0].content as string;
       const words = originalContent.split(' ').filter(word => word.length > 0);
@@ -36,7 +43,7 @@ jest.mock('../../../src/ai/claude-content-generator.js', () => {
   }
   
   return {
-    createClaudeContentGenerator: jest.fn().mockImplementation(() => new MockContentGenerator()),
+    createClaudeContentGenerator: vi.fn().mockImplementation(() => new MockContentGenerator()),
     ClaudeContentGenerator: MockContentGenerator
   };
 });

@@ -1,34 +1,40 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Integration tests for telemetry system
  */
 
-import { describe, test, expect, jest, beforeEach } from '@jest/globals';
+import { describe, test, expect, jest, beforeEach } from 'vitest';
 import { telemetry, TelemetryEventType } from '../../../src/telemetry/index.js';
 import { enhancedTelemetry, SpanStatus } from '../../../src/telemetry/enhanced-telemetry.js';
 import { performanceMonitoring, PerformanceScope } from '../../../src/telemetry/performance-monitoring.js';
 import { trackAsyncOperation, wrapFunctionWithTelemetry } from '../../../src/telemetry/telemetry-utils.js';
 
 // Mock logger to prevent console output during tests
-jest.mock('../../../src/utils/logger.js', () => ({
+vi.mock('../../../src/utils/logger.js', () => ({
   logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn()
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
   }
 }));
 
 describe('Telemetry Integration', () => {
   // Create a mock event handler to track emitted events
   const eventHandler = {
-    onEvent: jest.fn(),
-    onError: jest.fn(),
-    onFlush: jest.fn()
+    onEvent: vi.fn(),
+    onError: vi.fn(),
+    onFlush: vi.fn()
   };
   
   beforeEach(() => {
     // Reset mocks and remove event listeners
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     telemetry.removeAllListeners();
     
     // Set up event listeners
@@ -64,7 +70,7 @@ describe('Telemetry Integration', () => {
   
   test('should integrate with performance monitoring', async () => {
     // Create a test function to monitor
-    const testFunction = jest.fn().mockImplementation(async (value: string) => {
+    const testFunction = vi.fn().mockImplementation(async (value: string) => {
       await new Promise(resolve => setTimeout(resolve, 10)); // Simulate work
       return `processed-${value}`;
     });
@@ -93,7 +99,7 @@ describe('Telemetry Integration', () => {
   
   test('should track async operations across telemetry systems', async () => {
     // Create a mock operation
-    const operation = jest.fn().mockImplementation(async () => {
+    const operation = vi.fn().mockImplementation(async () => {
       await new Promise(resolve => setTimeout(resolve, 10)); // Simulate work
       return { success: true, data: 'test-result' };
     });
@@ -112,7 +118,7 @@ describe('Telemetry Integration', () => {
   test('should handle errors across telemetry systems', async () => {
     // Create a mock operation that throws an error
     const error = new Error('Integration test error');
-    const failingOperation = jest.fn().mockRejectedValue(error);
+    const failingOperation = vi.fn().mockRejectedValue(error);
     
     // Track the failing operation and expect it to throw
     await expect(trackAsyncOperation(

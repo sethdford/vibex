@@ -1,11 +1,17 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * AI Architecture Integration Test
  * 
  * End-to-end test for the enhanced architecture showing how all
  * the components work together in a real-world scenario.
  */
 
-import { jest } from '@jest/globals';
+import { jest } from 'vitest';
 import { EventEmitter } from 'events';
 import { createClaudeContentGenerator } from '../../src/ai/claude-content-generator.js';
 import { createTurnManager, TurnEvent } from '../../src/ai/turn-manager.js';
@@ -15,17 +21,17 @@ import { UnifiedClaudeClient } from '../../src/ai/unified-client.js';
 import type { MessageParam } from '@anthropic-ai/sdk/resources/messages';
 
 // Mock content generator
-jest.mock('../../src/ai/claude-content-generator.js', () => {
+vi.mock('../../src/ai/claude-content-generator.js', () => {
   const EventEmitter = require('events');
   const { ContentEvent } = require('../../src/ai/content-generator.js');
   
   class MockContentGenerator extends EventEmitter {
-    generate = jest.fn().mockResolvedValue({
+    generate = vi.fn().mockResolvedValue({
       content: [{ type: 'text', text: 'Test response' }],
       usage: { inputTokens: 10, outputTokens: 20 }
     });
     
-    generateStream = jest.fn().mockImplementation(() => {
+    generateStream = vi.fn().mockImplementation(() => {
       // Simulate streaming
       setTimeout(() => this.emit(ContentEvent.CONTENT, 'Hello'), 10);
       setTimeout(() => this.emit(ContentEvent.CONTENT, ' world'), 20);
@@ -33,20 +39,20 @@ jest.mock('../../src/ai/claude-content-generator.js', () => {
       return Promise.resolve();
     });
     
-    countTokens = jest.fn().mockResolvedValue({
+    countTokens = vi.fn().mockResolvedValue({
       messageCount: 2,
       tokenCount: 50,
       tokensPerMessage: [20, 30],
       contextLimit: 4000
     });
     
-    isModelAvailable = jest.fn().mockReturnValue(true);
-    getDefaultModel = jest.fn().mockReturnValue('claude-3-7-sonnet');
-    getModelContextSize = jest.fn().mockReturnValue(4000);
+    isModelAvailable = vi.fn().mockReturnValue(true);
+    getDefaultModel = vi.fn().mockReturnValue('claude-3-7-sonnet');
+    getModelContextSize = vi.fn().mockReturnValue(4000);
   }
   
   return {
-    createClaudeContentGenerator: jest.fn().mockImplementation(() => new MockContentGenerator()),
+    createClaudeContentGenerator: vi.fn().mockImplementation(() => new MockContentGenerator()),
   };
 });
 
@@ -72,9 +78,9 @@ describe('AI Architecture Integration', () => {
       });
       
       // Set up event handlers
-      const contentHandler = jest.fn();
-      const thinkingHandler = jest.fn();
-      const completeHandler = jest.fn();
+      const contentHandler = vi.fn();
+      const thinkingHandler = vi.fn();
+      const completeHandler = vi.fn();
       
       turnManager.on(TurnEvent.CONTENT, contentHandler);
       turnManager.on(TurnEvent.THINKING, thinkingHandler);
@@ -143,9 +149,9 @@ describe('AI Architecture Integration', () => {
       const client = new UnifiedClaudeClient({ apiKey: 'mock-api-key', config: mockConfig });
       
       // Set up event handlers
-      const contentHandler = jest.fn();
-      const startHandler = jest.fn();
-      const endHandler = jest.fn();
+      const contentHandler = vi.fn();
+      const startHandler = vi.fn();
+      const endHandler = vi.fn();
       
       client.on('content', contentHandler);
       client.on('start', startHandler);

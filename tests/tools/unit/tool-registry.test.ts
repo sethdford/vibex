@@ -1,8 +1,14 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Unit tests for the ToolRegistry class
  */
 
-import { jest } from '@jest/globals';
+import { jest } from 'vitest';
 import { 
   toolRegistry, 
   getToolRegistry,
@@ -19,18 +25,18 @@ import {
 import type { ToolOperation } from '../../../src/ui/components/LiveToolFeedback.js';
 
 // Mock dependencies
-jest.mock('../../../src/utils/logger.js', () => ({
+vi.mock('../../../src/utils/logger.js', () => ({
   logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn()
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
   }
 }));
 
 // Mock web-fetch and code-analyzer modules
-jest.mock('../../../src/tools/web-fetch.js', () => ({
-  createWebFetchTool: jest.fn(() => ({
+vi.mock('../../../src/tools/web-fetch.js', () => ({
+  createWebFetchTool: vi.fn(() => ({
     name: 'web_fetch',
     description: 'Fetch content from web',
     input_schema: {
@@ -41,14 +47,14 @@ jest.mock('../../../src/tools/web-fetch.js', () => ({
       required: ['url']
     }
   })),
-  executeWebFetch: jest.fn(() => Promise.resolve({
+  executeWebFetch: vi.fn(() => Promise.resolve({
     success: true,
     result: 'Web content'
   }))
 }));
 
-jest.mock('../../../src/tools/code-analyzer.js', () => ({
-  createCodeAnalyzerTool: jest.fn(() => ({
+vi.mock('../../../src/tools/code-analyzer.js', () => ({
+  createCodeAnalyzerTool: vi.fn(() => ({
     name: 'analyze_code',
     description: 'Analyze code structure',
     input_schema: {
@@ -59,7 +65,7 @@ jest.mock('../../../src/tools/code-analyzer.js', () => ({
       required: ['file_path']
     }
   })),
-  executeCodeAnalysis: jest.fn(() => Promise.resolve({
+  executeCodeAnalysis: vi.fn(() => Promise.resolve({
     success: true,
     result: 'Code analysis'
   }))
@@ -83,7 +89,7 @@ describe('Tool Registry', () => {
   };
 
   // Test tool handler
-  const testToolHandler: ToolHandler = jest.fn(async (input) => {
+  const testToolHandler: ToolHandler = vi.fn(async (input) => {
     return {
       success: true,
       result: `Processed: ${input.text}`
@@ -92,7 +98,7 @@ describe('Tool Registry', () => {
 
   // Clear registry before each test
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Clear the registry
     const registry = getToolRegistry();
@@ -165,7 +171,7 @@ describe('Tool Registry', () => {
     });
 
     test('should handle tool execution errors', async () => {
-      const errorHandler: ToolHandler = jest.fn(async () => {
+      const errorHandler: ToolHandler = vi.fn(async () => {
         throw new Error('Test error');
       });
 
@@ -207,7 +213,7 @@ describe('Tool Registry', () => {
     });
 
     test('should handle failed tool execution result', async () => {
-      const failureHandler: ToolHandler = jest.fn(async () => {
+      const failureHandler: ToolHandler = vi.fn(async () => {
         return {
           success: false,
           error: 'Failed to process'
@@ -239,11 +245,11 @@ describe('Tool Registry', () => {
 
   describe('Feedback Support', () => {
     test('should call feedback handlers during execution', async () => {
-      const onStart = jest.fn((op: ToolOperation, target?: string) => 'feedback123');
-      const onProgress = jest.fn();
-      const onComplete = jest.fn();
+      const onStart = vi.fn((op: ToolOperation, target?: string) => 'feedback123');
+      const onProgress = vi.fn();
+      const onComplete = vi.fn();
 
-      const feedbackHandler: ToolHandler = jest.fn(async (input, feedback) => {
+      const feedbackHandler: ToolHandler = vi.fn(async (input, feedback) => {
         feedback?.onStart?.('read_file', 'test.txt');
         feedback?.onProgress?.('feedback123', { status: 'processing', message: 'Working...' });
         feedback?.onComplete?.('feedback123', { success: true, result: 'Complete' });
@@ -312,7 +318,7 @@ describe('Tool Registry', () => {
     test('should track failed executions in statistics', async () => {
       const registry = getToolRegistry();
       
-      const failingHandler: ToolHandler = jest.fn(async () => {
+      const failingHandler: ToolHandler = vi.fn(async () => {
         return { success: false, error: 'Intentional failure' };
       });
       

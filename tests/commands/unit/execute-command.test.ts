@@ -1,35 +1,41 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Unit tests for executeCommand function
  */
 
-import { jest } from '@jest/globals';
+import { jest } from 'vitest';
 import { executeCommand, commandRegistry } from '../../../src/commands/index.js';
 import { CommandCategory } from '../../../src/commands/types.js';
 import type { UnifiedCommand, CommandContext, CommandResult } from '../../../src/commands/types.js';
 
 // Mock dependencies
-jest.mock('../../../src/utils/logger.js', () => ({
+vi.mock('../../../src/utils/logger.js', () => ({
   logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn()
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
   }
 }));
 
 describe('executeCommand', () => {
   // Mock command handlers
-  const successHandler = jest.fn().mockResolvedValue({
+  const successHandler = vi.fn().mockResolvedValue({
     success: true,
     message: 'Command executed successfully',
     data: { value: 'result' }
   });
   
-  const errorHandler = jest.fn().mockImplementation(() => {
+  const errorHandler = vi.fn().mockImplementation(() => {
     throw new Error('Command execution failed');
   });
   
-  const failureHandler = jest.fn().mockResolvedValue({
+  const failureHandler = vi.fn().mockResolvedValue({
     success: false,
     message: 'Command failed but did not throw',
     error: new Error('Failure error')
@@ -71,7 +77,7 @@ describe('executeCommand', () => {
   };
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Clear and register test commands
     commandRegistry.clear();
@@ -127,11 +133,11 @@ describe('executeCommand', () => {
     const customContext: Partial<CommandContext> = {
       config: { key: 'value' } as any,
       terminal: {
-        info: jest.fn(),
-        error: jest.fn(),
-        warn: jest.fn(),
-        success: jest.fn(),
-        prompt: jest.fn().mockResolvedValue('test')
+        info: vi.fn(),
+        error: vi.fn(),
+        warn: vi.fn(),
+        success: vi.fn(),
+        prompt: vi.fn().mockResolvedValue('test')
       }
     };
     

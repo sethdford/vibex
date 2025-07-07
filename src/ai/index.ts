@@ -8,9 +8,7 @@
 // Export interfaces and types
 export { type AIClient } from './ai-client.interface.js';
 export { ClaudeClient, createClaudeClient } from './claude-client.js';
-export { ContentGenerator } from './content-generator.js';
 export { ClaudeContentGenerator } from './claude-content-generator.js';
-export { TurnManager } from './turn-manager.js';
 export { 
   ContentStreamManager, 
   createContentStream,

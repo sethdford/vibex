@@ -1,8 +1,15 @@
+/**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
 import { initAI, resetAIClient, getEnhancedClient } from '../../../src/ai/index.js';
 import { UnifiedClaudeClient } from '../../../src/ai/unified-client.js';
+import { describe, it, test, expect, beforeEach, afterEach, beforeAll, afterAll, vi } from 'vitest';
 
 // Mock token counting and content generation
-jest.mock('../../../src/ai/claude-content-generator.js', () => {
+vi.mock('../../../src/ai/claude-content-generator.js', () => {
   const EventEmitter = require('events');
   
   class MockClaudeContentGenerator extends EventEmitter {
@@ -13,7 +20,7 @@ jest.mock('../../../src/ai/claude-content-generator.js', () => {
       this.tokenCounter = 0;
     }
     
-    generate = jest.fn().mockImplementation(async (messages, options) => {
+    generate = vi.fn().mockImplementation(async (messages, options) => {
       // Count tokens in the messages
       const tokenCount = messages.reduce((acc, msg) => {
         if (typeof msg.content === 'string') {
@@ -44,14 +51,14 @@ jest.mock('../../../src/ai/claude-content-generator.js', () => {
       };
     });
     
-    generateStream = jest.fn(async function* (messages, options) {
+    generateStream = vi.fn(async function* (messages, options) {
       // Generate the same response as generate()
       const response = await this.generate(messages, options);
       yield { type: 'content', content: response.content };
       return response;
     });
 
-    countTokens = jest.fn().mockImplementation(async (text) => {
+    countTokens = vi.fn().mockImplementation(async (text) => {
       if (typeof text === 'string') {
         return text.split(' ').filter(w => w).length || 1;
       } else if (Array.isArray(text)) {
@@ -67,7 +74,7 @@ jest.mock('../../../src/ai/claude-content-generator.js', () => {
   }
   
   return {
-    createClaudeContentGenerator: jest.fn().mockImplementation(() => new MockClaudeContentGenerator()),
+    createClaudeContentGenerator: vi.fn().mockImplementation(() => new MockClaudeContentGenerator()),
     ClaudeContentGenerator: MockClaudeContentGenerator
   };
 });

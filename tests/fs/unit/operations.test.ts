@@ -1,8 +1,14 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Unit tests for fs/operations.ts
  */
 
-import { describe, test, expect, jest, beforeEach } from '@jest/globals';
+import { describe, test, expect, jest, beforeEach } from 'vitest';
 import fs from 'fs/promises';
 import { constants, Stats } from 'fs';
 import path from 'path';
@@ -11,37 +17,37 @@ import * as fsOperations from '../../../src/fs/operations.js';
 import { ErrorCategory } from '../../../src/errors/types.js';
 
 // Mock dependencies
-jest.mock('fs/promises', () => ({
-  stat: jest.fn(),
-  readFile: jest.fn(),
-  writeFile: jest.fn(),
-  appendFile: jest.fn(),
-  mkdir: jest.fn(),
-  readdir: jest.fn(),
-  unlink: jest.fn(),
-  rename: jest.fn(),
-  copyFile: jest.fn(),
-  mkdtemp: jest.fn()
+vi.mock('fs/promises', () => ({
+  stat: vi.fn(),
+  readFile: vi.fn(),
+  writeFile: vi.fn(),
+  appendFile: vi.fn(),
+  mkdir: vi.fn(),
+  readdir: vi.fn(),
+  unlink: vi.fn(),
+  rename: vi.fn(),
+  copyFile: vi.fn(),
+  mkdtemp: vi.fn()
 }));
 
-jest.mock('fs', () => ({
+vi.mock('fs', () => ({
   constants: {
     COPYFILE_EXCL: 1
   },
-  createReadStream: jest.fn(),
-  createWriteStream: jest.fn(),
-  openSync: jest.fn(),
-  readSync: jest.fn(),
-  fstatSync: jest.fn(),
-  closeSync: jest.fn()
+  createReadStream: vi.fn(),
+  createWriteStream: vi.fn(),
+  openSync: vi.fn(),
+  readSync: vi.fn(),
+  fstatSync: vi.fn(),
+  closeSync: vi.fn()
 }));
 
-jest.mock('stream/promises', () => ({
-  pipeline: jest.fn()
+vi.mock('stream/promises', () => ({
+  pipeline: vi.fn()
 }));
 
-jest.mock('../../../src/errors/formatter.js', () => ({
-  createUserError: jest.fn((message, options) => {
+vi.mock('../../../src/errors/formatter.js', () => ({
+  createUserError: vi.fn((message, options) => {
     const error = new Error(message);
     error.category = options?.category;
     error.resolution = options?.resolution;
@@ -50,18 +56,18 @@ jest.mock('../../../src/errors/formatter.js', () => ({
   })
 }));
 
-jest.mock('../../../src/utils/validation.js', () => ({
-  isValidPath: jest.fn(() => true),
-  isValidFilePath: jest.fn(() => true),
-  isValidDirectoryPath: jest.fn(() => true)
+vi.mock('../../../src/utils/validation.js', () => ({
+  isValidPath: vi.fn(() => true),
+  isValidFilePath: vi.fn(() => true),
+  isValidDirectoryPath: vi.fn(() => true)
 }));
 
-jest.mock('../../../src/utils/logger.js', () => ({
+vi.mock('../../../src/utils/logger.js', () => ({
   logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn()
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
   }
 }));
 
@@ -70,7 +76,7 @@ describe('File Operations', () => {
   const mockValidation = require('../../../src/utils/validation.js');
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Default mock implementations
     mockValidation.isValidPath.mockReturnValue(true);
@@ -270,7 +276,7 @@ describe('File Operations', () => {
     
     test('should throw if file is binary', async () => {
       // Mock isBinaryFile to return true
-      jest.spyOn(fsOperations, 'isBinaryFile').mockReturnValueOnce(true);
+      vi.spyOn(fsOperations, 'isBinaryFile').mockReturnValueOnce(true);
       
       await expect(fsOperations.readTextFile('/path/to/binary.bin')).rejects.toThrow('File appears to be binary');
     });
@@ -279,7 +285,7 @@ describe('File Operations', () => {
   describe('readFileLines', () => {
     test('should read specific lines from a file', async () => {
       // Mock readTextFile
-      jest.spyOn(fsOperations, 'readTextFile').mockResolvedValueOnce('line1\nline2\nline3\nline4\nline5');
+      vi.spyOn(fsOperations, 'readTextFile').mockResolvedValueOnce('line1\nline2\nline3\nline4\nline5');
       
       const lines = await fsOperations.readFileLines('/path/to/file.txt', 2, 4);
       
@@ -288,7 +294,7 @@ describe('File Operations', () => {
     
     test('should handle line range beyond file size', async () => {
       // Mock readTextFile
-      jest.spyOn(fsOperations, 'readTextFile').mockResolvedValueOnce('line1\nline2');
+      vi.spyOn(fsOperations, 'readTextFile').mockResolvedValueOnce('line1\nline2');
       
       const lines = await fsOperations.readFileLines('/path/to/file.txt', 1, 5);
       
@@ -297,7 +303,7 @@ describe('File Operations', () => {
     
     test('should propagate errors from readTextFile', async () => {
       // Mock readTextFile
-      jest.spyOn(fsOperations, 'readTextFile').mockRejectedValueOnce(new Error('Read error'));
+      vi.spyOn(fsOperations, 'readTextFile').mockRejectedValueOnce(new Error('Read error'));
       
       await expect(fsOperations.readFileLines('/path/to/file.txt', 1, 3)).rejects.toThrow('Failed to read lines');
     });
@@ -312,7 +318,7 @@ describe('File Operations', () => {
     
     test('should create directory if it does not exist', async () => {
       // Mock ensureDirectory
-      jest.spyOn(fsOperations, 'ensureDirectory').mockResolvedValueOnce();
+      vi.spyOn(fsOperations, 'ensureDirectory').mockResolvedValueOnce();
       
       await fsOperations.writeTextFile('/path/to/new/file.txt', 'content');
       
@@ -321,7 +327,7 @@ describe('File Operations', () => {
     
     test('should not overwrite if option is false', async () => {
       // Mock file exists
-      jest.spyOn(fsOperations, 'fileExists').mockResolvedValueOnce(true);
+      vi.spyOn(fsOperations, 'fileExists').mockResolvedValueOnce(true);
       
       await expect(fsOperations.writeTextFile('/path/to/file.txt', 'content', { overwrite: false }))
         .rejects.toThrow('File already exists');
@@ -345,7 +351,7 @@ describe('File Operations', () => {
     
     test('should create directory if it does not exist', async () => {
       // Mock ensureDirectory
-      jest.spyOn(fsOperations, 'ensureDirectory').mockResolvedValueOnce();
+      vi.spyOn(fsOperations, 'ensureDirectory').mockResolvedValueOnce();
       
       await fsOperations.appendTextFile('/path/to/new/file.txt', 'content');
       
@@ -368,7 +374,7 @@ describe('File Operations', () => {
     
     test('should not throw if file does not exist', async () => {
       // Mock file doesn't exist
-      jest.spyOn(fsOperations, 'fileExists').mockResolvedValueOnce(false);
+      vi.spyOn(fsOperations, 'fileExists').mockResolvedValueOnce(false);
       
       await fsOperations.deleteFile('/path/to/nonexistent.txt');
       
@@ -391,8 +397,8 @@ describe('File Operations', () => {
     
     test('should throw if source path does not exist', async () => {
       // Mock source doesn't exist
-      jest.spyOn(fsOperations, 'fileExists').mockResolvedValueOnce(false);
-      jest.spyOn(fsOperations, 'directoryExists').mockResolvedValueOnce(false);
+      vi.spyOn(fsOperations, 'fileExists').mockResolvedValueOnce(false);
+      vi.spyOn(fsOperations, 'directoryExists').mockResolvedValueOnce(false);
       
       await expect(fsOperations.rename('/path/to/nonexistent.txt', '/path/to/new.txt'))
         .rejects.toThrow('Path not found');
@@ -418,7 +424,7 @@ describe('File Operations', () => {
     
     test('should create directory if it does not exist', async () => {
       // Mock ensureDirectory
-      jest.spyOn(fsOperations, 'ensureDirectory').mockResolvedValueOnce();
+      vi.spyOn(fsOperations, 'ensureDirectory').mockResolvedValueOnce();
       
       await fsOperations.copyFile('/path/to/source.txt', '/path/to/new/dest.txt');
       
@@ -433,7 +439,7 @@ describe('File Operations', () => {
     
     test('should throw if source file not found', async () => {
       // Mock source doesn't exist
-      jest.spyOn(fsOperations, 'fileExists').mockResolvedValueOnce(false);
+      vi.spyOn(fsOperations, 'fileExists').mockResolvedValueOnce(false);
       
       await expect(fsOperations.copyFile('/path/to/nonexistent.txt', '/path/to/dest.txt'))
         .rejects.toThrow('Source file not found');
@@ -464,7 +470,7 @@ describe('File Operations', () => {
     
     test('should throw if directory not found', async () => {
       // Mock directory doesn't exist
-      jest.spyOn(fsOperations, 'directoryExists').mockResolvedValueOnce(false);
+      vi.spyOn(fsOperations, 'directoryExists').mockResolvedValueOnce(false);
       
       await expect(fsOperations.listDirectory('/path/to/nonexistent/')).rejects.toThrow('Directory not found');
     });
@@ -513,7 +519,7 @@ describe('File Operations', () => {
   describe('findFiles', () => {
     test('should find files matching a pattern', async () => {
       // Setup mock implementation for directoryExists and readdir
-      jest.spyOn(fsOperations, 'directoryExists').mockResolvedValue(true);
+      vi.spyOn(fsOperations, 'directoryExists').mockResolvedValue(true);
       
       // Need a more complex mock for readdir to simulate directory traversal
       let callCount = 0;
@@ -548,7 +554,7 @@ describe('File Operations', () => {
     
     test('should include directories if specified', async () => {
       // Setup mock implementation
-      jest.spyOn(fsOperations, 'directoryExists').mockResolvedValue(true);
+      vi.spyOn(fsOperations, 'directoryExists').mockResolvedValue(true);
       
       mockFs.readdir.mockImplementation((dirPath, options) => {
         return Promise.resolve([
@@ -566,7 +572,7 @@ describe('File Operations', () => {
     
     test('should not traverse recursively if recursive is false', async () => {
       // Setup mock implementation
-      jest.spyOn(fsOperations, 'directoryExists').mockResolvedValue(true);
+      vi.spyOn(fsOperations, 'directoryExists').mockResolvedValue(true);
       
       mockFs.readdir.mockImplementation((dirPath, options) => {
         if (dirPath === '/path/to/dir') {
@@ -588,7 +594,7 @@ describe('File Operations', () => {
     
     test('should throw if directory not found', async () => {
       // Mock directory doesn't exist
-      jest.spyOn(fsOperations, 'directoryExists').mockResolvedValueOnce(false);
+      vi.spyOn(fsOperations, 'directoryExists').mockResolvedValueOnce(false);
       
       await expect(fsOperations.findFiles('/path/to/nonexistent/')).rejects.toThrow('Directory not found');
     });
@@ -603,8 +609,8 @@ describe('File Operations', () => {
   describe('streamFile', () => {
     test('should stream file successfully', async () => {
       // Mock dependencies
-      const mockCreateReadStream = jest.fn();
-      const mockCreateWriteStream = jest.fn();
+      const mockCreateReadStream = vi.fn();
+      const mockCreateWriteStream = vi.fn();
       
       require('fs').createReadStream.mockReturnValue(mockCreateReadStream);
       require('fs').createWriteStream.mockReturnValue(mockCreateWriteStream);
@@ -619,8 +625,8 @@ describe('File Operations', () => {
     
     test('should create directory if it does not exist', async () => {
       // Mock ensureDirectory
-      jest.spyOn(fsOperations, 'ensureDirectory').mockResolvedValueOnce();
-      jest.spyOn(fsOperations, 'fileExists').mockResolvedValue(true);
+      vi.spyOn(fsOperations, 'ensureDirectory').mockResolvedValueOnce();
+      vi.spyOn(fsOperations, 'fileExists').mockResolvedValue(true);
       (stream.pipeline as jest.Mock).mockResolvedValueOnce(undefined);
       
       await fsOperations.streamFile('/path/to/source.txt', '/path/to/new/dest.txt');
@@ -630,7 +636,7 @@ describe('File Operations', () => {
     
     test('should throw if source file not found', async () => {
       // Mock source doesn't exist
-      jest.spyOn(fsOperations, 'fileExists').mockResolvedValueOnce(false);
+      vi.spyOn(fsOperations, 'fileExists').mockResolvedValueOnce(false);
       
       await expect(fsOperations.streamFile('/path/to/nonexistent.txt', '/path/to/dest.txt'))
         .rejects.toThrow('Source file not found');
@@ -638,9 +644,9 @@ describe('File Operations', () => {
     
     test('should throw if destination exists and overwrite is false', async () => {
       // Mock source exists
-      jest.spyOn(fsOperations, 'fileExists').mockResolvedValueOnce(true);
+      vi.spyOn(fsOperations, 'fileExists').mockResolvedValueOnce(true);
       // Mock destination exists
-      jest.spyOn(fsOperations, 'fileExists').mockResolvedValueOnce(true);
+      vi.spyOn(fsOperations, 'fileExists').mockResolvedValueOnce(true);
       
       await expect(fsOperations.streamFile('/path/to/source.txt', '/path/to/existing.txt', { overwrite: false }))
         .rejects.toThrow('Destination file already exists');

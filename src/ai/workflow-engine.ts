@@ -15,7 +15,7 @@ import type {
   TaskExecutionContext,
   TaskStatus,
   TaskPriority 
-} from '../ui/components/TaskOrchestrator.tsx';
+} from '../ui/components/task-orchestrator/index.js';
 
 /**
  * Workflow execution modes
@@ -276,6 +276,9 @@ export class WorkflowEngine extends EventEmitter {
    */
   async executeWorkflow(
     workflow: WorkflowDefinition,
+    workingDirectory: string,
+    config: any,
+    logger: any,
     context?: Partial<TaskExecutionContext>
   ): Promise<WorkflowExecutionReport> {
     const workflowId = workflow.id;
@@ -288,14 +291,13 @@ export class WorkflowEngine extends EventEmitter {
     
     // Create execution context
     const executionContext: TaskExecutionContext = {
-      workingDirectory: process.cwd(),
-      environment: process.env as Record<string, string>,
-      sharedState: {},
-      availableTools: [],
-      timeout: this.strategy.defaultTimeout,
-      workflowId: workflowId,
-      ...context
-    };
+        workingDirectory,
+        environment: process.env as Record<string, string>,
+        config,
+        logger,
+        sharedState: {},
+        ...context,
+      };
     
     // Initialize execution report
     const report: WorkflowExecutionReport = {

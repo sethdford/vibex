@@ -1,5 +1,12 @@
+/**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
 import { createClaudeContentGenerator, ContentGenerator, createTurnManager } from '../../../src/ai/index.js';
 import { EventEmitter } from 'events';
+import { describe, it, test, expect, beforeEach, afterEach, beforeAll, afterAll, vi } from 'vitest';
 
 // Create a mock generator that can produce various error conditions
 class ErrorTestContentGenerator extends EventEmitter implements ContentGenerator {
@@ -62,9 +69,9 @@ class ErrorTestContentGenerator extends EventEmitter implements ContentGenerator
 }
 
 // Mock the module to use our test generator
-jest.mock('../../../src/ai/claude-content-generator.js', () => {
+vi.mock('../../../src/ai/claude-content-generator.js', () => {
   return {
-    createClaudeContentGenerator: jest.fn().mockImplementation((apiKey, options) => {
+    createClaudeContentGenerator: vi.fn().mockImplementation((apiKey, options) => {
       // Get the error mode from options
       const errorMode = options?.errorMode || 'none';
       return new ErrorTestContentGenerator(errorMode);

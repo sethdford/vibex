@@ -100,4 +100,4 @@ export function useConsolePatcher({
       console.debug = originalConsole.debug;
     };
   }, [onNewMessage, debugMode]);
-}
+} 

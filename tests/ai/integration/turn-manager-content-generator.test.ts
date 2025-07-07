@@ -1,8 +1,15 @@
+/**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
 import { createClaudeContentGenerator, createTurnManager, TurnEvent } from '../../../src/ai/index.js';
+import { describe, it, test, expect, beforeEach, afterEach, beforeAll, afterAll, vi } from 'vitest';
 
 // Mock the Claude API calls
-jest.mock('fetch', () => {
-  return jest.fn().mockImplementation(() => {
+vi.mock('fetch', () => {
+  return vi.fn().mockImplementation(() => {
     return Promise.resolve({
       ok: true,
       json: () => Promise.resolve({
@@ -21,7 +28,7 @@ describe('Integration: TurnManager and ContentGenerator', () => {
     const contentGenerator = createClaudeContentGenerator('fake-api-key');
     
     // Mock the generate method
-    jest.spyOn(contentGenerator, 'generate').mockResolvedValue({
+    vi.spyOn(contentGenerator, 'generate').mockResolvedValue({
       content: 'Test response',
       usage: { input_tokens: 10, output_tokens: 20 }
     });
@@ -62,7 +69,7 @@ describe('Integration: TurnManager and ContentGenerator', () => {
       };
     };
     
-    jest.spyOn(contentGenerator, 'generateStream').mockImplementation(mockStream);
+    vi.spyOn(contentGenerator, 'generateStream').mockImplementation(mockStream);
     
     // Create turn manager with the content generator
     const turnManager = createTurnManager(contentGenerator);
@@ -120,7 +127,7 @@ describe('Integration: TurnManager and ContentGenerator', () => {
     };
     
     // Setup the mock to return tool call then response
-    jest.spyOn(contentGenerator, 'generate')
+    vi.spyOn(contentGenerator, 'generate')
       .mockResolvedValueOnce(toolCallResponse)
       .mockResolvedValueOnce(followUpResponse);
     
@@ -162,7 +169,7 @@ describe('Integration: TurnManager and ContentGenerator', () => {
     const contentGenerator = createClaudeContentGenerator('fake-api-key');
     
     // Mock an error response
-    jest.spyOn(contentGenerator, 'generate').mockImplementationOnce(() => {
+    vi.spyOn(contentGenerator, 'generate').mockImplementationOnce(() => {
       throw new Error('API error');
     });
     
@@ -170,7 +177,7 @@ describe('Integration: TurnManager and ContentGenerator', () => {
     const turnManager = createTurnManager(contentGenerator);
     
     // Set up error handler
-    const errorHandler = jest.fn();
+    const errorHandler = vi.fn();
     turnManager.on(TurnEvent.ERROR, errorHandler);
     
     // Execute a turn and expect error
@@ -185,7 +192,7 @@ describe('Integration: TurnManager and ContentGenerator', () => {
     const contentGenerator = createClaudeContentGenerator('fake-api-key');
     
     // Mock the generate method
-    jest.spyOn(contentGenerator, 'generate').mockResolvedValue({
+    vi.spyOn(contentGenerator, 'generate').mockResolvedValue({
       content: 'Test response',
       usage: { input_tokens: 10, output_tokens: 20 }
     });

@@ -1,282 +1,149 @@
 /**
  * Progress Bar Hook
  * 
- * Custom hook for easily creating and managing progress bars
- * with enhanced features like step tracking and time estimation
+ * Manages progress bar state and animations.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { v4 as uuidv4 } from 'uuid';
-import { useProgress } from '../contexts/ProgressContext.js';
-import type { StatusType } from '../components/StatusIcon.js';
-import type { ProgressStep } from '../components/DetailedProgressInfo.js';
+import { useState, useCallback, useEffect } from 'react';
 
-/**
- * Progress bar options
- */
-interface ProgressBarOptions {
-  /**
-   * Progress bar label
-   */
+export interface ProgressBarState {
+  value: number;
+  max: number;
+  isIndeterminate: boolean;
+  isAnimating: boolean;
   label?: string;
-  
-  /**
-   * Total value (for percentage calculation)
-   */
-  total?: number;
-  
-  /**
-   * Initial value
-   */
+}
+
+export interface UseProgressBarOptions {
   initialValue?: number;
-  
-  /**
-   * Whether the progress is indeterminate
-   */
-  indeterminate?: boolean;
-  
-  /**
-   * Initial message
-   */
-  initialMessage?: string;
-  
-  /**
-   * Whether to auto-remove on unmount
-   */
-  autoRemove?: boolean;
-  
-  /**
-   * Total number of steps
-   */
-  totalSteps?: number;
-  
-  /**
-   * Initial status
-   */
-  initialStatus?: StatusType;
-  
-  /**
-   * Whether to automatically calculate time estimates
-   */
-  estimateTime?: boolean;
+  max?: number;
+  animationDuration?: number;
+  smoothing?: boolean;
 }
 
-/**
- * Result interface for progress bar operations
- */
-export interface ProgressBarResult {
-  /**
-   * Progress bar ID
-   */
-  id: string;
-  
-  /**
-   * Update progress value
-   */
-  update: (value: number, message?: string) => void;
-  
-  /**
-   * Complete the progress
-   */
-  complete: (message?: string) => void;
-  
-  /**
-   * Set whether the progress is indeterminate
-   */
-  setIndeterminate: (indeterminate: boolean) => void;
-  
-  /**
-   * Get current progress value (0-100)
-   */
-  getValue: () => number;
-  
-  /**
-   * Get current progress message
-   */
-  getMessage: () => string | undefined;
-  
-  /**
-   * Start a new step
-   */
-  startStep: (stepName: string) => void;
-  
-  /**
-   * Complete the current step
-   */
-  completeStep: (status?: StatusType) => void;
-  
-  /**
-   * Update all steps
-   */
-  updateSteps: (steps: ProgressStep[]) => void;
-  
-  /**
-   * Set the status of the progress
-   */
-  setStatus: (status: StatusType) => void;
-  
-  /**
-   * Get the current status
-   */
-  getStatus: () => StatusType;
-  
-  /**
-   * Get all progress data
-   */
-  getProgressData: () => Record<string, unknown>;
-  
-  /**
-   * Get estimated time remaining (in seconds)
-   */
-  getEstimatedTimeRemaining: () => number | undefined;
-  
-  /**
-   * Get current step
-   */
-  getCurrentStep: () => number | undefined;
-}
-
-/**
- * Hook for easily creating and managing progress bars
- */
-export function useProgressBar(
-  options: ProgressBarOptions = {}
-): ProgressBarResult {
+export function useProgressBar(options: UseProgressBarOptions = {}) {
   const {
-    label,
-    total = 100,
     initialValue = 0,
-    indeterminate = false,
-    initialMessage,
-    autoRemove = true,
-    totalSteps,
-    initialStatus = 'running',
-    estimateTime = true,
+    max = 100,
+    animationDuration = 300,
+    smoothing = true
   } = options;
-  
-  // Generate unique ID if not provided
-  const idRef = useRef<string>(uuidv4());
-  
-  // Get progress context
-  const {
-    startProgress,
-    updateProgress,
-    completeProgress,
-    setIndeterminate: setIndeterminateProgress,
-    getProgress,
-    updateSteps: updateProgressSteps,
-    startStep: startProgressStep,
-    completeStep: completeProgressStep,
-    setStatus: setProgressStatus,
-  } = useProgress();
-  
-  // Initialize progress on mount
-  useEffect(() => {
-    startProgress(idRef.current, {
-      label: label || 'Progress',
-      total,
-      value: initialValue,
-      indeterminate,
-      message: initialMessage,
-      totalSteps,
-      currentStep: 0,
-      status: initialStatus,
-    });
-    
-    // Clean up on unmount
-    return () => {
-      if (autoRemove) {
-        completeProgress(idRef.current);
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+  const [state, setState] = useState<ProgressBarState>({
+    value: initialValue,
+    max,
+    isIndeterminate: false,
+    isAnimating: false
+  });
+
+  // Set progress value
+  const setValue = useCallback((value: number) => {
+    setState(prev => ({
+      ...prev,
+      value: Math.max(0, Math.min(value, prev.max)),
+      isIndeterminate: false
+    }));
   }, []);
-  
-  // Update progress
-  const update = useCallback((value: number, message?: string) => {
-    updateProgress(idRef.current, value, message);
-  }, [updateProgress]);
-  
-  // Complete progress
-  const complete = useCallback((message?: string) => {
-    completeProgress(idRef.current, message);
-  }, [completeProgress]);
-  
+
+  // Set maximum value
+  const setMax = useCallback((newMax: number) => {
+    setState(prev => ({
+      ...prev,
+      max: Math.max(1, newMax),
+      value: Math.min(prev.value, newMax)
+    }));
+  }, []);
+
   // Set indeterminate state
-  const setIndeterminateState = useCallback((indeterminate: boolean) => {
-    setIndeterminateProgress(idRef.current, indeterminate);
-  }, [setIndeterminateProgress]);
-  
-  // Start a new step
-  const startStep = useCallback((stepName: string) => {
-    startProgressStep(idRef.current, stepName);
-  }, [startProgressStep]);
-  
-  // Complete the current step
-  const completeStep = useCallback((status: StatusType = 'success') => {
-    completeProgressStep(idRef.current, status);
-  }, [completeProgressStep]);
-  
-  // Update all steps
-  const updateSteps = useCallback((steps: ProgressStep[]) => {
-    updateProgressSteps(idRef.current, steps);
-  }, [updateProgressSteps]);
-  
-  // Set status
-  const setStatus = useCallback((status: StatusType) => {
-    setProgressStatus(idRef.current, status);
-  }, [setProgressStatus]);
-  
-  // Get current value
-  const getValue = useCallback(() => {
-    const progress = getProgress(idRef.current);
-    return progress ? (progress.value / progress.total) * 100 : 0;
-  }, [getProgress]);
-  
-  // Get current message
-  const getMessage = useCallback(() => {
-    const progress = getProgress(idRef.current);
-    return progress?.message;
-  }, [getProgress]);
-  
-  // Get current status
-  const getStatus = useCallback(() => {
-    const progress = getProgress(idRef.current);
-    return progress?.status || 'running';
-  }, [getProgress]);
-  
-  // Get all progress data
-  const getProgressData = useCallback((): Record<string, unknown> => {
-    const progress = getProgress(idRef.current);
-    return (progress as unknown as Record<string, unknown>) || {};
-  }, [getProgress]);
-  
-  // Get estimated time remaining
-  const getEstimatedTimeRemaining = useCallback(() => {
-    const progress = getProgress(idRef.current);
-    return progress?.estimatedTimeRemaining;
-  }, [getProgress]);
-  
-  // Get current step
-  const getCurrentStep = useCallback(() => {
-    const progress = getProgress(idRef.current);
-    return progress?.currentStep;
-  }, [getProgress]);
-  
+  const setIndeterminate = useCallback((indeterminate: boolean) => {
+    setState(prev => ({
+      ...prev,
+      isIndeterminate: indeterminate
+    }));
+  }, []);
+
+  // Set label
+  const setLabel = useCallback((label?: string) => {
+    setState(prev => ({
+      ...prev,
+      label
+    }));
+  }, []);
+
+  // Increment progress
+  const increment = useCallback((amount: number = 1) => {
+    setState(prev => ({
+      ...prev,
+      value: Math.min(prev.value + amount, prev.max),
+      isIndeterminate: false
+    }));
+  }, []);
+
+  // Decrement progress
+  const decrement = useCallback((amount: number = 1) => {
+    setState(prev => ({
+      ...prev,
+      value: Math.max(prev.value - amount, 0),
+      isIndeterminate: false
+    }));
+  }, []);
+
+  // Reset progress
+  const reset = useCallback(() => {
+    setState(prev => ({
+      ...prev,
+      value: 0,
+      isIndeterminate: false,
+      isAnimating: false,
+      label: undefined
+    }));
+  }, []);
+
+  // Complete progress
+  const complete = useCallback(() => {
+    setState(prev => ({
+      ...prev,
+      value: prev.max,
+      isIndeterminate: false
+    }));
+  }, []);
+
+  // Start animation
+  const startAnimation = useCallback(() => {
+    setState(prev => ({ ...prev, isAnimating: true }));
+  }, []);
+
+  // Stop animation
+  const stopAnimation = useCallback(() => {
+    setState(prev => ({ ...prev, isAnimating: false }));
+  }, []);
+
+  // Get percentage
+  const getPercentage = useCallback(() => {
+    return (state.value / state.max) * 100;
+  }, [state.value, state.max]);
+
+  // Auto-animate when value changes
+  useEffect(() => {
+    if (smoothing && !state.isIndeterminate) {
+      startAnimation();
+      const timer = setTimeout(stopAnimation, animationDuration);
+      return () => clearTimeout(timer);
+    }
+  }, [state.value, state.isIndeterminate, smoothing, animationDuration, startAnimation, stopAnimation]);
+
   return {
-    id: idRef.current,
-    update,
+    ...state,
+    setValue,
+    setMax,
+    setIndeterminate,
+    setLabel,
+    increment,
+    decrement,
+    reset,
     complete,
-    setIndeterminate: setIndeterminateState,
-    getValue,
-    getMessage,
-    startStep,
-    completeStep,
-    updateSteps,
-    setStatus,
-    getStatus,
-    getProgressData,
-    getEstimatedTimeRemaining,
-    getCurrentStep,
+    startAnimation,
+    stopAnimation,
+    getPercentage
   };
-}
+} 

@@ -1,8 +1,15 @@
+/**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
 import { createClaudeContentGenerator, ContentEvent } from '../../../src/ai/index.js';
+import { describe, it, test, expect, beforeEach, afterEach, beforeAll, afterAll, vi } from 'vitest';
 
 // Mock the Claude API calls
-jest.mock('fetch', () => {
-  return jest.fn().mockImplementation(() => {
+vi.mock('fetch', () => {
+  return vi.fn().mockImplementation(() => {
     return Promise.resolve({
       ok: true,
       json: () => Promise.resolve({
@@ -17,7 +24,7 @@ jest.mock('fetch', () => {
 
 describe('ContentGenerator Unit Tests', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
   
   test('ContentGenerator emits events correctly', async () => {
@@ -25,9 +32,9 @@ describe('ContentGenerator Unit Tests', () => {
     const generator = createClaudeContentGenerator('fake-api-key');
     
     // Set up event listeners with Jest mocks
-    const contentListener = jest.fn();
-    const errorListener = jest.fn();
-    const completeListener = jest.fn();
+    const contentListener = vi.fn();
+    const errorListener = vi.fn();
+    const completeListener = vi.fn();
     
     generator.on(ContentEvent.CONTENT, contentListener);
     generator.on(ContentEvent.ERROR, errorListener);
@@ -83,7 +90,7 @@ describe('ContentGenerator Unit Tests', () => {
     const generator = createClaudeContentGenerator('fake-api-key');
     
     // Mock implementation specific to this test
-    jest.spyOn(generator, 'generate').mockResolvedValueOnce({
+    vi.spyOn(generator, 'generate').mockResolvedValueOnce({
       content: null,
       usage: { input_tokens: 10, output_tokens: 20 },
       toolCalls: [{
@@ -110,12 +117,12 @@ describe('ContentGenerator Unit Tests', () => {
     const generator = createClaudeContentGenerator('fake-api-key');
     
     // Mock an error response
-    jest.spyOn(generator, 'generate').mockImplementationOnce(() => {
+    vi.spyOn(generator, 'generate').mockImplementationOnce(() => {
       throw new Error('API error');
     });
     
     // Set up error handler
-    const errorHandler = jest.fn();
+    const errorHandler = vi.fn();
     generator.on(ContentEvent.ERROR, errorHandler);
     
     // Use generator and expect error

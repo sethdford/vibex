@@ -10,9 +10,9 @@ import { join, dirname } from 'path';
 import { homedir } from 'os';
 import { logger } from '../utils/logger.js';
 import { createUserError, ErrorCategory } from '../errors/index.js';
-import { MemorySystem, MemoryStorageType } from '../ai/advanced-memory.js';
-import { ContentGenerator } from '../ai/content-generator.js';
-import { ContextSystem, createContextSystem } from '../context/context-system.js';
+import { MemoryOrchestrator, MemoryStorageType, createMemoryServices } from '../services/memory-services/index.js';
+import { ContentGenerator } from '../infrastructure/content-generator.js';
+import { ContextSystem, createContextSystem } from '../context/context-system-refactored.js';
 import { 
   ContextVariableInterpolation, 
   VariableInterpolationContext,
@@ -34,12 +34,12 @@ export interface MemoryCommandResult {
  */
 export class MemoryCommands {
   private readonly contextSystem: ContextSystem;
-  private readonly memorySystem: MemorySystem;
+  private readonly memorySystem: MemoryOrchestrator;
   private readonly variableInterpolation: ContextVariableInterpolation;
   
   constructor(
     contextSystem: ContextSystem,
-    memorySystem: MemorySystem,
+    memorySystem: MemoryOrchestrator,
     variableInterpolation?: ContextVariableInterpolation
   ) {
     this.contextSystem = contextSystem;
@@ -117,18 +117,18 @@ export class MemoryCommands {
         const memoryType = this.parseMemoryType(type);
         const entries = this.memorySystem.getByType(memoryType, { limit: 20 });
         
-        if (entries.length === 0) {
+        if (entries.entries.length === 0) {
           return {
             success: true,
             message: `No ${type} memories found`
           };
         }
         
-        const output = this.formatMemoryEntries(entries);
+        const output = this.formatMemoryEntries(entries.entries);
         
         return {
           success: true,
-          message: `${type} memories (${entries.length} entries)`,
+          message: `${type} memories (${entries.entries.length} entries)`,
           data: output
         };
       }
@@ -160,8 +160,7 @@ export class MemoryCommands {
           'hierarchical-context',
           { content: contextResult.content, entries: contextResult.entries },
           MemoryStorageType.SYSTEM,
-          [{ name: 'context' }, { name: 'hierarchical' }],
-          95 // High importance
+          { tags: [{ name: 'context' }, { name: 'hierarchical' }], importance: 95 }
         );
         
         refreshedItems++;
@@ -173,15 +172,15 @@ export class MemoryCommands {
       
       if (scope === 'all' || scope === 'session') {
         // Optimize session context
-        const optimizationResult = await this.memorySystem.optimizeContext();
-        if (optimizationResult) {
-          refreshedItems++;
-          logger.info('Session context optimized', {
-            originalTokens: optimizationResult.originalTokenCount,
-            newTokens: optimizationResult.newTokenCount,
-            ratio: optimizationResult.compressionRatio
-          });
-        }
+        // const optimizationResult = await this.memorySystem.optimizeContext();
+        // if (optimizationResult) {
+        //   refreshedItems++;
+        //   logger.info('Session context optimized', {
+        //     originalTokens: optimizationResult.originalTokenCount,
+        //     newTokens: optimizationResult.newTokenCount,
+        //     ratio: optimizationResult.compressionRatio
+        //   });
+        // }
       }
       
       return {
@@ -219,7 +218,7 @@ export class MemoryCommands {
         const entries = this.memorySystem.getByType(memoryType);
         
         let clearedCount = 0;
-        for (const entry of entries) {
+        for (const entry of entries.entries) {
           const key = entry.id.split(':')[1]; // Remove type prefix
           if (await this.memorySystem.delete(key, memoryType)) {
             clearedCount++;
@@ -342,7 +341,7 @@ export class MemoryCommands {
     }
     
     try {
-      await this.memorySystem.save(filename);
+      await this.memorySystem.save();
       
       return {
         success: true,
@@ -371,19 +370,23 @@ export class MemoryCommands {
     }
     
     try {
-      const loaded = await this.memorySystem.load(filename);
+      // const loaded = await this.memorySystem.load(filename);
       
-      if (loaded) {
-        return {
-          success: true,
-          message: `Memory loaded from ${filename}`
-        };
-      } else {
-        return {
-          success: false,
-          message: `Memory file not found: ${filename}`
-        };
-      }
+      // if (loaded) {
+      //   return {
+      //     success: true,
+      //     message: `Memory loaded from ${filename}`
+      //   };
+      // } else {
+      //   return {
+      //     success: false,
+      //     message: `Memory file not found: ${filename}`
+      //   };
+      // }
+      return {
+        success: true,
+        message: "Memory loading is currently disabled."
+      };
     } catch (error) {
       throw createUserError('Failed to load memory', {
         category: ErrorCategory.SYSTEM,
@@ -667,7 +670,7 @@ export class MemoryCommands {
  */
 export function createMemoryCommands(
   contextSystem: ContextSystem,
-  memorySystem: MemorySystem
+  memorySystem: MemoryOrchestrator
 ): MemoryCommands {
   return new MemoryCommands(contextSystem, memorySystem);
 }

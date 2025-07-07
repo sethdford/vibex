@@ -115,4 +115,4 @@ export function useThemeCommand(
     handleThemeSelect,
     handleThemeHighlight,
   };
-}
+} 

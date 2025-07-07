@@ -1,4 +1,11 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+import { describe, it, test, expect, beforeEach, afterEach, beforeAll, afterAll, vi } from 'vitest';
+/**
  * Accessibility Tests
  * 
  * Tests for accessibility features and screen reader compatibility.

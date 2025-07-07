@@ -126,7 +126,7 @@ function registerLoginCommand(): void {
     ],
     handler: async (context: CommandContext): Promise<CommandResult> => {
       try {
-        if (authManager.isAuthenticated()) {
+        if (await authManager.isValid()) {
           context.terminal.info('You are already logged in.');
           return { success: true, message: 'Already authenticated' };
         }
@@ -137,34 +137,14 @@ function registerLoginCommand(): void {
         context.terminal.info('Authenticating with Claude...');
         
         if (apiKey) {
-          const authResult = await authManager.authenticate();
-          if (authResult.success) {
-            context.terminal.success('Successfully logged in with API key.');
-            
-            const token = authManager.getToken();
-            if (token?.expiresAt) {
-              const expirationDate = new Date(token.expiresAt);
-              context.terminal.info(`Token expires on: ${expirationDate.toLocaleString()}`);
-            }
-          } else {
-            context.terminal.error(`Authentication failed: ${authResult.error || 'Unknown error'}`);
-            return { success: false, message: authResult.error || 'Authentication failed' };
-          }
+          await authManager.setApiKey(apiKey);
+          context.terminal.success('Successfully logged in with API key.');
+        } else if (oauth) {
+          context.terminal.info('OAuth authentication is not yet implemented.');
+          return { success: false, message: 'OAuth not implemented' };
         } else {
-          context.terminal.info('No API key found. Proceeding with OAuth authentication...');
-          const authResult = await authManager.authenticate();
-          if (authResult.success) {
-            context.terminal.success('Successfully logged in with OAuth.');
-            
-            const token = authManager.getToken();
-            if (token?.expiresAt) {
-              const expirationDate = new Date(token.expiresAt);
-              context.terminal.info(`Token expires on: ${expirationDate.toLocaleString()}`);
-            }
-          } else {
-            context.terminal.error(`Authentication failed: ${authResult.error || 'Unknown error'}`);
-            return { success: false, message: authResult.error || 'Authentication failed' };
-          }
+          context.terminal.error('Please provide an API key or use the --oauth flag.');
+          return { success: false, message: 'No authentication method provided' };
         }
         
         return { success: true, message: 'Authentication successful' };
@@ -198,7 +178,7 @@ function registerLogoutCommand(): void {
         context.terminal.info('Logging out and clearing credentials...');
         
         // Call the auth manager's logout function
-        await authManager.logout();
+        await authManager.clearCredentials();
         
         context.terminal.success('Successfully logged out. All credentials have been cleared.');
         return { success: true, message: 'Logout successful' };

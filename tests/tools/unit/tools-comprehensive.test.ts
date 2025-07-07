@@ -1,4 +1,10 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Comprehensive Tests for Tools Module
  * 
  * These tests cover the core tools functionality:
@@ -6,7 +12,7 @@
  * - Code analyzer tool
  */
 
-import { jest } from '@jest/globals';
+import { jest } from 'vitest';
 import * as fs from 'fs/promises';
 import path from 'path';
 import * as nodeFetch from 'node-fetch';
@@ -17,25 +23,25 @@ import { executeCodeAnalysis, createCodeAnalyzerTool } from '../../../src/tools/
 import { fileExists, readTextFile } from '../../../src/fs/operations.js';
 
 // Mock dependencies
-jest.mock('../../../src/utils/logger.js', () => ({
+vi.mock('../../../src/utils/logger.js', () => ({
   logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn()
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
   }
 }));
 
-jest.mock('node-fetch', () => {
+vi.mock('node-fetch', () => {
   return {
     __esModule: true,
-    default: jest.fn()
+    default: vi.fn()
   };
 });
 
-jest.mock('../../../src/fs/operations.js', () => ({
-  fileExists: jest.fn(),
-  readTextFile: jest.fn()
+vi.mock('../../../src/fs/operations.js', () => ({
+  fileExists: vi.fn(),
+  readTextFile: vi.fn()
 }));
 
 describe('Web Fetch Tool', () => {
@@ -44,14 +50,14 @@ describe('Web Fetch Tool', () => {
     ok: true,
     status: 200,
     statusText: 'OK',
-    text: jest.fn().mockResolvedValue('<html><head><title>Test Page</title></head><body><p>Test content</p></body></html>'),
+    text: vi.fn().mockResolvedValue('<html><head><title>Test Page</title></head><body><p>Test content</p></body></html>'),
     headers: {
-      get: jest.fn().mockReturnValue('text/html')
+      get: vi.fn().mockReturnValue('text/html')
     }
   };
   
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     // Setup default mock for fetch
     (nodeFetch.default as jest.Mock).mockResolvedValue(mockResponse);
   });
@@ -148,7 +154,7 @@ describe('Web Fetch Tool', () => {
       const pdfResponse = {
         ...mockResponse,
         headers: {
-          get: jest.fn().mockReturnValue('application/pdf')
+          get: vi.fn().mockReturnValue('application/pdf')
         }
       };
       
@@ -253,7 +259,7 @@ describe('Code Analyzer Tool', () => {
   `;
   
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Setup default mocks
     (fileExists as jest.Mock).mockResolvedValue(true);

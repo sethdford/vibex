@@ -8,7 +8,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Box, Text } from 'ink';
 import { Colors } from '../colors.js';
-import { ProgressSystem } from './progress/ProgressSystem.js';
+import { ProgressSystem } from './progress-system/index.js';
 
 /**
  * Tool operation types

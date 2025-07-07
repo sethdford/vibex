@@ -96,4 +96,4 @@ export function useAutoAcceptIndicator(
     startCountdown,
     cancelCountdown,
   };
-}
+} 

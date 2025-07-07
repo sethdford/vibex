@@ -1,11 +1,18 @@
+/**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
 import { createClaudeContentGenerator } from '../../../src/ai/index.js';
+import { describe, it, test, expect, beforeEach, afterEach, beforeAll, afterAll, vi } from 'vitest';
 
 // Mock the Claude API to provide deterministic responses based on seed
-jest.mock('../../../src/ai/claude-content-generator.js', () => {
+vi.mock('../../../src/ai/claude-content-generator.js', () => {
   const EventEmitter = require('events');
   
   class MockClaudeContentGenerator extends EventEmitter {
-    generate = jest.fn().mockImplementation(async (messages, options) => {
+    generate = vi.fn().mockImplementation(async (messages, options) => {
       // Use the seed to generate a deterministic response
       const seed = options?.seed || 'default';
       return {
@@ -14,7 +21,7 @@ jest.mock('../../../src/ai/claude-content-generator.js', () => {
       };
     });
     
-    generateStream = jest.fn(async function* (messages, options) {
+    generateStream = vi.fn(async function* (messages, options) {
       const seed = options?.seed || 'default';
       
       // Return the same chunks for the same seed
@@ -28,11 +35,11 @@ jest.mock('../../../src/ai/claude-content-generator.js', () => {
       };
     });
 
-    countTokens = jest.fn().mockResolvedValue(10);
+    countTokens = vi.fn().mockResolvedValue(10);
   }
   
   return {
-    createClaudeContentGenerator: jest.fn().mockImplementation(() => new MockClaudeContentGenerator()),
+    createClaudeContentGenerator: vi.fn().mockImplementation(() => new MockClaudeContentGenerator()),
     ClaudeContentGenerator: MockClaudeContentGenerator
   };
 });

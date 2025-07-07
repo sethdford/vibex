@@ -6,7 +6,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { ToolCall } from './turn-manager.js';
+import { ToolCall } from '../core/turn/turn-manager.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -57,6 +57,7 @@ export interface ToolExecutionResult {
  * Enhanced tool call with dependencies and scheduling info
  */
 export interface ScheduledToolCall extends ToolCall {
+  id: string;
   /**
    * Tool call priority (higher numbers are higher priority)
    */

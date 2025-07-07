@@ -6,7 +6,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import type { MessageParam, Message } from '@anthropic-ai/sdk/resources/messages';
-import { ContentGenerator, ContentRequestConfig, ContentResponse, ContentEvent, MemoryStats, ContentGeneratorOptions } from './content-generator.js';
+import { ContentGenerator, ContentRequestConfig, ContentResponse, ContentEvent, MemoryStats, ContentGeneratorOptions } from '../infrastructure/content-generator.js';
 import { logger } from '../utils/logger.js';
 import { retry, type RetryOptions } from '../utils/retry.js';
 import type { AppConfigType } from '../config/schema.js';

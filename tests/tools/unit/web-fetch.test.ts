@@ -1,25 +1,31 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Unit tests for Web Fetch tool
  */
 
-import { jest } from '@jest/globals';
+import { jest } from 'vitest';
 import { createWebFetchTool, executeWebFetch } from '../../../src/tools/web-fetch.js';
 import type { InternalToolResult } from '../../../src/tools/index.js';
 
 // Mock dependencies
-jest.mock('node-fetch', () => {
+vi.mock('node-fetch', () => {
   return {
     __esModule: true,
-    default: jest.fn()
+    default: vi.fn()
   };
 });
 
-jest.mock('../../../src/utils/logger.js', () => ({
+vi.mock('../../../src/utils/logger.js', () => ({
   logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn()
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
   }
 }));
 
@@ -28,10 +34,10 @@ describe('Web Fetch Tool', () => {
   let mockFetch: jest.Mock;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Reset fetch mock
-    mockFetch = jest.fn();
+    mockFetch = vi.fn();
     jest.requireMock('node-fetch').default = mockFetch;
     
     // Setup basic successful response
@@ -40,9 +46,9 @@ describe('Web Fetch Tool', () => {
       status: 200,
       statusText: 'OK',
       headers: {
-        get: jest.fn().mockReturnValue('text/html')
+        get: vi.fn().mockReturnValue('text/html')
       },
-      text: jest.fn().mockResolvedValue(`
+      text: vi.fn().mockResolvedValue(`
         <html>
           <head>
             <title>Test Page</title>
@@ -120,7 +126,7 @@ describe('Web Fetch Tool', () => {
         status: 404,
         statusText: 'Not Found',
         headers: {
-          get: jest.fn().mockReturnValue('text/html')
+          get: vi.fn().mockReturnValue('text/html')
         }
       });
       
@@ -145,9 +151,9 @@ describe('Web Fetch Tool', () => {
         status: 200,
         statusText: 'OK',
         headers: {
-          get: jest.fn().mockReturnValue('text/html')
+          get: vi.fn().mockReturnValue('text/html')
         },
-        text: jest.fn().mockResolvedValue('<html><title>Success</title><body>Content</body></html>')
+        text: vi.fn().mockResolvedValue('<html><title>Success</title><body>Content</body></html>')
       });
       
       // Second fetch fails
@@ -156,7 +162,7 @@ describe('Web Fetch Tool', () => {
         status: 500,
         statusText: 'Internal Server Error',
         headers: {
-          get: jest.fn().mockReturnValue('text/html')
+          get: vi.fn().mockReturnValue('text/html')
         }
       });
       
@@ -180,7 +186,7 @@ describe('Web Fetch Tool', () => {
         status: 200,
         statusText: 'OK',
         headers: {
-          get: jest.fn().mockReturnValue('application/pdf')
+          get: vi.fn().mockReturnValue('application/pdf')
         }
       });
       
@@ -213,9 +219,9 @@ describe('Web Fetch Tool', () => {
         status: 200,
         statusText: 'OK',
         headers: {
-          get: jest.fn().mockReturnValue('text/html')
+          get: vi.fn().mockReturnValue('text/html')
         },
-        text: jest.fn().mockResolvedValue(htmlContent)
+        text: vi.fn().mockResolvedValue(htmlContent)
       });
       
       const result = await executeWebFetch({
@@ -255,9 +261,9 @@ describe('Web Fetch Tool', () => {
         status: 200,
         statusText: 'OK',
         headers: {
-          get: jest.fn().mockReturnValue('text/html')
+          get: vi.fn().mockReturnValue('text/html')
         },
-        text: jest.fn().mockResolvedValue(longHtml)
+        text: vi.fn().mockResolvedValue(longHtml)
       });
       
       const result = await executeWebFetch({

@@ -7,8 +7,8 @@
 
 import { EventEmitter } from 'events';
 import type { MessageParam } from '@anthropic-ai/sdk/resources/messages';
-import { TurnManager, TurnEvent, TurnStatus, ToolCall, ToolResult } from './turn-manager.js';
-import { ContentGenerator, ContentRequestConfig } from './content-generator.js';
+import { TurnManager, TurnEvent, TurnStatus, ToolCall, ToolResult } from '../core/turn/turn-manager.js';
+import { ContentGenerator, ContentRequestConfig } from '../infrastructure/content-generator.js';
 import { MemoryManager, MemoryOptimizationStrategy } from './memory-manager.js';
 
 import { logger } from '../utils/logger.js';
@@ -501,36 +501,36 @@ export class TurnSystem extends EventEmitter {
    * Forward turn events to system events
    */
   private forwardTurnEvents(turnManager: TurnManager): void {
-    turnManager.on(TurnEvent.START, (data) => {
+    turnManager.on(TurnEvent.START, (data: any) => {
       this.emit(TurnSystemEvent.TURN_START, {
         ...data,
         sessionId: this.sessionId
       });
     });
     
-    turnManager.on(TurnEvent.CONTENT, (text) => {
+    turnManager.on(TurnEvent.CONTENT, (text: any) => {
       this.emit(TurnSystemEvent.TURN_CONTENT, text);
     });
     
-    turnManager.on(TurnEvent.THINKING, (text) => {
+    turnManager.on(TurnEvent.THINKING, (text: any) => {
       this.emit(TurnSystemEvent.TURN_THINKING, text);
     });
     
-    turnManager.on(TurnEvent.TOOL_CALL, (toolCall) => {
+    turnManager.on(TurnEvent.TOOL_CALL, (toolCall: any) => {
       this.emit(TurnSystemEvent.TURN_TOOL_CALL, {
         ...toolCall,
         sessionId: this.sessionId
       });
     });
     
-    turnManager.on(TurnEvent.TOOL_RESULT, (toolResult) => {
+    turnManager.on(TurnEvent.TOOL_RESULT, (toolResult: any) => {
       this.emit(TurnSystemEvent.TURN_TOOL_RESULT, {
         ...toolResult,
         sessionId: this.sessionId
       });
     });
     
-    turnManager.on(TurnEvent.ERROR, (error) => {
+    turnManager.on(TurnEvent.ERROR, (error: any) => {
       this.emit(TurnSystemEvent.TURN_ERROR, {
         error,
         sessionId: this.sessionId

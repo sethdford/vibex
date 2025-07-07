@@ -6,8 +6,8 @@
  */
 
 import { EventEmitter } from 'events';
-import { ContentEvent } from './content-generator.js';
-import { TurnEvent } from './turn-manager.js';
+import { ContentEvent } from '../infrastructure/content-generator.js';
+import { TurnEvent } from '../core/turn/turn-manager.js';
 import { logger } from '../utils/logger.js';
 
 /**

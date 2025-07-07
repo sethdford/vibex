@@ -1,8 +1,14 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Unit tests for the OAuth functionality
  */
 
-import { jest } from '@jest/globals';
+import { jest } from 'vitest';
 import { 
   performOAuthFlow, 
   refreshOAuthToken, 
@@ -14,35 +20,35 @@ import { ErrorCategory } from '../../../src/errors/types.js';
 import * as async from '../../../src/utils/async.js';
 
 // Mock dependencies
-jest.mock('open', () => jest.fn().mockResolvedValue(undefined));
-jest.mock('../../../src/utils/logger.js', () => ({
+vi.mock('open', () => vi.fn().mockResolvedValue(undefined));
+vi.mock('../../../src/utils/logger.js', () => ({
   logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn()
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
   }
 }));
 
-jest.mock('../../../src/errors/formatter.js', () => ({
-  createUserError: jest.fn((message, options) => {
+vi.mock('../../../src/errors/formatter.js', () => ({
+  createUserError: vi.fn((message, options) => {
     const error = new Error(message);
     Object.assign(error, { category: options?.category });
     return error;
   })
 }));
 
-jest.mock('../../../src/utils/async.js', () => ({
-  createDeferred: jest.fn()
+vi.mock('../../../src/utils/async.js', () => ({
+  createDeferred: vi.fn()
 }));
 
 // Mock fetch
 const mockFetchResponse = {
   ok: true,
-  json: jest.fn(),
-  text: jest.fn()
+  json: vi.fn(),
+  text: vi.fn()
 };
-global.fetch = jest.fn().mockResolvedValue(mockFetchResponse);
+global.fetch = vi.fn().mockResolvedValue(mockFetchResponse);
 
 describe('OAuth Authentication', () => {
   // Sample token response
@@ -56,7 +62,7 @@ describe('OAuth Authentication', () => {
 
   // Reset mocks before each test
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Set up mock response
     mockFetchResponse.json.mockResolvedValue(tokenResponse);
@@ -68,8 +74,8 @@ describe('OAuth Authentication', () => {
         code: 'test-code',
         receivedState: 'test-state'
       }),
-      resolve: jest.fn(),
-      reject: jest.fn()
+      resolve: vi.fn(),
+      reject: vi.fn()
     };
     (async.createDeferred as jest.Mock).mockReturnValue(mockDeferred);
   });
@@ -78,7 +84,7 @@ describe('OAuth Authentication', () => {
     test('should complete OAuth flow successfully', async () => {
       // Mock for crypto's random generation
       const originalMathRandom = Math.random;
-      Math.random = jest.fn().mockReturnValue(0.5);
+      Math.random = vi.fn().mockReturnValue(0.5);
       
       const result = await performOAuthFlow(DEFAULT_OAUTH_CONFIG);
       
@@ -107,7 +113,7 @@ describe('OAuth Authentication', () => {
       const mockErrorResponse = {
         ...mockFetchResponse,
         ok: false,
-        text: jest.fn().mockResolvedValue('Invalid request')
+        text: vi.fn().mockResolvedValue('Invalid request')
       };
       (global.fetch as jest.Mock).mockResolvedValueOnce(mockErrorResponse);
       
@@ -142,7 +148,7 @@ describe('OAuth Authentication', () => {
       const mockErrorResponse = {
         ...mockFetchResponse,
         ok: false,
-        text: jest.fn().mockResolvedValue('Invalid refresh token')
+        text: vi.fn().mockResolvedValue('Invalid refresh token')
       };
       (global.fetch as jest.Mock).mockResolvedValueOnce(mockErrorResponse);
       

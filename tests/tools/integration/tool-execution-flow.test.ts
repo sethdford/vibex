@@ -1,8 +1,14 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Integration tests for tool execution flow
  */
 
-import { jest } from '@jest/globals';
+import { jest } from 'vitest';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
@@ -16,20 +22,20 @@ import {
 } from '../../../src/tools/index.js';
 
 // Mock dependencies
-jest.mock('fs/promises');
-jest.mock('../../../src/utils/logger.js', () => ({
+vi.mock('fs/promises');
+vi.mock('../../../src/utils/logger.js', () => ({
   logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn()
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
   }
 }));
 
 // Mock for child_process exec
-jest.mock('child_process', () => {
+vi.mock('child_process', () => {
   return {
-    exec: jest.fn((cmd, options, callback) => {
+    exec: vi.fn((cmd, options, callback) => {
       if (callback) {
         if (cmd.includes('fail')) {
           callback(new Error('Command failed'), '', 'Error output');
@@ -42,10 +48,10 @@ jest.mock('child_process', () => {
 });
 
 // Mock for fetch (used in web-fetch)
-jest.mock('node-fetch', () => {
+vi.mock('node-fetch', () => {
   return {
     __esModule: true,
-    default: jest.fn().mockImplementation(() => Promise.resolve({
+    default: vi.fn().mockImplementation(() => Promise.resolve({
       ok: true,
       status: 200,
       statusText: 'OK',
@@ -68,7 +74,7 @@ describe('Tool Execution Flow Integration', () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Reset stats
     clearToolStats();
@@ -228,9 +234,9 @@ describe('Tool Execution Flow Integration', () => {
 
   describe('Feedback Integration', () => {
     test('should provide progress feedback during tool execution', async () => {
-      const onStart = jest.fn(() => 'feedback-id');
-      const onProgress = jest.fn();
-      const onComplete = jest.fn();
+      const onStart = vi.fn(() => 'feedback-id');
+      const onProgress = vi.fn();
+      const onComplete = vi.fn();
       
       const readFileUse: ToolUseBlock = {
         type: 'tool_use',

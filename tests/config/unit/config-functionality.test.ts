@@ -1,24 +1,30 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Config Functionality Tests
  * 
  * Tests that verify our ConfigManager system actually works correctly
  * by testing the core functionality without relying on imports.
  */
 
-import { jest } from '@jest/globals';
+import { jest } from 'vitest';
 
 // Mock dependencies
-jest.mock('fs/promises');
-jest.mock('fs', () => ({
-  existsSync: jest.fn()
+vi.mock('fs/promises');
+vi.mock('fs', () => ({
+  existsSync: vi.fn()
 }));
 
-jest.mock('../../../src/utils/logger.js', () => ({
+vi.mock('../../../src/utils/logger.js', () => ({
   logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn()
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
   },
   LogLevel: {
     ERROR: 0,

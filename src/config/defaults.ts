@@ -273,12 +273,12 @@ export const defaults: AppConfigType = {
     },
     model: 'claude-sonnet-4-20250514',
     version: '1.0.0',
-    lastUpdated: new Date()
+    lastUpdated: new Date().toISOString()
   },
   
   // Modern UI configuration (enhanced)
   modernUI: {
-    defaultInterfaceMode: 'chat' as const,
+    defaultInterfaceMode: 'streaming' as const,
     densityMode: 'normal' as const,
     enableProgressiveDisclosure: true,
     enableAdaptiveUI: true,
@@ -297,7 +297,7 @@ export const defaults: AppConfigType = {
       enableSuggestions: true
     },
     configVersion: '1.0.0',
-    lastModified: new Date()
+    lastModified: new Date().toISOString()
   },
   
   // Performance configuration
@@ -342,7 +342,7 @@ export const defaults: AppConfigType = {
   // Integration metadata
   integration: {
     version: '1.0.0',
-    lastIntegrated: new Date(),
+    lastIntegrated: new Date().toISOString(),
     activeOptimizations: [],
     performanceMetrics: {
       configLoadTime: 0,

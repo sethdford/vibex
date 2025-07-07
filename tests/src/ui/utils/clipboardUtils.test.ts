@@ -1,26 +1,33 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Clipboard Utilities Tests
  */
 
 import { copyToClipboard, readFromClipboard, clearClipboard, formatForClipboard } from '../../../../src/ui/utils/clipboardUtils.js';
 import clipboard from 'clipboardy';
+import { describe, it, test, expect, beforeEach, afterEach, beforeAll, afterAll, vi } from 'vitest';
 
 // Mock clipboardy
-jest.mock('clipboardy', () => ({
-  write: jest.fn(),
-  read: jest.fn()
+vi.mock('clipboardy', () => ({
+  write: vi.fn(),
+  read: vi.fn()
 }));
 
 // Mock logger
-jest.mock('../../../../src/utils/logger.js', () => ({
+vi.mock('../../../../src/utils/logger.js', () => ({
   logger: {
-    debug: jest.fn(),
-    error: jest.fn()
+    debug: vi.fn(),
+    error: vi.fn()
   }
 }));
 
 // Mock os for EOL
-jest.mock('os', () => {
+vi.mock('os', () => {
   return {
     EOL: '\n'
   };
@@ -28,7 +35,7 @@ jest.mock('os', () => {
 
 describe('Clipboard Utilities', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
   
   describe('copyToClipboard', () => {

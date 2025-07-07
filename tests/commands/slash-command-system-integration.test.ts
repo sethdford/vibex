@@ -1,9 +1,15 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Slash Command System Integration Tests
  * Tests command registry, validation, autocomplete, and built-in commands
  */
 
-import { describe, test, expect, beforeEach } from '@jest/globals';
+import { describe, test, expect, beforeEach } from 'vitest';
 import { 
   SlashCommandRegistry,
   createSlashCommandRegistry,

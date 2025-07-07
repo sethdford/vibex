@@ -14,7 +14,7 @@
 
 import { EventEmitter } from 'events';
 import { logger } from '../utils/logger.js';
-import type { ContextSystem, ContextEntry, ContextConfig } from './context-system.js';
+import type { ContextSystem, ContextEntry, ContextConfig } from './context-system-refactored.js';
 import type { SavedConversation, ConversationMessage } from '../utils/conversation-state.js';
 import type { ConversationHistoryManager } from '../utils/conversation-history.js';
 import type { TurnSystem } from '../ai/turn-system.js';

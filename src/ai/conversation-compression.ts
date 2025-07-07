@@ -6,7 +6,7 @@
  */
 
 import type { MessageParam } from '@anthropic-ai/sdk/resources/messages';
-import { ContentGenerator } from './content-generator.js';
+import { ContentGenerator } from '../infrastructure/content-generator.js';
 import { logger } from '../utils/logger.js';
 
 export interface CompressionResult {
@@ -121,7 +121,7 @@ export class ConversationCompressor {
         const content = typeof msg.content === 'string' 
           ? msg.content 
           : Array.isArray(msg.content)
-            ? msg.content.map(block => 
+            ? msg.content.map((block: any) => 
                 block.type === 'text' ? block.text : `[${block.type}]`
               ).join(' ')
             : '[complex content]';

@@ -1,8 +1,14 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Unit tests for error formatter module
  */
 
-import { jest } from '@jest/globals';
+import { jest } from 'vitest';
 import { 
   createUserError, 
   formatErrorForDisplay, 
@@ -14,24 +20,24 @@ import {
 import { UserError, ErrorCategory, ErrorLevel } from '../../../src/errors/types.js';
 
 // Mock dependencies
-jest.mock('../../../src/utils/logger.js', () => ({
+vi.mock('../../../src/utils/logger.js', () => ({
   logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn()
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
   }
 }));
 
-jest.mock('../../../src/utils/formatting.js', () => ({
-  getErrorDetails: jest.fn().mockImplementation(() => 'Formatted error details'),
-  wordWrap: jest.fn().mockImplementation((text) => text),
-  indent: jest.fn().mockImplementation((text) => text)
+vi.mock('../../../src/utils/formatting.js', () => ({
+  getErrorDetails: vi.fn().mockImplementation(() => 'Formatted error details'),
+  wordWrap: vi.fn().mockImplementation((text) => text),
+  indent: vi.fn().mockImplementation((text) => text)
 }));
 
 describe('Error Formatter', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('createUserError', () => {

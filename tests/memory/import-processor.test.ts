@@ -1,10 +1,16 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Memory Import Processor Tests
  * 
  * Tests the memory import processor functionality.
  */
 
-import { describe, test, expect, beforeEach, afterEach, jest, beforeAll, afterAll } from '@jest/globals';
+import { describe, test, expect, beforeEach, afterEach, jest, beforeAll, afterAll } from 'vitest';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';

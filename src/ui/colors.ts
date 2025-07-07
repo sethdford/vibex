@@ -33,6 +33,7 @@ export const Colors = {
   // Background colors
   Background: '#1A202C',
   BackgroundAlt: '#2D3748',
+  DimBackground: '#242C3D', // Slightly brighter for selection backgrounds
   
   // Accent colors
   AccentBlue: '#4299E1',
@@ -41,6 +42,7 @@ export const Colors = {
   AccentYellow: '#ECC94B',
   AccentPurple: '#9F7AEA',
   AccentCyan: '#0BC5EA',
+  AccentOrange: '#ED8936', // New orange accent for medium severity issues
   
   // Special use colors
   Border: '#4A5568',

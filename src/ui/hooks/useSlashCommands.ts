@@ -199,4 +199,4 @@ export function useSlashCommands(options: UseSlashCommandsOptions = {}) {
   };
 }
 
-export default useSlashCommands;
+export default useSlashCommands; 

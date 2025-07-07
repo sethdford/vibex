@@ -6,18 +6,17 @@
 
 import fs from 'fs';
 import path from 'path';
-import { useProgressBar, ProgressBarResult } from '../hooks/useProgressBar.js';
+import { useProgressBar } from '../hooks/useProgressBar.js';
 
 /**
  * Hook for tracking file upload progress
  */
 export function useFileUploadProgress() {
   const progress = useProgressBar({
-    label: 'Uploading file',
     initialValue: 0,
-    autoRemove: true
+    max: 100,
   });
-  
+
   /**
    * Upload a file with progress tracking
    * 
@@ -31,28 +30,27 @@ export function useFileUploadProgress() {
   ): Promise<T> => {
     try {
       // Update the label with the filename
-      progress.update(0, path.basename(filePath));
+      progress.setLabel(path.basename(filePath));
       
       // Get file size
       const stats = await fs.promises.stat(filePath);
-      const fileSize = stats.size;
       
       // Read file
       const data = await fs.promises.readFile(filePath);
       
       // Update progress to 50% after reading
-      progress.update(50, 'Uploading...');
+      progress.setValue(50);
       
       // Upload file
       const result = await uploadFn(data);
       
       // Complete progress
-      progress.complete('Upload complete');
+      progress.complete();
       
       return result;
     } catch (error) {
       // Handle error
-      progress.complete(`Error: ${error instanceof Error ? error.message : String(error)}`);
+      progress.setLabel(`Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   };
@@ -68,9 +66,8 @@ export function useFileUploadProgress() {
  */
 export function useFileDownloadProgress() {
   const progress = useProgressBar({
-    label: 'Downloading file',
     initialValue: 0,
-    autoRemove: true
+    max: 100,
   });
   
   /**
@@ -87,7 +84,7 @@ export function useFileDownloadProgress() {
     try {
       // Update label with filename
       const fileName = path.basename(url);
-      progress.update(0, fileName);
+      progress.setLabel(fileName);
       
       // Create directory if it doesn't exist
       await fs.promises.mkdir(path.dirname(destinationPath), { recursive: true });
@@ -95,17 +92,17 @@ export function useFileDownloadProgress() {
       // Simulate download progress for now
       // In a real implementation, you would use a fetch with progress events
       for (let i = 0; i <= 10; i++) {
-        progress.update(i * 10, `Downloading... ${i * 10}%`);
+        progress.setValue(i * 10);
         await new Promise(resolve => setTimeout(resolve, 200));
       }
       
       // Complete progress
-      progress.complete('Download complete');
+      progress.complete();
       
       return destinationPath;
     } catch (error) {
       // Handle error
-      progress.complete(`Error: ${error instanceof Error ? error.message : String(error)}`);
+      progress.setLabel(`Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   };
@@ -121,10 +118,8 @@ export function useFileDownloadProgress() {
  */
 export function useOperationProgress() {
   const progress = useProgressBar({
-    label: 'Operation in progress',
     initialValue: 0,
-    indeterminate: true,
-    autoRemove: true
+    max: 100,
   });
   
   /**
@@ -140,21 +135,24 @@ export function useOperationProgress() {
   ): Promise<T> => {
     try {
       // Update label
+      progress.setLabel(label);
       progress.setIndeterminate(false);
-      progress.update(0, label);
       
       // Run operation
       const result = await operation((value, message) => {
-        progress.update(value, message);
+        progress.setValue(value);
+        if (message) {
+          progress.setLabel(message);
+        }
       });
       
       // Complete progress
-      progress.complete('Operation complete');
+      progress.complete();
       
       return result;
     } catch (error) {
       // Handle error
-      progress.complete(`Error: ${error instanceof Error ? error.message : String(error)}`);
+      progress.setLabel(`Error: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   };

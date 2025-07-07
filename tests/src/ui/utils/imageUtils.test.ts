@@ -1,4 +1,10 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Image Utilities Tests
  */
 
@@ -8,52 +14,53 @@ import path from 'path';
 import * as imageUtils from '../../../../src/ui/utils/imageUtils.js';
 import fetch from 'node-fetch';
 import sharp from 'sharp';
+import { describe, it, test, expect, beforeEach, afterEach, beforeAll, afterAll, vi } from 'vitest';
 
 // Mock fs modules
-jest.mock('fs/promises');
-jest.mock('fs', () => ({
-  existsSync: jest.fn()
+vi.mock('fs/promises');
+vi.mock('fs', () => ({
+  existsSync: vi.fn()
 }));
 
 // Mock path
-jest.mock('path', () => ({
-  join: jest.fn((dir, file) => `${dir}/${file}`),
-  extname: jest.fn((filePath) => `.${filePath.split('.').pop()}`),
+vi.mock('path', () => ({
+  join: vi.fn((dir, file) => `${dir}/${file}`),
+  extname: vi.fn((filePath) => `.${filePath.split('.').pop()}`),
 }));
 
 // Mock sharp
-jest.mock('sharp', () => {
-  const mockSharp = jest.fn().mockReturnValue({
-    resize: jest.fn().mockReturnThis(),
-    toFormat: jest.fn().mockReturnThis(),
-    toFile: jest.fn().mockResolvedValue(undefined),
-    toBuffer: jest.fn().mockResolvedValue(Buffer.from('fake-image-data')),
-    metadata: jest.fn().mockResolvedValue({ width: 800, height: 600 }),
+vi.mock('sharp', () => {
+  const mockSharp = vi.fn().mockReturnValue({
+    resize: vi.fn().mockReturnThis(),
+    toFormat: vi.fn().mockReturnThis(),
+    toFile: vi.fn().mockResolvedValue(undefined),
+    toBuffer: vi.fn().mockResolvedValue(Buffer.from('fake-image-data')),
+    metadata: vi.fn().mockResolvedValue({ width: 800, height: 600 }),
   });
   return mockSharp;
 });
 
 // Mock node-fetch
-jest.mock('node-fetch', () => {
-  return jest.fn().mockImplementation(() => ({
+vi.mock('node-fetch', () => {
+  return vi.fn().mockImplementation(() => ({
     ok: true,
     status: 200,
     statusText: 'OK',
-    buffer: jest.fn().mockResolvedValue(Buffer.from('fake-image-data'))
+    buffer: vi.fn().mockResolvedValue(Buffer.from('fake-image-data'))
   }));
 });
 
 // Mock logger
-jest.mock('../../../../src/utils/logger.js', () => ({
+vi.mock('../../../../src/utils/logger.js', () => ({
   logger: {
-    debug: jest.fn(),
-    error: jest.fn()
+    debug: vi.fn(),
+    error: vi.fn()
   }
 }));
 
 describe('Image Utilities', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
   
   describe('ensureTempDir', () => {
@@ -190,7 +197,7 @@ describe('Image Utilities', () => {
     it('should handle errors', async () => {
       // Mock sharp to return an instance with metadata method that rejects
       (sharp as jest.Mock).mockReturnValueOnce({
-        metadata: jest.fn().mockRejectedValueOnce(new Error('Metadata error'))
+        metadata: vi.fn().mockRejectedValueOnce(new Error('Metadata error'))
       });
       
       await expect(imageUtils.getImageDimensions('test.png'))

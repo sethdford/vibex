@@ -1,14 +1,20 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Retry Mechanism Unit Tests
  * 
  * Tests for retry mechanism with exponential backoff
  */
 
-import { expect, jest, test, describe, beforeEach } from '@jest/globals';
+import { expect, jest, test, describe, beforeEach } from 'vitest';
 import { retry, calculateBackoff, withRetry, RetryOptions } from './retry';
 
 // Mock setTimeout
-jest.useFakeTimers();
+vi.useFakeTimers();
 
 describe('calculateBackoff', () => {
   test('should calculate exponential backoff without jitter', () => {
@@ -39,7 +45,7 @@ describe('calculateBackoff', () => {
   });
   
   test('should add jitter when enabled', () => {
-    jest.spyOn(Math, 'random').mockReturnValue(0.5); // Simulate consistent random value
+    vi.spyOn(Math, 'random').mockReturnValue(0.5); // Simulate consistent random value
     
     const options = {
       initialDelayMs: 100,
@@ -53,13 +59,13 @@ describe('calculateBackoff', () => {
     expect(calculateBackoff(1, options)).toBe(200);
     
     // Test with different random values
-    jest.spyOn(Math, 'random').mockReturnValue(0);
+    vi.spyOn(Math, 'random').mockReturnValue(0);
     expect(calculateBackoff(1, options)).toBe(140); // -30% jitter
     
-    jest.spyOn(Math, 'random').mockReturnValue(1);
+    vi.spyOn(Math, 'random').mockReturnValue(1);
     expect(calculateBackoff(1, options)).toBe(260); // +30% jitter
     
-    jest.spyOn(Math, 'random').mockRestore();
+    vi.spyOn(Math, 'random').mockRestore();
   });
 });
 
@@ -71,7 +77,7 @@ describe('retry function', () => {
     successAfter = 2; // Succeed on third attempt (after 2 failures)
     let attempts = 0;
     
-    mockFn = jest.fn().mockImplementation(async () => {
+    mockFn = vi.fn().mockImplementation(async () => {
       if (attempts < successAfter) {
         attempts++;
         throw new Error(`Attempt ${attempts} failed`);
@@ -98,7 +104,7 @@ describe('retry function', () => {
   
   test('should not retry if error is not retryable', async () => {
     const notRetryableError = new Error('Not retryable');
-    const mockFnNotRetryable = jest.fn().mockRejectedValue(notRetryableError) as jest.Mock<Promise<never>, []>;
+    const mockFnNotRetryable = vi.fn().mockRejectedValue(notRetryableError) as jest.Mock<Promise<never>, []>;
     
     const options: RetryOptions = {
       maxRetries: 3,
@@ -113,7 +119,7 @@ describe('retry function', () => {
   });
   
   test('should call onRetry callback before each retry', async () => {
-    const onRetry = jest.fn() as jest.Mock<void, [number, number, Error]>;
+    const onRetry = vi.fn() as jest.Mock<void, [number, number, Error]>;
     
     await retry(mockFn as () => Promise<string>, { 
       maxRetries: 3, 
@@ -131,7 +137,7 @@ describe('retry function', () => {
   });
   
   test('should timeout if operation takes too long', async () => {
-    const slowFn = jest.fn().mockImplementation(() => {
+    const slowFn = vi.fn().mockImplementation(() => {
       return new Promise(resolve => {
         setTimeout(() => resolve('too late'), 1000);
       });
@@ -141,7 +147,7 @@ describe('retry function', () => {
     const promise = retry(slowFn as () => Promise<string>, { timeoutMs: 50 });
     
     // Fast-forward time
-    jest.advanceTimersByTime(100);
+    vi.advanceTimersByTime(100);
     
     await expect(promise).rejects.toThrow('Operation timed out');
   });
@@ -150,7 +156,7 @@ describe('retry function', () => {
 describe('withRetry function', () => {
   test('should wrap a function with retry logic', async () => {
     let attempts = 0;
-    const mockFn = jest.fn().mockImplementation(async (arg1: string, arg2: number) => {
+    const mockFn = vi.fn().mockImplementation(async (arg1: string, arg2: number) => {
       if (attempts < 2) {
         attempts++;
         throw new Error(`Attempt ${attempts} failed`);

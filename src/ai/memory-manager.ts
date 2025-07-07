@@ -7,7 +7,7 @@
  */
 
 import type { MessageParam } from '@anthropic-ai/sdk/resources/messages';
-import { ContentGenerator, MemoryStats } from './content-generator.js';
+import { ContentGenerator, MemoryStats } from '../infrastructure/content-generator.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -278,8 +278,8 @@ ${messagesToSummarize.map(msg => {
       );
       
       const summaryText = summaryResponse.content
-        .filter(item => item.type === 'text')
-        .map(item => item.text)
+        .filter((item: any) => item.type === 'text')
+        .map((item: any) => item.text)
         .join('');
       
       // Create new optimized message list
@@ -426,8 +426,8 @@ ${contentStr}`
         );
         
         const compressedText = compressionResponse.content
-          .filter(item => item.type === 'text')
-          .map(item => item.text)
+          .filter((item: any) => item.type === 'text')
+          .map((item: any) => item.text)
           .join('');
         
         // Only use the compressed version if it's actually smaller

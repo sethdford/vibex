@@ -1,30 +1,36 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Unit tests for performance monitoring module
  */
 
-import { describe, test, expect, jest, beforeEach } from '@jest/globals';
+import { describe, test, expect, jest, beforeEach } from 'vitest';
 import { PerformanceMonitoringSystem, PerformanceScope } from '../../../src/telemetry/performance-monitoring.js';
 import { telemetry } from '../../../src/telemetry/index.js';
 import { enhancedTelemetry } from '../../../src/telemetry/enhanced-telemetry.js';
 
 // Mock dependencies
-jest.mock('../../../src/telemetry/index.js', () => ({
+vi.mock('../../../src/telemetry/index.js', () => ({
   telemetry: {
-    isEnabled: jest.fn().mockReturnValue(false),
-    trackMetric: jest.fn()
+    isEnabled: vi.fn().mockReturnValue(false),
+    trackMetric: vi.fn()
   }
 }));
 
-jest.mock('../../../src/telemetry/enhanced-telemetry.js', () => ({
+vi.mock('../../../src/telemetry/enhanced-telemetry.js', () => ({
   enhancedTelemetry: {
-    startSpan: jest.fn().mockReturnValue({ 
+    startSpan: vi.fn().mockReturnValue({ 
       traceId: 'mock-trace-id', 
       spanId: 'mock-span-id', 
       name: 'mock-span' 
     }),
-    endSpan: jest.fn(),
-    markPerformance: jest.fn(),
-    measurePerformance: jest.fn()
+    endSpan: vi.fn(),
+    markPerformance: vi.fn(),
+    measurePerformance: vi.fn()
   },
   SpanStatus: {
     OK: 'ok',
@@ -38,12 +44,12 @@ jest.mock('../../../src/telemetry/enhanced-telemetry.js', () => ({
   }
 }));
 
-jest.mock('../../../src/utils/logger.js', () => ({
+vi.mock('../../../src/utils/logger.js', () => ({
   logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn()
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
   }
 }));
 
@@ -52,7 +58,7 @@ describe('PerformanceMonitoringSystem', () => {
   
   beforeEach(() => {
     // Reset mocks between tests
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Create a new instance with performance monitoring disabled
     performanceMonitoring = new PerformanceMonitoringSystem({ enabled: false });
@@ -63,7 +69,7 @@ describe('PerformanceMonitoringSystem', () => {
   });
   
   test('trackFunction should return original function when disabled', () => {
-    const originalFn = jest.fn().mockReturnValue('result');
+    const originalFn = vi.fn().mockReturnValue('result');
     const trackedFn = performanceMonitoring.trackFunction(originalFn, 'test-function', PerformanceScope.SYSTEM);
     
     const result = trackedFn('arg1', 'arg2');
@@ -120,7 +126,7 @@ describe('PerformanceMonitoringSystem', () => {
     });
     
     test('trackFunction should wrap function with performance tracking', () => {
-      const originalFn = jest.fn().mockReturnValue('result');
+      const originalFn = vi.fn().mockReturnValue('result');
       const trackedFn = performanceMonitoring.trackFunction(originalFn, 'test-function', PerformanceScope.SYSTEM);
       
       const result = trackedFn('arg1', 'arg2');
@@ -132,7 +138,7 @@ describe('PerformanceMonitoringSystem', () => {
     });
     
     test('trackFunction should handle async functions', async () => {
-      const originalAsyncFn = jest.fn().mockResolvedValue('async-result');
+      const originalAsyncFn = vi.fn().mockResolvedValue('async-result');
       const trackedAsyncFn = performanceMonitoring.trackFunction(originalAsyncFn, 'async-function', PerformanceScope.SYSTEM);
       
       const promise = trackedAsyncFn('arg1', 'arg2');
@@ -145,7 +151,7 @@ describe('PerformanceMonitoringSystem', () => {
     });
     
     test('trackFunction should handle thrown errors', () => {
-      const errorFn = jest.fn().mockImplementation(() => {
+      const errorFn = vi.fn().mockImplementation(() => {
         throw new Error('Test error');
       });
       
@@ -158,7 +164,7 @@ describe('PerformanceMonitoringSystem', () => {
     });
     
     test('trackFunction should handle rejected promises', async () => {
-      const rejectedFn = jest.fn().mockRejectedValue(new Error('Async error'));
+      const rejectedFn = vi.fn().mockRejectedValue(new Error('Async error'));
       const trackedRejectedFn = performanceMonitoring.trackFunction(rejectedFn, 'rejected-function', PerformanceScope.SYSTEM);
       
       await expect(trackedRejectedFn()).rejects.toThrow('Async error');
@@ -170,7 +176,7 @@ describe('PerformanceMonitoringSystem', () => {
     test('startMarker and endMarker should track duration', () => {
       // Mock performance.now to return controlled values
       const originalNow = performance.now;
-      performance.now = jest.fn()
+      performance.now = vi.fn()
         .mockReturnValueOnce(1000) // For startMarker
         .mockReturnValueOnce(1200); // For endMarker (200ms later)
       

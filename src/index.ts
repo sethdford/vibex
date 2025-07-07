@@ -163,7 +163,7 @@ export async function startInteractiveSession(app: AppInstance): Promise<void> {
     const startupWarnings: string[] = [];
     
     // Check for authentication
-    if (!authManager.isAuthenticated()) {
+    if (!await authManager.isValid()) {
       startupWarnings.push('Not authenticated. Some features may be limited. Use /login to authenticate.');
     }
     

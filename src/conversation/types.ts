@@ -171,6 +171,7 @@ export interface MergeConflict {
   targetNodeId: string;
   conflictData: any;
   suggestedResolution?: any;
+  canAutoResolve?: boolean;
 }
 
 // ============================================================================

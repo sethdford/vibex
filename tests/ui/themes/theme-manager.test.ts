@@ -1,8 +1,15 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Tests for theme-manager.ts
  */
 
 import { 
+import { describe, it, test, expect, beforeEach, afterEach, beforeAll, afterAll, vi } from 'vitest';
   themes, 
   themeOptions, 
   getTheme, 

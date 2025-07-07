@@ -1,18 +1,24 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Integration tests for telemetry with error system
  */
 
-import { describe, test, expect, jest, beforeEach, afterEach } from '@jest/globals';
+import { describe, test, expect, jest, beforeEach, afterEach } from 'vitest';
 import { TelemetryService } from '../../../src/telemetry/index.js';
 import * as ErrorTypes from '../../../src/errors/types.js';
 
 // Mock dependencies
-jest.mock('../../../src/utils/logger.js', () => ({
+vi.mock('../../../src/utils/logger.js', () => ({
   logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn()
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
   }
 }));
 
@@ -41,7 +47,7 @@ describe('Telemetry Error Integration', () => {
   let telemetryService: TelemetryService;
   
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     telemetryService = new TelemetryService({ 
       enabled: true,
       environment: 'test',
@@ -51,11 +57,11 @@ describe('Telemetry Error Integration', () => {
   });
   
   afterEach(() => {
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
   
   test('should capture error with correct category from errors module', () => {
-    const captureExceptionSpy = jest.spyOn(telemetryService, 'captureException');
+    const captureExceptionSpy = vi.spyOn(telemetryService, 'captureException');
     const networkError = new TestNetworkError('Failed to connect to API');
     
     telemetryService.trackError(networkError);
@@ -68,7 +74,7 @@ describe('Telemetry Error Integration', () => {
   });
   
   test('should capture authentication error with correct category', () => {
-    const captureExceptionSpy = jest.spyOn(telemetryService, 'captureException');
+    const captureExceptionSpy = vi.spyOn(telemetryService, 'captureException');
     const authError = new TestAuthenticationError('Invalid token');
     
     telemetryService.trackError(authError);
@@ -81,7 +87,7 @@ describe('Telemetry Error Integration', () => {
   });
   
   test('should use UNKNOWN category for generic errors', () => {
-    const captureExceptionSpy = jest.spyOn(telemetryService, 'captureException');
+    const captureExceptionSpy = vi.spyOn(telemetryService, 'captureException');
     const genericError = new Error('Something went wrong');
     
     telemetryService.trackError(genericError);
@@ -94,7 +100,7 @@ describe('Telemetry Error Integration', () => {
   });
   
   test('should propagate error contexts to telemetry', () => {
-    const captureExceptionSpy = jest.spyOn(telemetryService, 'captureException');
+    const captureExceptionSpy = vi.spyOn(telemetryService, 'captureException');
     const error = new TestNetworkError('Failed to connect to API');
     
     const context = {
@@ -124,7 +130,7 @@ describe('Telemetry Error Integration', () => {
   });
   
   test('should track error breadcrumbs when tracking errors', () => {
-    const addBreadcrumbSpy = jest.spyOn(telemetryService, 'addBreadcrumb');
+    const addBreadcrumbSpy = vi.spyOn(telemetryService, 'addBreadcrumb');
     const networkError = new TestNetworkError('API timeout');
     
     // First track an API call (which would happen before the error)
@@ -145,7 +151,7 @@ describe('Telemetry Error Integration', () => {
     }));
     
     // Check that the breadcrumb was included in the captured exception
-    const captureExceptionSpy = jest.spyOn(telemetryService, 'captureException');
+    const captureExceptionSpy = vi.spyOn(telemetryService, 'captureException');
     expect(captureExceptionSpy).toHaveBeenCalledWith(networkError, expect.any(Object));
   });
   

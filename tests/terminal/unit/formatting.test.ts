@@ -1,41 +1,51 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Unit tests for terminal formatting utilities
  */
 
-import { jest } from '@jest/globals';
+import { jest } from 'vitest';
 import { clearScreen, getTerminalSize, formatOutput, wordWrap } from '../../../src/terminal/formatting.js';
 
 // Mock dependencies
-jest.mock('chalk', () => ({
-  dim: jest.fn().mockImplementation((text) => `dim(${text})`),
-  cyan: jest.fn().mockImplementation((text) => `cyan(${text})`),
-  bold: {
-    blue: jest.fn().mockImplementation((text) => `bold.blue(${text})`),
-    underline: {
-      blue: jest.fn().mockImplementation((text) => `bold.underline.blue(${text})`)
-    }
-  },
-  bold: jest.fn().mockImplementation((text) => `bold(${text})`),
-  italic: jest.fn().mockImplementation((text) => `italic(${text})`),
-  gray: jest.fn().mockImplementation((text) => `gray(${text})`),
-  blue: jest.fn().mockImplementation((text) => `blue(${text})`),
-  yellow: jest.fn().mockImplementation((text) => `yellow(${text})`),
-  green: jest.fn().mockImplementation((text) => `green(${text})`)
+vi.mock('chalk', () => ({
+  default: {
+    dim: vi.fn().mockImplementation((text) => `dim(${text})`),
+    cyan: vi.fn().mockImplementation((text) => `cyan(${text})`),
+    bold: Object.assign(
+      vi.fn().mockImplementation((text) => `bold(${text})`),
+      {
+        blue: vi.fn().mockImplementation((text) => `bold.blue(${text})`),
+        underline: {
+          blue: vi.fn().mockImplementation((text) => `bold.underline.blue(${text})`)
+        }
+      }
+    ),
+    italic: vi.fn().mockImplementation((text) => `italic(${text})`),
+    gray: vi.fn().mockImplementation((text) => `gray(${text})`),
+    blue: vi.fn().mockImplementation((text) => `blue(${text})`),
+    yellow: vi.fn().mockImplementation((text) => `yellow(${text})`),
+    green: vi.fn().mockImplementation((text) => `green(${text})`)
+  }
 }));
 
 describe('Terminal Formatting', () => {
   const mockStdout = {
-    write: jest.fn(),
+    write: vi.fn(),
     isTTY: true,
     columns: 100,
     rows: 40,
-    on: jest.fn()
+    on: vi.fn()
   };
   
   const originalStdout = process.stdout;
   
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
   
   describe('clearScreen', () => {

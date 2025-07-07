@@ -1,10 +1,16 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Memory System Integration Tests
  * 
  * Tests the memory system's integration with other components
  */
 
-import { describe, test, expect, beforeEach, afterEach, jest, beforeAll, afterAll } from '@jest/globals';
+import { describe, test, expect, beforeEach, afterEach, jest, beforeAll, afterAll } from 'vitest';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
@@ -53,7 +59,7 @@ describe('Memory System Integration', () => {
     await fs.writeFile(path.join(testDir, 'VIBEX.md'), '# Initial Content');
     
     // Set up the mock callback function
-    const onChange = jest.fn();
+    const onChange = vi.fn();
     
     // Start watching the files
     const watcher = await watchMemoryFiles(testDir, {
@@ -115,11 +121,11 @@ describe('Memory System Integration', () => {
     
     // Mock functions to simulate errors
     const originalLoadMemoryFiles = await import('../../src/memory/index.js').then(m => m.loadMemoryFiles);
-    const mockLoadMemoryFiles = jest.fn()
+    const mockLoadMemoryFiles = vi.fn()
       .mockImplementationOnce(() => { throw new Error('Simulated error'); })
       .mockImplementationOnce(originalLoadMemoryFiles);
       
-    jest.doMock('../../src/memory/index.js', async () => {
+    vi.doMock('../../src/memory/index.js', async () => {
       const actual = await jest.importActual('../../src/memory/index.js');
       return {
         ...actual,
@@ -128,7 +134,7 @@ describe('Memory System Integration', () => {
     });
     
     // Set up a callback to track calls
-    const onChange = jest.fn();
+    const onChange = vi.fn();
     
     // Start watching files
     const watcher = await watchMemoryFiles(testDir, {

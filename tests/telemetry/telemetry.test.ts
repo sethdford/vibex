@@ -1,4 +1,10 @@
-import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globals';
+/**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+import { describe, test, expect, beforeEach, afterEach, jest } from 'vitest';
 import { TelemetryService, TelemetryEventType } from '../../src/telemetry/index.js';
 
 describe('TelemetryService', () => {

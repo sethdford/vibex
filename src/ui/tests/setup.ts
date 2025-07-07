@@ -1,179 +1,215 @@
 /**
- * Test Setup
- * 
- * Configures the test environment for UI component tests.
+ * Vitest Test Setup - Following Gemini CLI patterns
+ * This file configures the testing environment for Vitest
  */
 
-import '@testing-library/jest-dom';
-import { jest } from '@jest/globals';
+import { vi } from 'vitest';
 
-// Mock for Ink's useStdout hook
-jest.mock('ink', () => {
-  // Don't requireActual here as it will try to load ESM
-  
+// Enhanced Jest compatibility - map jest functions to vi with proper types
+(global as any).jest = {
+  fn: vi.fn,
+  mock: vi.mock,
+  unmock: vi.unmock,
+  clearAllMocks: vi.clearAllMocks,
+  resetAllMocks: vi.resetAllMocks,
+  restoreAllMocks: vi.restoreAllMocks,
+  resetModules: vi.resetModules,
+  spyOn: vi.spyOn,
+  // vi doesn't have setTimeout, use vi.useFakeTimers instead
+  setTimeout: vi.fn() as any,
+  requireActual: vi.importActual,
+  doMock: vi.doMock,
+  dontMock: vi.unmock, // Using unmock since dontMock doesn't exist in Vitest
+  runOnlyPendingTimers: vi.runOnlyPendingTimers,
+  runAllTimers: vi.runAllTimers,
+  advanceTimersByTime: vi.advanceTimersByTime,
+  setSystemTime: vi.setSystemTime as any,
+  getRealSystemTime: vi.getRealSystemTime,
+  useFakeTimers: vi.useFakeTimers as any,
+  useRealTimers: vi.useRealTimers,
+  // Add MockedFunction type compatibility
+  MockedFunction: vi.fn
+};
+
+// Mock Ink components for testing
+vi.mock('ink', () => ({
+  Box: ({ children }: { children: React.ReactNode }) => children,
+  Text: ({ children }: { children: React.ReactNode }) => children,
+  Static: ({ items }: { items: Array<React.ReactNode> }) => items,
+  useInput: vi.fn(),
+  useStdin: vi.fn(() => ({ stdin: process.stdin, setRawMode: vi.fn() })),
+  useApp: vi.fn(() => ({ exit: vi.fn() })),
+  measureElement: vi.fn(() => ({ width: 80, height: 24 })),
+  render: vi.fn()
+}));
+
+// Mock React components
+vi.mock('react', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react')>();
   return {
-    __esModule: true,
-    useStdout: () => ({
-      stdout: {
-        columns: 80,
-        rows: 24,
-        on: jest.fn(),
-        removeListener: jest.fn(),
-        write: jest.fn(),
-      }
-    }),
-    useStdin: () => ({
-      stdin: {
-        on: jest.fn(),
-        removeListener: jest.fn(),
-        setRawMode: jest.fn<() => void>(),
-        isTTY: true,
-      },
-      setRawMode: jest.fn(),
-      isRawModeSupported: true,
-    }),
-    render: jest.fn().mockReturnValue({
-      waitUntilExit: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
-      cleanup: jest.fn<() => void>(),
-    }),
+    ...actual,
+    useState: vi.fn(),
+    useEffect: vi.fn(),
+    useCallback: vi.fn(),
+    useMemo: vi.fn(),
+    useRef: vi.fn(() => ({ current: null }))
   };
 });
 
-// Mock for fs module
-jest.mock('fs', () => ({
-  existsSync: jest.fn().mockReturnValue(true),
-  promises: {
-    readFile: jest.fn<() => Promise<string>>().mockResolvedValue('{"test": true}'),
-    writeFile: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
-    mkdir: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
-  },
-  readFileSync: jest.fn().mockReturnValue('{"test": true}'),
-  statSync: jest.fn().mockReturnValue({
-    isFile: jest.fn().mockReturnValue(true),
-  }),
+// Mock Node.js modules with proper mock functions
+vi.mock('fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('fs')>();
+  return {
+    ...actual,
+    existsSync: vi.fn(),
+    readFileSync: vi.fn(),
+    writeFileSync: vi.fn(),
+    mkdirSync: vi.fn(),
+    rmSync: vi.fn(),
+    statSync: vi.fn(),
+    readdirSync: vi.fn()
+  };
+});
+
+vi.mock('fs/promises', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('fs/promises')>();
+  return {
+    ...actual,
+    readFile: vi.fn(),
+    writeFile: vi.fn(),
+    access: vi.fn(),
+    stat: vi.fn(),
+    readdir: vi.fn(),
+    mkdir: vi.fn(),
+    rm: vi.fn()
+  };
+});
+
+vi.mock('path', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('path')>();
+  return {
+    ...actual,
+    join: vi.fn((...args) => args.join('/')),
+    resolve: vi.fn((...args) => args.join('/')),
+    dirname: vi.fn((path) => path.split('/').slice(0, -1).join('/')),
+    basename: vi.fn((path) => path.split('/').pop() || '')
+  };
+});
+
+// Mock external dependencies
+vi.mock('@anthropic-ai/sdk', () => ({
+  default: vi.fn(),
+  Anthropic: vi.fn()
 }));
 
-// Mock for logger
-jest.mock('../../utils/logger.js', () => ({
-  logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn(),
-    setLevel: jest.fn(),
-  }
+vi.mock('clipboardy', () => ({
+  write: vi.fn(),
+  read: vi.fn()
 }));
 
-// Mock for config
-jest.mock('../../config/index.js', () => ({
-  loadConfig: jest.fn<() => Promise<any>>().mockResolvedValue({
-    terminal: {
-      theme: 'dark',
-      useColors: true,
-    },
-    ai: {
-      model: 'claude-3-7-sonnet',
-      systemPrompt: 'You are Claude, a helpful AI assistant.',
-      temperature: 0.7,
-      maxTokens: 4000,
+vi.mock('chalk', async (importOriginal) => {
+  // Create a simplified chalk mock that supports method chaining
+  const createChalkMethod = () => {
+    const fn = vi.fn((text) => text) as any;
+    fn.bold = vi.fn((text) => text);
+    fn.dim = vi.fn((text) => text);
+    fn.italic = vi.fn((text) => text);
+    fn.underline = vi.fn((text) => text);
+    return fn;
+  };
+  
+  return {
+    default: {
+      // Basic color methods
+      red: createChalkMethod(),
+      green: createChalkMethod(),
+      yellow: createChalkMethod(),
+      blue: createChalkMethod(),
+      cyan: createChalkMethod(),
+      magenta: createChalkMethod(),
+      white: createChalkMethod(),
+      gray: createChalkMethod(),
+      
+      // Style methods
+      bold: createChalkMethod(),
+      dim: createChalkMethod(),
+      
+      // Background colors
+      bgRed: createChalkMethod(),
+      bgGreen: createChalkMethod(),
+      bgBlue: createChalkMethod(),
+      bgYellow: createChalkMethod(),
+      bgMagenta: createChalkMethod()
     }
-  }),
-  default: {
-    get: jest.fn().mockReturnValue({
-      terminal: {
-        theme: 'dark',
-        useColors: true,
-      },
-      ai: {
-        model: 'claude-3-7-sonnet',
-        systemPrompt: 'You are Claude, a helpful AI assistant.',
-        temperature: 0.7,
-        maxTokens: 4000,
-      }
-    })
-  }
-}));
+  };
+});
 
-// Mock for AI client
-jest.mock('../../ai/index.js', () => ({
-  getAIClient: jest.fn().mockReturnValue({
-    query: jest.fn<() => Promise<any>>().mockResolvedValue({
-      message: {
-        content: [
-          {
-            type: 'text',
-            text: 'This is a test response from Claude.'
-          }
-        ]
-      },
-      usage: {
-        input_tokens: 100,
-        output_tokens: 50
-      },
-      metrics: {
-        latency: 1000,
-        model: 'claude-3-7-sonnet',
-        cached: false,
-        tokensPerSecond: 50,
-        cost: 0.000125
-      }
-    }),
-  }),
-  initAI: jest.fn<() => Promise<any>>().mockResolvedValue({} as any)
-}));
-
-// Mock for auth manager
-jest.mock('../../auth/index.js', () => ({
-  authManager: {
-    initialize: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
-    isAuthenticated: jest.fn().mockReturnValue(true),
-    getToken: jest.fn().mockReturnValue({ 
-      accessToken: 'mock-token', 
-      expiresAt: Date.now() + 3600000 
-    }),
-  }
-}));
-
-// Mock for ink-select-input (ESM compatibility issue)
-jest.mock('ink-select-input', () => ({
-  __esModule: true,
-  default: ({ items, onSelect }: any) => {
-    return {
-      type: 'div',
-      props: {
-        'data-testid': 'ink-select-input',
-        children: items.map((item: any, i: number) => (
-          {
-            type: 'div',
-            key: i,
-            props: {
-              'data-testid': `select-item-${i}`,
-              onClick: () => onSelect(item),
-              children: item.label
-            }
-          }
-        ))
-      }
-    };
-  }
-}));
-
-// Global mocks for Node.js process
-global.process.stdout.isTTY = true;
-global.process.stdin.isTTY = true;
-global.process.exit = jest.fn() as any;
-
-// Mock for performance.now()
-(global.performance as any) = {
-  now: jest.fn().mockReturnValue(1000),
-  mark: jest.fn(),
-  measure: jest.fn(),
-  getEntriesByName: jest.fn(),
-  getEntriesByType: jest.fn(),
-  getEntries: jest.fn(),
-  clearMarks: jest.fn(),
-  clearMeasures: jest.fn(),
-  clearResourceTimings: jest.fn(),
-  setResourceTimingBufferSize: jest.fn(),
-  toJSON: jest.fn()
+// Global test utilities
+(global as any).mockConsole = {
+  log: vi.fn(),
+  error: vi.fn(),
+  warn: vi.fn(),
+  info: vi.fn(),
+  debug: vi.fn()
 };
+
+// Setup test environment
+beforeEach(() => {
+  // Clear all mocks before each test
+  vi.clearAllMocks();
+  
+  // Reset console mocks
+  const mockConsole = (global as any).mockConsole;
+  if (mockConsole) {
+    Object.keys(mockConsole).forEach(key => {
+      if (mockConsole[key] && typeof mockConsole[key].mockClear === 'function') {
+        mockConsole[key].mockClear();
+      }
+    });
+  }
+});
+
+afterEach(() => {
+  // Restore all mocks after each test
+  vi.restoreAllMocks();
+});
+
+// Global test helpers
+(global as any).createMockConversationTree = (id: string) => ({
+  id,
+  rootNodeId: `${id}-root`,
+  nodes: new Map(),
+  branches: new Map(),
+  metadata: {
+    title: `Test Tree ${id}`,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    version: '1.0.0'
+  },
+  activeNodeId: `${id}-root`,
+  version: '1.0.0'
+});
+
+(global as any).createMockConversationNode = (id: string) => ({
+  id,
+  content: `Test content for ${id}`,
+  role: 'user' as const,
+  createdAt: new Date(),
+  parentId: null,
+  childIds: [],
+  metadata: {}
+});
+
+// Type declarations for global test utilities
+declare global {
+  // These declarations are just for type-checking, actual values are set using 'as any'
+  // The specific types don't need to match exactly as they're handled with type assertions
+  namespace NodeJS {
+    interface Global {
+      jest: any;
+      mockConsole: any;
+      createMockConversationTree: (id: string) => any;
+      createMockConversationNode: (id: string) => any;
+    }
+  }
+}

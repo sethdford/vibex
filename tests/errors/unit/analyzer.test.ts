@@ -1,26 +1,32 @@
 /**
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
  * Error Analyzer Tests
  * 
  * Tests for the error analysis and categorization system
  */
 
-import { jest } from '@jest/globals';
+import { jest } from 'vitest';
 import { analyzeError, getResolutionSteps } from '../../../src/errors/analyzer.js';
 import { ErrorCategory, ErrorLevel } from '../../../src/errors/types.js';
 
 // Mock dependencies
-jest.mock('../../../src/utils/logger.js', () => ({
+vi.mock('../../../src/utils/logger.js', () => ({
   logger: {
-    debug: jest.fn(),
-    info: jest.fn(),
-    warn: jest.fn(),
-    error: jest.fn()
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn()
   }
 }));
 
 describe('Error Analyzer', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
   
   describe('analyzeError function', () => {
