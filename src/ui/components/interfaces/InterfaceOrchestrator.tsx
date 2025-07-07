@@ -15,6 +15,7 @@ import { StreamingInterface } from './StreamingInterface.js';
 import { CompactInterface } from './CompactInterface.js';
 import { CanvasInterface } from './CanvasInterface.js';
 import { MultimodalInterface } from './MultimodalInterface.js';
+import { CollaborationInterface } from './Collaboration/index.js';
 
 // Types
 import {
@@ -282,28 +283,11 @@ export const InterfaceOrchestrator: React.FC<InterfaceOrchestratorProps> = ({
         
       case InterfaceMode.COLLABORATION:
         return (
-          <Box flexDirection="column" height={terminalHeight - 4}>
-            <Box borderStyle="single" borderColor={theme.primary} paddingX={1}>
-              <Text color={theme.accent}>👥 Collaboration Mode</Text>
-              <Text color={theme.text} dimColor> • Real-time editing • Shared context • Team workflows</Text>
-            </Box>
-            {collaboration?.isActive ? (
-              <Box flexDirection="column" flexGrow={1} paddingX={1}>
-                <Text color={theme.secondary}>
-                  Active participants: {collaboration.participants.length}
-                </Text>
-                {collaboration.participants.map(participant => (
-                  <Box key={participant.id} marginY={0}>
-                    <Text color={participant.color}>● {participant.name}</Text>
-                  </Box>
-                ))}
-              </Box>
-            ) : (
-              <Box justifyContent="center" alignItems="center" height="100%">
-                <Text color={theme.secondary}>Start a collaboration session...</Text>
-              </Box>
-            )}
-          </Box>
+          <CollaborationInterface
+            terminalWidth={terminalWidth}
+            terminalHeight={terminalHeight}
+            theme={theme}
+          />
         );
         
       default:

@@ -12,7 +12,7 @@ import { logger } from '../utils/logger.js';
 import { createUserError, ErrorCategory } from '../errors/index.js';
 import { MemoryOrchestrator, MemoryStorageType, createMemoryServices } from '../services/memory-services/index.js';
 import { ContentGenerator } from '../infrastructure/content-generator.js';
-import { ContextSystem, createContextSystem } from '../context/context-system-refactored.js';
+import { ContextSystem, createContextSystem } from '../context/context-system.js';
 import { 
   ContextVariableInterpolation, 
   VariableInterpolationContext,

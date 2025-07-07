@@ -8,7 +8,7 @@
  * Unit tests for the ToolRegistry class
  */
 
-import { jest } from 'vitest';
+import { vi } from 'vitest';
 import { 
   toolRegistry, 
   getToolRegistry,

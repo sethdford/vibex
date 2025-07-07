@@ -15,8 +15,7 @@ export * from './embedding-provider.js';
 // Main memory manager
 export * from './hierarchical-manager.js';
 
-// Legacy imports for backward compatibility
-export * from './import-processor.js';
+
 
 // Default factory function for easy setup
 export { createHierarchicalMemoryManager as createMemoryManager } from './hierarchical-manager.js';

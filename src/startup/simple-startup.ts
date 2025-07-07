@@ -112,7 +112,7 @@ export async function simpleStartup(options: StartupOptions = {}): Promise<Start
     logger.debug('📁 Pre-loading project context...');
     try {
       // Use the existing context system but load once at startup
-      const { createContextSystem } = await import('../context/context-system-refactored.js');
+      const { createContextSystem } = await import('../context/context-system.js');
       const contextSystem = createContextSystem();
       const result = await contextSystem.loadContext();
       

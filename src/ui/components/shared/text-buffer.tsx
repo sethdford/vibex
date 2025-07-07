@@ -56,6 +56,16 @@ interface TextBufferOptions {
    * Callback when text changes
    */
   onChange?: (text: string) => void;
+  
+  /**
+   * Callback when Enter is pressed
+   */
+  onSubmit?: (text: string) => void;
+  
+  /**
+   * Callback for special key handling
+   */
+  onSpecialKey?: (key: string, keyObj: any) => boolean;
 }
 
 /**
@@ -105,7 +115,7 @@ export interface TextBuffer {
  * @returns Text buffer object
  */
 export function useTextBuffer(options: TextBufferOptions): TextBuffer {
-  const { initialText, viewport, isValidPath, onChange } = options;
+  const { initialText, viewport, isValidPath, onChange, onSubmit, onSpecialKey } = options;
   const [text, setText] = useState(initialText);
   const [cursorPos, setCursorPos] = useState(initialText.length);
   
@@ -131,6 +141,18 @@ export function useTextBuffer(options: TextBufferOptions): TextBuffer {
   
   // Handle input directly in the text buffer with ENHANCED NAVIGATION
   const handleInput = useCallback((input: string, key: { ctrl?: boolean; shift?: boolean; meta?: boolean; [keyName: string]: boolean | undefined }) => {
+    // Handle special keys first
+    if (key.return) {
+      onSubmit?.(text);
+      return;
+    }
+    
+    // Allow custom handling of special keys
+    if (onSpecialKey) {
+      const handled = onSpecialKey(input, key);
+      if (handled) return;
+    }
+    
     if (key.backspace || key.delete) {
       if (cursorPos > 0) {
         const newText = text.slice(0, cursorPos - 1) + text.slice(cursorPos);
@@ -192,7 +214,7 @@ export function useTextBuffer(options: TextBufferOptions): TextBuffer {
       setCursorPos(cursorPos + 1);
       onChange?.(newText);
     }
-  }, [text, cursorPos, onChange]);
+  }, [text, cursorPos, onChange, onSubmit, onSpecialKey]);
   
   // Handle file path highlighting
   const renderText = useCallback((inputText: string) => {

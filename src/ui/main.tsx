@@ -92,7 +92,7 @@ export async function startUI(options: StartUIOptions) {
   let preloadedContext = '';
   try {
     logger.info('📁 Pre-loading project context...');
-    const { createContextSystem } = await import('../context/context-system-refactored.js');
+    const { createContextSystem } = await import('../context/context-system.js');
     const contextSystem = createContextSystem();
     const contextResult = await contextSystem.loadContext();
     
@@ -118,12 +118,10 @@ export async function startUI(options: StartUIOptions) {
   }
   
   return render(
-    <React.StrictMode>
-      <AppWrapper 
-        {...options} 
-        preloadedContext={preloadedContext}
-      />
-    </React.StrictMode>,
+    <AppWrapper 
+      {...options} 
+      preloadedContext={preloadedContext}
+    />,
     { 
       exitOnCtrlC: false,
       patchConsole: false
@@ -131,10 +129,7 @@ export async function startUI(options: StartUIOptions) {
   );
 }
 
-/**
- * Legacy export for backward compatibility
- */
-export { startUI as default };
+
 
 /**
  * Re-export types and components for external use

@@ -182,7 +182,7 @@ export class ContextSystem extends EventEmitter {
       loading: {
         globalContextDir: config.globalContextDir,
         contextFileNames: config.contextFileNames || config.contextFilenames,
-        projectMarkers: config.projectMarkers || config.workspaceMarkers,
+        projectMarkers: config.projectMarkers || config.workspaceMarkers || [],
         maxDepth: config.maxDepth,
         encoding: config.encoding,
         enableGlobalContext: config.enableGlobalContext,

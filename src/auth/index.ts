@@ -26,8 +26,6 @@ import { createSimpleAuth } from './simple-auth.js';
  */
 export const authManager = await createSimpleAuth();
 
-// Legacy exports for backward compatibility (deprecated)
-// These will be removed in future cleanup phases
-export const multiProviderAuth = authManager;
+
 export const enhancedAuth = authManager;
 export const authSession = authManager;

@@ -6,7 +6,7 @@
 
 import { useCallback } from 'react';
 import { MessageType } from '../../types.js';
-import { toolRegistry } from '../../../tools/index.js';
+import { toolMigrationBridge } from '../../../services/tool-migration-bridge.js';
 import { logger } from '../../../utils/logger.js';
 import type { HistoryItem } from '../../types.js';
 import type { MessageContentBlock, ToolUseBlock, ToolResult } from './types.js';
@@ -22,7 +22,7 @@ export function useClaudeTools(
   // Extract tool use blocks from Claude message
   const extractToolUseBlocks = useCallback((content: MessageContentBlock[]): ToolUseBlock[] => {
     return content
-      .filter(block => block.type === 'tool_use' && block.id && block.name && 'input' in block)
+      .filter((block): block is ToolUseBlock => block.type === 'tool_use')
       .map(block => ({
         type: 'tool_use' as const,
         id: String(block.id),
@@ -64,7 +64,7 @@ export function useClaudeTools(
           input: toolUse.input
         };
         
-        const toolResult = await toolRegistry.execute(toolUseForRegistry);
+        const toolResult = await toolMigrationBridge.executeTool(toolUseForRegistry);
         result = toolResult;
       } else {
         // Mock tool execution for testing/development
@@ -143,8 +143,8 @@ export function useClaudeTools(
   const getAvailableTools = useCallback(() => {
     if (!enableRealToolExecution) return [];
     
-    const availableTools = toolRegistry.getAll();
-    return availableTools.map(tool => ({
+    const availableTools = toolMigrationBridge.getAllTools();
+    return availableTools.map((tool: any) => ({
       name: tool.name,
       description: tool.description,
       input_schema: tool.input_schema

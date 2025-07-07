@@ -14,7 +14,7 @@
 // Export the initialization module
 export * from './initialization';
 
-// Export the legacy compatibility layer for tools
+// Export the tool compatibility layer (for gradual migration)
 export * from './adapters/compat';
 
 // Export the domain types and interfaces

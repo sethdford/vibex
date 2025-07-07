@@ -1,8 +1,13 @@
 /**
- * Tool Execution Display - Centralized Exports
+ * @license
+ * Copyright 2025 VibeX Team
+ * SPDX-License-Identifier: MIT
+ */
+
+/**
+ * Tool Execution Display Module
  * 
- * Clean interface for importing tool execution display components and services.
- * Provides a single entry point for all tool execution display functionality.
+ * Exports the main tool execution display components and utilities.
  */
 
 // Main component
@@ -17,25 +22,20 @@ export { ExecutionMetricsView } from './ExecutionMetricsView.js';
 export { ExecutionSummaryView } from './ExecutionSummaryView.js';
 
 // Services
-export { createExecutionTrackingService } from './ExecutionTrackingService.js';
 export { createFormattingService } from './FormattingService.js';
 export { createStatisticsService } from './StatisticsService.js';
+export { createExecutionTrackingService } from './ExecutionTrackingService.js';
 
-// Hook
+// Hooks
 export { useToolExecutionTracking } from './useToolExecutionTracking.js';
 
 // Types
 export type {
-  ToolExecutionState,
   ToolExecutionEntry,
   ToolExecutionDisplayConfig,
   ToolExecutionDisplayProps,
   ExecutionStatistics,
+  ToolExecutionState,
   StateIconConfig,
-  ExecutionTrackingOperations,
-} from './types.js';
-
-export { DEFAULT_TOOL_EXECUTION_CONFIG } from './types.js';
-
-// Legacy compatibility
-export { ToolExecutionDisplayCore as default } from './ToolExecutionDisplayCore.js'; 
+  ExecutionTrackingOperations
+} from './types.js'; 

@@ -270,7 +270,8 @@ export class ContextLoadingService {
     
     while (depth < this.config.maxDepth) {
       // Check for project markers
-      for (const marker of this.config.projectMarkers) {
+      const markers = this.config.projectMarkers || [];
+      for (const marker of markers) {
         const markerPath = join(searchDir, marker);
         
         try {

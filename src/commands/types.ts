@@ -135,19 +135,4 @@ export interface CommandRegistry {
 export interface FileOpsInterface {
   readFile: (path: string) => Promise<{ success: boolean; content?: string; error?: Error }>;
   writeFile: (path: string, content: string) => Promise<{ success: boolean; error?: Error }>;
-}
-
-// Legacy interfaces for backward compatibility (will be removed)
-/** @deprecated Use UnifiedCommand instead */
-export interface CommandDef extends Omit<UnifiedCommand, 'id' | 'parameters'> {
-  args?: CommandParameter[];
-}
-
-/** @deprecated Use UnifiedCommand instead */
-export interface SlashCommand extends UnifiedCommand {}
-
-/** @deprecated Use CommandParameter instead */
-export interface ArgDef extends CommandParameter {}
-
-/** @deprecated Use CommandHandler instead */
-export type CommandHandler_Legacy = (context: CommandContext) => Promise<void>; 
+} 

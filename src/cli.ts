@@ -11,6 +11,7 @@ import { Command } from 'commander';
 import { version } from './version.js';
 import { logger } from './utils/logger.js';
 import { initializeCli, runChatSession } from './cli-integration.js';
+import path from 'path';
 
 interface CLIOptions {
   prompt?: string;

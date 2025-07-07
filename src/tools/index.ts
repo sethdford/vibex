@@ -3,12 +3,15 @@
  * 
  * This module manages the registration and execution of tools available to the AI,
  * providing a centralized system for tool management with live feedback capabilities.
+ * 
+ * UPDATED: Now uses the Tool Migration Bridge for new architecture integration
  */
 
 import { logger } from '../utils/logger.js';
 import type { ToolOperation, LiveFeedbackData } from '../ui/components/LiveToolFeedback.js';
 import { GitService } from '../services/git-service.js';
 import { gitCheckpointing } from '../services/git-checkpointing-service.js';
+import { ToolMigrationBridge } from '../services/tool-migration-bridge.js';
 
 /**
  * Tool input parameters interface
@@ -95,13 +98,43 @@ export type ToolHandler = (
 
 /**
  * Tool registry for managing available tools
+ * UPDATED: Now delegates to the migration bridge for enhanced functionality
  */
 class ToolRegistry {
   private readonly tools = new Map<string, { definition: ToolDefinition; handler: ToolHandler }>();
   private readonly executionStats = new Map<string, { count: number; successCount: number; totalTime: number }>();
+  private migrationBridge: ToolMigrationBridge;
+  private initialized = false;
+
+  constructor() {
+    // Initialize migration bridge with legacy fallback enabled
+    this.migrationBridge = new ToolMigrationBridge({
+      useNewArchitecture: true,
+      enableLegacyFallback: true,
+      enableEnhancedFeatures: true
+    });
+  }
 
   /**
-   * Register a tool
+   * Initialize the registry and migration bridge
+   */
+  async initialize(): Promise<void> {
+    if (this.initialized) {
+      return;
+    }
+
+    try {
+      await this.migrationBridge.initialize();
+      this.initialized = true;
+      logger.info('✅ Legacy tool registry updated with migration bridge');
+    } catch (error) {
+      logger.error('❌ Failed to initialize migration bridge in legacy registry:', error);
+      // Continue with legacy-only mode
+    }
+  }
+
+  /**
+   * Register a tool (legacy compatibility)
    */
   register(definition: ToolDefinition, handler: ToolHandler): void {
     this.tools.set(definition.name, { definition, handler });
@@ -115,25 +148,53 @@ class ToolRegistry {
       });
     }
     
-    logger.info(`Registered tool: ${definition.name}`);
+    logger.info(`Registered legacy tool: ${definition.name}`);
   }
 
   /**
-   * Get all registered tools
+   * Get all registered tools (enhanced with migration bridge)
    */
   getAll(): ToolDefinition[] {
-    return Array.from(this.tools.values()).map(tool => tool.definition);
+    if (!this.initialized) {
+      // Return only legacy tools if not initialized
+      return Array.from(this.tools.values()).map(tool => tool.definition);
+    }
+
+    try {
+      // Get tools from migration bridge (includes new architecture + legacy)
+      return this.migrationBridge.getAllTools();
+    } catch (error) {
+      logger.error('Failed to get tools from migration bridge, falling back to legacy:', error);
+      return Array.from(this.tools.values()).map(tool => tool.definition);
+    }
   }
 
   /**
-   * Get tool by name
+   * Get tool by name (enhanced with migration bridge)
    */
   get(name: string): { definition: ToolDefinition; handler: ToolHandler } | undefined {
+    if (!this.initialized) {
+      // Return only legacy tool if not initialized
+      return this.tools.get(name);
+    }
+
+    try {
+      // Try migration bridge first
+      const bridgeTool = this.migrationBridge.getTool(name);
+      if (bridgeTool) {
+        return bridgeTool;
+      }
+    } catch (error) {
+      logger.error(`Failed to get tool "${name}" from migration bridge:`, error);
+    }
+
+    // Fall back to legacy
     return this.tools.get(name);
   }
 
   /**
    * Execute a tool with live feedback support and automatic checkpointing
+   * UPDATED: Now uses migration bridge for enhanced execution
    */
   async execute(
     toolUse: ToolUseBlock,
@@ -144,6 +205,46 @@ class ToolRegistry {
     }
   ): Promise<ToolResult> {
     const startTime = Date.now();
+
+    // Ensure migration bridge is initialized
+    if (!this.initialized) {
+      await this.initialize();
+    }
+
+    // Try migration bridge execution first
+    if (this.initialized) {
+      try {
+        const result = await this.migrationBridge.executeTool(toolUse);
+        
+        // Update legacy stats for compatibility
+        this.updateExecutionStats(toolUse.name, startTime, !result.is_error);
+        
+        // Convert result to include internal metadata if needed
+        const internalResult: InternalToolResult = {
+          success: !result.is_error,
+          result: result.content,
+          error: result.is_error ? result.content : undefined,
+          metadata: {
+            executionTime: Date.now() - startTime
+          }
+        };
+
+        // Call completion callback
+        if (feedbackCallbacks?.onComplete) {
+          const feedbackId = feedbackCallbacks.onStart?.(toolUse.name as ToolOperation, '', 'Executing...');
+          if (feedbackId) {
+            feedbackCallbacks.onComplete(feedbackId, internalResult);
+          }
+        }
+
+        return result;
+      } catch (error) {
+        logger.error(`Migration bridge execution failed for "${toolUse.name}":`, error);
+        // Fall through to legacy execution
+      }
+    }
+
+    // Legacy execution path
     const tool = this.tools.get(toolUse.name);
     
     if (!tool) {
@@ -373,6 +474,18 @@ class ToolRegistry {
       stats.count = 0;
       stats.successCount = 0;
       stats.totalTime = 0;
+    }
+  }
+
+  /**
+   * Update execution stats for legacy compatibility
+   */
+  private updateExecutionStats(toolName: string, startTime: number, success: boolean): void {
+    const stats = this.executionStats.get(toolName);
+    if (stats) {
+      stats.count++;
+      stats.successCount += success ? 1 : 0;
+      stats.totalTime += Date.now() - startTime;
     }
   }
 }
@@ -691,8 +804,13 @@ export async function registerBuiltInTools(): Promise<void> {
 // Export the registry and key functions
 export { toolRegistry };
 export const getToolRegistry = () => toolRegistry;
-export const getAllTools = () => toolRegistry.getAll();
-export const executeTool = async (toolUse: ToolUseBlock, feedbackCallbacks?: Parameters<typeof toolRegistry.execute>[1]) => 
-  toolRegistry.execute(toolUse, feedbackCallbacks);
+export const getAllTools = async () => {
+  await toolRegistry.initialize();
+  return toolRegistry.getAll();
+};
+export const executeTool = async (toolUse: ToolUseBlock, feedbackCallbacks?: Parameters<typeof toolRegistry.execute>[1]) => {
+  await toolRegistry.initialize();
+  return toolRegistry.execute(toolUse, feedbackCallbacks);
+};
 export const getToolStats = () => toolRegistry.getStats();
 export const clearToolStats = () => toolRegistry.clearStats();

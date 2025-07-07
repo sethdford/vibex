@@ -15,7 +15,7 @@ export {
   ContextFileType,
   ContextInheritanceStrategy,
   ContextEvent
-} from './context-system-refactored.js';
+} from './context-system.js';
 
 // Context Inheritance Engine
 export {

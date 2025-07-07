@@ -8,7 +8,7 @@
  * Integration tests for tool execution flow
  */
 
-import { jest } from 'vitest';
+import { vi } from 'vitest';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
@@ -18,8 +18,8 @@ import {
   executeTool,
   getToolStats,
   clearToolStats,
-  type ToolUseBlock
-} from '../../../src/tools/index.js';
+} from '../../../src/services/tool-migration-bridge.js';
+import type { ToolUseBlock } from '../../../src/tools/index.js';
 
 // Mock dependencies
 vi.mock('fs/promises');

@@ -310,40 +310,7 @@ async function findProjectRoot(
   return bestMatch || { root: null, confidence: 0, markers: [] };
 }
 
-/**
- * Load global context files from ~/.vibex/
- * @deprecated Use UnifiedContextSystem instead
- */
-async function loadGlobalContext(globalContextDir: string): Promise<MemoryFile[]> {
-  try {
-    if (!await directoryExists(globalContextDir)) {
-      logger.debug(`Global context directory ${globalContextDir} does not exist`);
-      return [];
-    }
-    
-    const result = await loadMemoryFiles(globalContextDir, {
-      includeVibexDir: false, // We're already in the .vibex directory
-      includeRootFiles: true,
-      includeMarkdownFiles: true,
-      includeJsonFiles: true,
-      recursive: false, // Only look in the global directory itself
-      maxDepth: 1
-    });
-    
-    // Mark as global context
-    const globalFiles = result.files.map(file => ({
-      ...file,
-      source: 'global' as const,
-      priority: (file.priority || 0) + 1000 // Global files get highest priority
-    }));
-    
-    logger.debug(`Loaded ${globalFiles.length} global context files`);
-    return globalFiles;
-  } catch (error) {
-    logger.error(`Error loading global context: ${error}`);
-    return [];
-  }
-}
+
 
 /**
  * Load project context files by traversing upward from current directory
@@ -530,9 +497,38 @@ export async function loadHierarchicalContext(
     
     // Load context from all levels in parallel
     const [globalFiles, projectFiles, currentFiles, subdirectoryFiles] = await Promise.all([
-      // Global context
+      // Global context - inline implementation (replaces deprecated loadGlobalContext)
       mergedConfig.enableGlobalContext 
-        ? loadGlobalContext(mergedConfig.globalContextDir)
+        ? (async () => {
+            try {
+              if (!await directoryExists(mergedConfig.globalContextDir)) {
+                logger.debug(`Global context directory ${mergedConfig.globalContextDir} does not exist`);
+                return [];
+              }
+              
+              const result = await loadMemoryFiles(mergedConfig.globalContextDir, {
+                includeVibexDir: false, // We're already in the .vibex directory
+                includeRootFiles: true,
+                includeMarkdownFiles: true,
+                includeJsonFiles: true,
+                recursive: false, // Only look in the global directory itself
+                maxDepth: 1
+              });
+              
+              // Mark as global context
+              const globalFiles = result.files.map(file => ({
+                ...file,
+                source: 'global' as const,
+                priority: (file.priority || 0) + 1000 // Global files get highest priority
+              }));
+              
+              logger.debug(`Loaded ${globalFiles.length} global context files`);
+              return globalFiles;
+            } catch (error) {
+              logger.error(`Error loading global context: ${error}`);
+              return [];
+            }
+          })()
         : Promise.resolve([]),
       
       // Project context (upward traversal from project root if found)

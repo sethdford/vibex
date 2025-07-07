@@ -286,63 +286,8 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
     }
   }, [copyToClipboard, buffer.text]);
   
-  // Handle keyboard input
-  useInput(
-    (input, key) => {
-      // Update suggestions when text changes
-      if (isFirstRender.current) {
-        isFirstRender.current = false;
-      } else {
-        updateSuggestions(buffer.text);
-      }
-      
-      // Special key handling
-      if (key.return) {
-        if (selectedSuggestion >= 0) {
-          applySuggestion();
-        } else {
-          handleSubmit();
-        }
-      } else if (key.upArrow) {
-        if (suggestions.length > 0) {
-          // Navigate suggestions
-          setSelectedSuggestion(prev =>
-            (prev > 0 ? prev - 1 : suggestions.length - 1)
-          );
-        } else {
-          // Navigate history
-          navigateHistory('up');
-        }
-      } else if (key.downArrow) {
-        if (suggestions.length > 0) {
-          // Navigate suggestions
-          setSelectedSuggestion(prev =>
-            (prev < suggestions.length - 1 ? prev + 1 : 0)
-          );
-        } else {
-          // Navigate history
-          navigateHistory('down');
-        }
-      } else if (key.tab && suggestions.length > 0) {
-        applySuggestion();
-      } else if (key.escape) {
-        setSuggestions([]);
-        setSelectedSuggestion(-1);
-      } else if (key.ctrl && input === 'l') {
-        onClearScreen();
-      } else if (key.ctrl && input === 'v') {
-        handlePaste();
-      } else if (key.ctrl && input === 'c' && !(typeof window !== 'undefined' && window.getSelection()?.toString())) {
-        // Only copy if no text is selected (to avoid interfering with terminal selection)
-        handleCopy();
-      } else if (key.ctrl && input === 'x') {
-        // Cut: Copy then clear
-        handleCopy();
-        buffer.setText('');
-      }
-    },
-    { isActive: true }
-  );
+  // Note: Input handling is done by the TextBuffer component
+  // We'll handle special keys through the buffer's onChange callback and key events
   
   // Update buffer text effect
   useEffect(() => {

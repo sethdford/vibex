@@ -5,8 +5,8 @@
  */
 
 import type { MessageParam } from '@anthropic-ai/sdk/resources/messages';
-import type { HistoryItem } from '../../types.js';
-import type { AppConfig } from '../../../config/index.js';
+import type { HistoryItem, StreamingState } from '../../types.js';
+import type { AppConfigType } from '../../../config/schema.js';
 import type { ClaudeClient } from '../../../ai/claude-client.js';
 
 /**
@@ -61,7 +61,7 @@ export interface ClaudeDependencies {
   claudeClient: ClaudeClient | null;
   history: HistoryItem[];
   addItem: (item: Partial<HistoryItem>, timestamp?: number) => void;
-  config: AppConfig;
+  config: AppConfigType;
   setDebugMessage: (message: string) => void;
   handleSlashCommand: (command: string) => boolean;
 }
@@ -82,7 +82,7 @@ export interface ClaudeOptions {
  * Return type of the main Claude hook
  */
 export interface ClaudeReturn {
-  streamingState: string;
+  streamingState: StreamingState;
   submitQuery: (query: string) => Promise<void>;
   initError: string | null;
   pendingHistoryItems: HistoryItem[];

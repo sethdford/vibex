@@ -8,8 +8,7 @@
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { Box, Static, Text, useStdin, measureElement } from 'ink';
 
-import { type HistoryItem, MessageType } from './types.js';
-import { StreamingState } from './components/types/interface-types.js';
+import { type HistoryItem, MessageType, StreamingState } from './types.js';
 import { useHistory } from './hooks/useHistoryManager.js';
 import { useConsoleMessages } from './hooks/useConsoleMessages.js';
 import { useClaude } from './hooks/claude/index.js';
@@ -17,6 +16,7 @@ import { useSlashCommandProcessor } from './hooks/slashCommandProcessor.js';
 import { useAtCommandProcessor } from './hooks/useAtCommandProcessor.js';
 import { useLoadingIndicator } from './hooks/useLoadingIndicator.js';
 import { useSettings } from './hooks/useSettings.js';
+// Removed complex text buffer - using simple input approach
 
 // Services
 import { contextService } from '../services/contextService.js';
@@ -27,14 +27,15 @@ import { clipboardService } from '../services/clipboard-service.js';
 
 // Hooks
 import { useAppState } from './hooks/useAppState.js';
-import { useSimpleInput } from './hooks/useSimpleInput.js';
+
 import { useUINotifications } from './hooks/useUINotifications.js';
 import { useContextManager } from './hooks/useContextManager.js';
 
 // Components
 import { Header } from './components/Header.js';
+import { Footer } from './components/Footer.js';
 import { LoadingIndicator } from './components/LoadingIndicator.js';
-import { InputPrompt } from './components/InputPrompt.js';
+import { FinalInput } from './components/FinalInput.js';
 import { ThemeDialog } from './components/ThemeDialog.js';
 import { SettingsDialog } from './components/SettingsDialog.js';
 import { Help } from './components/Help.js';
@@ -134,11 +135,9 @@ const App = ({
       claudeClient: getAIClient() as any,
       history,
       addItem,
-      setShowHelp: () => dialogManager.openHelp(),
       config: config as AppConfigType,
       setDebugMessage: (msg: string) => logger.debug(msg),
       handleSlashCommand,
-      refreshContextFiles: () => contextService.refreshContext(),
     },
     {
       enableAdvancedStreaming: true,
@@ -150,13 +149,15 @@ const App = ({
     }
   );
   
-  const { elapsedTime, currentLoadingPhrase } = useLoadingIndicator(streamingState);
+  const { elapsedTime, currentLoadingPhrase } = useLoadingIndicator(streamingState as StreamingState);
   
   // No more local UI state - using focused hooks
   
   // Terminal dimensions (simplified)
   const terminalWidth = process.stdout.columns || 80;
   const terminalHeight = process.stdout.rows || 24;
+  
+  // Using simple input approach - no complex text buffer needed
   
   // Layout calculations (responsive like Gemini)
   const inputWidth = Math.max(20, Math.floor(terminalWidth * 0.9) - 3);
@@ -179,22 +180,14 @@ const App = ({
     });
   }, [addItem, config, preloadedContext]);
   
-  // Update user messages for input history
-  useEffect(() => {
-    const currentSessionUserMessages = appOrchestrationService.extractUserMessages(history);
-    notifications.updateUserMessages(currentSessionUserMessages);
-  }, [history]);
+  // Update user messages for input history - DISABLED to prevent infinite loop
+  // useEffect(() => {
+  //   const currentSessionUserMessages = appOrchestrationService.extractUserMessages(history);
+  //   notifications.updateUserMessages(currentSessionUserMessages);
+  // }, [history, notifications]);
   
   // Auto-submit initial context (simplified)
   const initialContextSubmittedRef = useRef(false);
-  useEffect(() => {
-    if (initialContext?.trim() && !initialContextSubmittedRef.current) {
-      initialContextSubmittedRef.current = true;
-      setTimeout(() => {
-        handleFinalSubmit(initialContext.trim());
-      }, 1000);
-    }
-  }, [initialContext]);
   
   // Combine pending items (simplified)
   const allPendingHistoryItems = useMemo(() => {
@@ -216,12 +209,21 @@ const App = ({
     
     return combined.map((item, index) => ({
       ...item,
-      id: item.id || `combined-${index}-${Date.now()}`
+      id: item.id || `combined-${index}-${item.timestamp || Date.now()}`
     }));
   }, [pendingHistoryItems, pendingClaudeHistoryItems, streamingState]);
   
     // Input handlers
   const handleFinalSubmit = useCallback(async (submittedValue: string) => {
+    // Check if Claude is initialized
+    if (initError) {
+      addItem({ 
+        type: MessageType.ERROR, 
+        text: `❌ Claude AI not available: ${initError}\n\nPlease set your ANTHROPIC_API_KEY environment variable and restart VibeX.` 
+      }, Date.now());
+      return;
+    }
+
     try {
       const processedQuery = await appOrchestrationService.processUserInput(submittedValue, processAtCommand);
       submitQuery(processedQuery);
@@ -233,7 +235,17 @@ const App = ({
       // Still submit the original input as fallback
       submitQuery(submittedValue);
     }
-  }, [submitQuery, processAtCommand]);
+  }, [submitQuery, processAtCommand, initError, addItem]);
+  
+  // Auto-submit initial context (after handleFinalSubmit is defined)
+  useEffect(() => {
+    if (initialContext?.trim() && !initialContextSubmittedRef.current) {
+      initialContextSubmittedRef.current = true;
+      setTimeout(() => {
+        handleFinalSubmit(initialContext.trim());
+      }, 1000);
+    }
+  }, [initialContext, handleFinalSubmit]);
   
   const handleClearScreen = useCallback(() => {
     clearItems();
@@ -261,23 +273,7 @@ const App = ({
     appOrchestrationService.handleExit(slashCommands, onExit);
   }, [slashCommands, onExit]);
   
-  // Simple input handling
-  useSimpleInput({
-    isActive: streamingState === StreamingState.IDLE && !initError,
-    hasActiveDialog: dialogManager.hasActiveDialog,
-    showHelp: dialogManager.isHelpOpen,
-    bufferText: '', // Simplified - no complex buffer
-    handlers: {
-      onSubmit: handleFinalSubmit,
-      onClear: handleClearScreen,
-      onExit: handleExit,
-      onToggleErrorDetails: appState.toggleErrorDetails,
-      onToggleHeightConstraint: appState.toggleHeightConstraint,
-      onOpenHelp: dialogManager.openHelp,
-      onCloseHelp: dialogManager.closeDialog,
-      onCopyLastResponse: handleCopyLastResponse,
-    }
-  });
+  // Note: Input handling is done by InputPrompt component - no need for useSimpleInput here
   
   // Footer height measurement
   const mainControlsRef = useRef<any>(null);
@@ -293,11 +289,13 @@ const App = ({
     return config?.debug ? consoleMessages : consoleMessages.filter(msg => msg.type !== 'debug');
   }, [consoleMessages, config]);
   
-  // Input active state
-  const isInputActive = streamingState === StreamingState.IDLE && !initError;
+  // Input active state - ALWAYS show input, handle errors on submit
+  const isInputActive = streamingState === StreamingState.IDLE;
+  
+
   
   return (
-    <Box flexDirection="column" marginBottom={1} width="90%">
+    <Box flexDirection="column" marginBottom={1} width={Math.min(terminalWidth - 2, 100)} key="vibex-main-app">
       {/* Notifications */}
       {updateMessage && <UpdateNotification message={updateMessage} />}
       {notifications.clipboardNotification && (
@@ -349,7 +347,7 @@ const App = ({
       {dialogManager.isHelpOpen && <Help commands={slashCommands} />}
 
       {/* Main controls */}
-      <Box flexDirection="column" ref={mainControlsRef}>
+      <Box flexDirection="column" ref={mainControlsRef} key="main-controls">
         {/* Startup warnings */}
         {startupWarnings.length > 0 && (
           <Box borderStyle="round" borderColor={Colors.Warning} paddingX={1} flexDirection="column">
@@ -378,12 +376,14 @@ const App = ({
           />
         ) : (
           <>
-            {/* Loading indicator */}
-            <LoadingIndicator
-              thought={thought}
-              currentLoadingPhrase={currentLoadingPhrase}
-              elapsedTime={elapsedTime}
-            />
+            {/* Loading indicator - only show when actually loading */}
+            {streamingState !== StreamingState.IDLE && (
+              <LoadingIndicator
+                thought={thought}
+                currentLoadingPhrase={currentLoadingPhrase}
+                elapsedTime={elapsedTime}
+              />
+            )}
             
             {/* Status line */}
             <Box display="flex" justifyContent="space-between" width="100%">
@@ -411,13 +411,11 @@ const App = ({
               />
             )}
 
-            {/* Input */}
+            {/* Input - BULLETPROOF AGAINST DUPLICATION */}
             {isInputActive && (
-              <InputPrompt
-                buffer={{ text: '', /* simplified buffer */ } as any}
-                inputWidth={inputWidth}
-                suggestionsWidth={Math.max(60, Math.floor(terminalWidth * 0.8))}
-                onSubmit={(text: string) => {
+              <FinalInput
+                maxWidth={Math.min(terminalWidth - 4, 70)}
+                onSubmit={useCallback((text: string) => {
                   if (text.startsWith('/')) {
                     const handled = handleSlashCommand(text);
                     if (!handled) {
@@ -426,15 +424,26 @@ const App = ({
                   } else {
                     handleFinalSubmit(text);
                   }
-                }}
-                userMessages={notifications.userMessages}
-                onClearScreen={handleClearScreen}
-                config={config}
-                slashCommands={slashCommands}
+                }, [handleSlashCommand, handleFinalSubmit])}
               />
             )}
           </>
         )}
+        
+        {/* Footer - like Gemini CLI */}
+        <Footer
+          model="Claude 3.5 Sonnet"
+          targetDir={process.cwd()}
+          debugMode={config?.debug || false}
+          branchName={undefined}
+          debugMessage={undefined}
+          errorCount={0}
+          showErrorDetails={appState.showErrorDetails}
+          showMemoryUsage={config?.debug || false}
+          promptTokenCount={0}
+          candidatesTokenCount={0}
+          totalTokenCount={0}
+        />
       </Box>
     </Box>
   );
