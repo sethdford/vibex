@@ -30,6 +30,8 @@ import { mcpClient } from './tools/mcp-client.js';
 import { initSandbox } from './security/sandbox.js';
 import { handleShellInput, isShellCommand } from './commands/shell-command.js';
 import { handleAtCommand } from './commands/at-command-processor.js';
+import { getPerformanceIntegrationService } from './services/performance-integration-service.js';
+import { PerformanceLevel } from './config/performance-config.js';
 import type { AppConfigType } from './config/schema.js';
 import type { PromptValue } from './terminal/prompt.js';
 import type { PromptOptions } from './terminal/types.js';
@@ -103,6 +105,7 @@ export interface AppInstance {
   sandbox?: unknown;
   errors?: unknown;
   telemetry?: unknown;
+  performance?: unknown;
 }
 
 /**
@@ -125,6 +128,24 @@ export async function initialize(): Promise<AppInstance> {
     // Set up logger
     logger.setLevel(config.logger?.level as unknown as LogLevel || LogLevel.INFO);
 
+    // Initialize performance integration service EARLY for startup optimizations
+    const performance = getPerformanceIntegrationService(config as AppConfigType, {
+      level: PerformanceLevel.BALANCED,
+      enabled: true,
+      enableStartupOptimizations: true,
+      enableRuntimeOptimizations: true,
+      enableAIOptimization: true,
+      enableMemoryManagement: true
+    });
+
+    // Apply startup performance optimizations
+    await performance.initializeStartupOptimizations();
+
+    logger.info('Performance integration initialized', {
+      level: performance.getPerformanceConfig().level,
+      targets: performance.getPerformanceConfig().targets
+    });
+
     // Initialize modules
     const terminal = await initTerminal(config);
     await authManager.initialize();
@@ -135,6 +156,16 @@ export async function initialize(): Promise<AppInstance> {
     const execution = await initExecutionEnvironment(config, sandbox);
     registerCommands();
 
+    // Initialize runtime performance optimizations after all modules are loaded
+    await performance.initializeRuntimeOptimizations();
+
+    // Log performance comparison with Gemini CLI
+    const comparison = performance.getPerformanceComparison();
+    logger.info('VibeX performance vs Gemini CLI', {
+      improvements: comparison.improvements,
+      current: comparison.current
+    });
+
     return {
       config,
       terminal,
@@ -144,7 +175,8 @@ export async function initialize(): Promise<AppInstance> {
       sandbox,
       fileOps,
       execution,
-      telemetry
+      telemetry,
+      performance
     };
   } catch (error) {
     logger.error('Failed to initialize application', error as Error);

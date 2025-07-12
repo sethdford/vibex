@@ -13,18 +13,19 @@
  * added and integrated into the CLI.
  */
 
-import type { CommandDef, ArgDef, CommandContext } from './types.js';
+import type { 
+  UnifiedCommand, 
+  CommandParameter, 
+  CommandContext,
+  CommandRegistry as CommandRegistryInterface,
+  CommandResult
+} from './types.js';
 import { CommandCategory, ArgType } from './types.js';
 import type { AppConfigType } from '../config/schema.js';
 import { logger } from '../utils/logger.js';
 import { formatErrorForDisplay } from '../errors/formatter.js';
 import { UserError } from '../errors/types.js';
 import { isNonEmptyString } from '../utils/validation.js';
-import type { 
-  UnifiedCommand, 
-  CommandRegistry as CommandRegistryInterface,
-  CommandResult
-} from './types.js';
 
 /**
  * Unified Command Registry
@@ -415,11 +416,11 @@ export async function executeCommand(
 }
 
 export {
-  type CommandDef,
-  type ArgDef,
+  type UnifiedCommand,
+  type CommandParameter,
   type CommandContext,
   type CommandHandler,
-  type CommandCategory,
-  type ArgType,
+  CommandCategory,
+  ArgType,
   type CommandResult
 } from './types.js'; 

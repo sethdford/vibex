@@ -1,11 +1,14 @@
 /**
- * Tool Registry Hook
+ * Tool Registry Hook - New Architecture Integration
  * 
- * Provides integration with the tool registry for the Tool Group Display.
+ * Provides integration with the new architecture tool system via migration bridge.
+ * NO MORE MOCKS - Real tool data from new architecture!
  */
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Tool, ToolGroup } from './types.js';
+import { toolMigrationBridge } from '../../../../services/tool-migration-bridge.js';
+import { logger } from '../../../../utils/logger.js';
 
 /**
  * Group tools by a specific property
@@ -36,34 +39,128 @@ const groupToolsByProperty = (tools: Tool[], property: keyof Tool = 'namespace')
  * Group tools by tags
  */
 const groupToolsByTags = (tools: Tool[]): ToolGroup[] => {
-  // Create a map of groups
-  const groupMap = new Map<string, Tool[]>();
+  const tagMap = new Map<string, Tool[]>();
   
-  // Collect all tags
-  const allTags = new Set<string>();
+  // Collect all unique tags and group tools
   for (const tool of tools) {
-    if (tool.tags) {
-      for (const tag of tool.tags) {
-        allTags.add(tag);
+    const tags = tool.tags || ['untagged'];
+    for (const tag of tags) {
+      if (!tagMap.has(tag)) {
+        tagMap.set(tag, []);
       }
+      tagMap.get(tag)!.push(tool);
     }
   }
   
-  // Create a group for each tag
-  for (const tag of allTags) {
-    groupMap.set(tag, tools.filter(tool => 
-      tool.tags?.includes(tag)
-    ));
+  // Convert to groups
+  return Array.from(tagMap.entries()).map(([tag, tools]) => ({
+    id: tag,
+    name: tag,
+    tools,
+    expanded: false
+  }));
+};
+
+/**
+ * Convert new architecture tool definition to UI Tool format
+ */
+const convertToUITool = (toolDef: any): Tool => {
+  // Extract parameters from input_schema
+  const parameters = Object.entries(toolDef.input_schema?.properties || {}).map(([name, prop]: [string, any]) => ({
+    name,
+    description: prop.description || '',
+    type: prop.type || 'string',
+    required: toolDef.input_schema?.required?.includes(name) || false,
+    defaultValue: prop.default
+  }));
+
+  return {
+    id: toolDef.name,
+    name: toolDef.name,
+    namespace: extractNamespace(toolDef.name),
+    description: toolDef.description,
+    parameters,
+    tags: extractTags(toolDef.name, toolDef.description),
+    examples: generateExamples(toolDef.name, parameters)
+  };
+};
+
+/**
+ * Extract namespace from tool name
+ */
+const extractNamespace = (toolName: string): string => {
+  // Common tool name patterns to namespace mapping
+  if (toolName.includes('file') || toolName.includes('read') || toolName.includes('write') || toolName.includes('glob') || toolName.includes('edit')) {
+    return 'filesystem';
+  }
+  if (toolName.includes('web') || toolName.includes('fetch') || toolName.includes('http')) {
+    return 'web';
+  }
+  if (toolName.includes('command') || toolName.includes('exec') || toolName.includes('shell')) {
+    return 'system';
+  }
+  if (toolName.includes('git')) {
+    return 'git';
+  }
+  if (toolName.includes('mcp')) {
+    return 'mcp';
   }
   
-  // Convert map to array of groups
-  return Array.from(groupMap.entries()).map(([name, tools]) => ({
-    id: `tag-${name}`,
-    name,
-    tools,
-    expanded: false,
-    tags: [name]
-  }));
+  return 'core';
+};
+
+/**
+ * Extract tags from tool name and description
+ */
+const extractTags = (toolName: string, description: string): string[] => {
+  const tags: string[] = [];
+  const text = `${toolName} ${description}`.toLowerCase();
+  
+  if (text.includes('file') || text.includes('read') || text.includes('write')) tags.push('file');
+  if (text.includes('web') || text.includes('http') || text.includes('fetch')) tags.push('web');
+  if (text.includes('command') || text.includes('exec') || text.includes('shell')) tags.push('command');
+  if (text.includes('search') || text.includes('find') || text.includes('glob')) tags.push('search');
+  if (text.includes('git')) tags.push('git');
+  if (text.includes('analyze') || text.includes('analysis')) tags.push('analysis');
+  if (text.includes('screenshot') || text.includes('image')) tags.push('image');
+  
+  return tags.length > 0 ? tags : ['utility'];
+};
+
+/**
+ * Generate example usage for tools
+ */
+const generateExamples = (toolName: string, parameters: any[]): any[] => {
+  const examples: any[] = [];
+  
+  switch (toolName) {
+    case 'read_file':
+      examples.push({
+        title: 'Read package.json',
+        parameters: { path: './package.json' }
+      });
+      break;
+    case 'write_file':
+      examples.push({
+        title: 'Create README file',
+        parameters: { path: './README.md', content: '# My Project\n\nDescription here.' }
+      });
+      break;
+    case 'execute_command':
+      examples.push({
+        title: 'List files',
+        parameters: { command: 'ls -la' }
+      });
+      break;
+    case 'web_fetch':
+      examples.push({
+        title: 'Fetch API data',
+        parameters: { url: 'https://api.example.com/data' }
+      });
+      break;
+  }
+  
+  return examples;
 };
 
 /**
@@ -86,7 +183,9 @@ interface UseToolRegistryResult {
 }
 
 /**
- * Tool registry hook
+ * NEW ARCHITECTURE Tool Registry Hook
+ * 
+ * No more mocks! Real integration with new architecture via migration bridge.
  */
 export const useToolRegistry = (
   options: UseToolRegistryOptions = {}
@@ -104,160 +203,30 @@ export const useToolRegistry = (
   // State for error
   const [error, setError] = useState<Error | null>(null);
   
-  // Mock tool registry - in a real implementation, this would
-  // fetch tools from an actual registry
+  // REAL tool registry integration - NO MORE MOCKS!
   useEffect(() => {
-    // Simulate API call
     const fetchTools = async () => {
       try {
-        // Mock data - replace with actual API call
-        const mockTools: Tool[] = [
-          {
-            id: 'read',
-            name: 'Read',
-            namespace: 'fs',
-            description: 'Read file from filesystem',
-            parameters: [
-              {
-                name: 'file_path',
-                description: 'Path to the file',
-                type: 'string',
-                required: true
-              },
-              {
-                name: 'encoding',
-                description: 'File encoding',
-                type: 'string',
-                required: false,
-                defaultValue: 'utf8'
-              }
-            ],
-            tags: ['file', 'read', 'filesystem'],
-            examples: [
-              {
-                title: 'Read package.json',
-                parameters: {
-                  file_path: './package.json'
-                }
-              }
-            ]
-          },
-          {
-            id: 'write',
-            name: 'Write',
-            namespace: 'fs',
-            description: 'Write content to a file',
-            parameters: [
-              {
-                name: 'file_path',
-                description: 'Path to the file',
-                type: 'string',
-                required: true
-              },
-              {
-                name: 'content',
-                description: 'Content to write',
-                type: 'string',
-                required: true
-              },
-              {
-                name: 'encoding',
-                description: 'File encoding',
-                type: 'string',
-                required: false,
-                defaultValue: 'utf8'
-              }
-            ],
-            tags: ['file', 'write', 'filesystem']
-          },
-          {
-            id: 'glob',
-            name: 'Glob',
-            namespace: 'fs',
-            description: 'Find files using glob patterns',
-            parameters: [
-              {
-                name: 'pattern',
-                description: 'Glob pattern',
-                type: 'string',
-                required: true
-              },
-              {
-                name: 'cwd',
-                description: 'Current working directory',
-                type: 'string',
-                required: false
-              }
-            ],
-            tags: ['file', 'search', 'filesystem']
-          },
-          {
-            id: 'fetch',
-            name: 'Fetch',
-            namespace: 'http',
-            description: 'Fetch data from a URL',
-            parameters: [
-              {
-                name: 'url',
-                description: 'URL to fetch',
-                type: 'string',
-                required: true
-              },
-              {
-                name: 'method',
-                description: 'HTTP method',
-                type: 'string',
-                required: false,
-                defaultValue: 'GET'
-              },
-              {
-                name: 'headers',
-                description: 'HTTP headers',
-                type: 'object',
-                required: false
-              },
-              {
-                name: 'body',
-                description: 'Request body',
-                type: 'string',
-                required: false
-              }
-            ],
-            tags: ['http', 'network']
-          },
-          {
-            id: 'exec',
-            name: 'Exec',
-            namespace: 'shell',
-            description: 'Execute shell command',
-            parameters: [
-              {
-                name: 'command',
-                description: 'Command to execute',
-                type: 'string',
-                required: true
-              },
-              {
-                name: 'cwd',
-                description: 'Current working directory',
-                type: 'string',
-                required: false
-              },
-              {
-                name: 'env',
-                description: 'Environment variables',
-                type: 'object',
-                required: false
-              }
-            ],
-            tags: ['shell', 'exec', 'command']
-          }
-        ];
+        setLoading(true);
+        setError(null);
         
-        setTools(mockTools);
-        setLoading(false);
+        // Initialize migration bridge if needed
+        await toolMigrationBridge.initialize();
+        
+        // Get real tools from new architecture
+        const toolDefinitions = toolMigrationBridge.getAllTools();
+        
+        // Convert to UI format
+        const uiTools = toolDefinitions.map(convertToUITool);
+        
+        setTools(uiTools);
+        logger.info(`🚀 Loaded ${uiTools.length} tools from new architecture`);
+        
       } catch (err) {
-        setError(err instanceof Error ? err : new Error(String(err)));
+        const error = err instanceof Error ? err : new Error(String(err));
+        setError(error);
+        logger.error('❌ Failed to load tools from new architecture:', error);
+      } finally {
         setLoading(false);
       }
     };
@@ -278,24 +247,40 @@ export const useToolRegistry = (
     return groupToolsByProperty(tools, 'namespace');
   }, [tools, groupBy, customGrouping]);
   
-  // Execute tool function
+  // REAL tool execution - NO MORE SIMULATION!
   const executeTool = useCallback(async (
     tool: Tool, 
     parameters: Record<string, any>
   ): Promise<any> => {
-    // This would actually call the tool execution service
-    console.log(`Executing ${tool.name} with parameters:`, parameters);
-    
-    // Simulate execution
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({
-          success: true,
-          toolId: tool.id,
-          result: `Mock result for ${tool.name}`
-        });
-      }, 1000);
-    });
+    try {
+      logger.info(`🔧 Executing tool "${tool.name}" with new architecture`);
+      
+      // Create tool use block for execution
+      const toolUse = {
+        type: 'tool_use' as const,
+        id: `ui-exec-${Date.now()}`,
+        name: tool.name,
+        input: parameters
+      };
+      
+      // Execute via migration bridge (new architecture)
+      const result = await toolMigrationBridge.executeTool(toolUse);
+      
+      if (result.is_error) {
+        throw new Error(result.content);
+      }
+      
+      logger.info(`✅ Tool "${tool.name}" executed successfully`);
+      return {
+        success: true,
+        toolId: tool.id,
+        result: result.content
+      };
+      
+    } catch (error) {
+      logger.error(`❌ Tool execution failed for "${tool.name}":`, error);
+      throw error;
+    }
   }, []);
   
   return {

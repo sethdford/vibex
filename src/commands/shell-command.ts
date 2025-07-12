@@ -5,7 +5,7 @@
  * allowing users to run shell commands directly or enter a dedicated shell mode.
  */
 
-import type { CommandDef, CommandContext, ArgDef, CommandResult } from './types.js';
+import type { UnifiedCommand, CommandContext, CommandParameter, CommandResult } from './types.js';
 import { ArgType, CommandCategory } from './types.js';
 import { logger } from '../utils/logger.js';
 import { formatErrorForDisplay } from '../errors/formatter.js';
@@ -21,12 +21,13 @@ let shellModeProcess: ChildProcess | null = null;
 /**
  * Shell command definition
  */
-export const shellCommand: CommandDef = {
+export const shellCommand: UnifiedCommand = {
+  id: 'shell',
   name: 'shell',
   description: 'Run a shell command or enter shell mode',
   category: CommandCategory.SYSTEM,
   aliases: ['!'],
-  args: [
+  parameters: [
     {
       name: 'command',
       description: 'Shell command to execute (leave blank to toggle shell mode)',
@@ -190,7 +191,7 @@ export async function handleShellInput(message: string): Promise<boolean> {
 /**
  * Register shell commands
  */
-export function registerShellCommands(): CommandDef[] {
+export function registerShellCommands(): UnifiedCommand[] {
   return [shellCommand];
 }
 

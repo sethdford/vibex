@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="1" failures="1" errors="0" time="0">
+    <testsuite name="ThemeContext.test.tsx" timestamp="2025-07-12T16:50:04.104Z" hostname="Seths-MacBook-Pro.local" tests="1" failures="1" errors="0" skipped="0" time="0">
+        <testcase classname="ThemeContext.test.tsx" name="ThemeContext.test.tsx" time="0">
+            <failure message="Cannot find module &apos;/Users/sethford/Downloads/Projects/vibex/src/ui/contexts/src/ui/tests/setup.ts&apos;" type="Error">
+Error: Cannot find module &apos;/Users/sethford/Downloads/Projects/vibex/src/ui/contexts/src/ui/tests/setup.ts&apos;
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { code: &apos;ERR_MODULE_NOT_FOUND&apos; }
+Caused by: Caused by: Error: Failed to load url /Users/sethford/Downloads/Projects/vibex/src/ui/contexts/src/ui/tests/setup.ts (resolved id: /Users/sethford/Downloads/Projects/vibex/src/ui/contexts/src/ui/tests/setup.ts). Does the file exist?
+ ❯ loadAndTransform ../../../node_modules/vite/dist/node/chunks/dep-CXCa-anf.js:26401:33
+            </failure>
+        </testcase>
+    </testsuite>
+</testsuites>

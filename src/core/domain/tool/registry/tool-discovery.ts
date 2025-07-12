@@ -134,7 +134,10 @@ export class ToolDiscoveryServiceImpl implements ToolDiscoveryService {
           }
         }
       } catch (error) {
-        console.error(`Failed to read project tool directory ${dir}:`, error);
+        // Only log errors that aren't just missing directories
+        if ((error as any).code !== 'ENOENT') {
+          console.error(`Failed to read project tool directory ${dir}:`, error);
+        }
       }
     }
     

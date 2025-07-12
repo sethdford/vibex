@@ -430,7 +430,9 @@ export class PerformanceMonitoringSystem {
       );
       
       this.profile.startupTime = startupTime;
-      logger.debug(`CLI startup time: ${startupTime.toFixed(2)}ms`);
+      if (startupTime !== undefined && startupTime !== null) {
+        logger.debug(`CLI startup time: ${startupTime.toFixed(2)}ms`);
+      }
     });
   }
   

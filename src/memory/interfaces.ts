@@ -97,8 +97,8 @@ export interface MemoryStats {
       entries: number;
       capacity: number;
       utilization: number;
-      oldest_entry: Date;
-      newest_entry: Date;
+      oldest_entry: number; // timestamp in milliseconds
+      newest_entry: number; // timestamp in milliseconds
     };
   };
   total_entries: number;

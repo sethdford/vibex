@@ -282,8 +282,8 @@ export class HierarchicalMemoryManager implements MemoryManager {
       entries: Math.floor(Math.random() * layer.capacity),
       capacity: layer.capacity,
       utilization: 0,
-      oldest_entry: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
-      newest_entry: new Date()
+      oldest_entry: Date.now() - 30 * 24 * 60 * 60 * 1000, // 30 days ago
+      newest_entry: Date.now()
     };
 
     mockStats.utilization = mockStats.entries / mockStats.capacity;

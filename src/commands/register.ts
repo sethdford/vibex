@@ -56,46 +56,14 @@ export function registerCommands(): void {
   
   // Register shell commands
   registerShellCommands().forEach(command => {
-    // Convert legacy CommandDef to UnifiedCommand if needed
-    const unifiedCommand: UnifiedCommand = {
-      id: command.name,
-      name: command.name,
-      description: command.description,
-      category: command.category || CommandCategory.SYSTEM,
-      parameters: command.args?.map(arg => ({
-        name: arg.name,
-        description: arg.description,
-        type: arg.type as 'string' | 'number' | 'boolean' | 'array',
-        required: arg.required || false,
-        default: arg.default,
-        shortFlag: arg.shortFlag,
-        position: arg.position
-      })) || [],
-      handler: command.handler
-    };
-    commandRegistry.register(unifiedCommand);
+    // Commands are already UnifiedCommand objects, register directly
+    commandRegistry.register(command);
   });
   
   // Register authentication commands
   registerLoginCommand();
   registerLogoutCommand();
-  
-  // Register memory commands
-  import('./memory-commands.js').then(module => {
-    module.registerMemoryCommand(commandRegistry);
-  }).catch(error => {
-    logger.warn(`Failed to register memory commands: ${error}`);
-  });
-  
-  // Register conversation state
-  import('../utils/conversation-state.js').then(module => {
-    module.conversationState.initialize().catch(error => {
-      logger.warn(`Failed to initialize conversation state: ${error}`);
-    });
-  }).catch(error => {
-    logger.warn(`Failed to load conversation state module: ${error}`);
-  });
-  
+
   logger.info('Commands registered successfully');
 }
 

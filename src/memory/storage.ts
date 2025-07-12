@@ -111,7 +111,16 @@ export class InMemoryStorage implements MemoryStorage {
       }
       
       // Recency boost (newer entries get slight boost)
-      const ageMs = Date.now() - entry.timestamp.getTime();
+      let timestamp;
+      if (typeof entry.timestamp === 'number') {
+        timestamp = entry.timestamp;
+      } else if (entry.timestamp instanceof Date) {
+        timestamp = entry.timestamp.getTime();
+      } else {
+        // If timestamp is neither a number nor a Date, use current time
+        timestamp = Date.now();
+      }
+      const ageMs = Date.now() - timestamp;
       const ageDays = ageMs / (1000 * 60 * 60 * 24);
       const recencyScore = Math.max(0, 1 - ageDays / 30); // Decay over 30 days
       score += recencyScore * 0.1;

@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: MIT
  */
 
-import { describe, it, expect, vi } from 'vitest';
-import { renderHook, act } from '@testing-library/react-hooks';
+import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globals';
+import { renderHook, act } from '@testing-library/react';
 import { useToolProgress } from '../useToolProgress';
 import { ToolCall } from '../../../core/domain/tool/tool-interfaces';
 

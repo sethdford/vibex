@@ -4,7 +4,8 @@
  * SPDX-License-Identifier: MIT
  */
 
-import { renderHook, act } from '@testing-library/react-hooks';
+import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globals';
+import { renderHook, act } from '@testing-library/react';
 import { useToolRegistry, setGlobalToolOrchestrationService } from '../useToolRegistry';
 import { BaseTool } from '../../../core/domain/tool/tool-interfaces';
 import { ToolOrchestrationService } from '../../../core/domain/tool/tool-services';

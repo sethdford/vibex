@@ -4,22 +4,24 @@
  * This module exports hooks for use in VibeX UI components.
  */
 
-// Export existing hooks
-export { default as useAutoAcceptIndicator } from './useAutoAcceptIndicator';
-export { default as useAtCommandProcessor } from './useAtCommandProcessor';
-export { default as useClipboard } from './useClipboard';
-export { default as useConsoleMessages } from './useConsoleMessages';
-export { default as useConsolePatcher } from './useConsolePatcher';
-export { default as useKeyboardShortcuts } from './useKeyboardShortcuts';
-export { default as useLoadingIndicator } from './useLoadingIndicator';
-export { default as usePerformanceMonitoring } from './usePerformanceMonitoring';
-export { default as useProgressBar } from './useProgressBar';
-export { default as useProgressiveDisclosure } from './useProgressiveDisclosure';
-export { default as useSettings } from './useSettings';
-export { default as useSlashCommands } from './useSlashCommands';
-export { default as useTemplateManager } from './useTemplateManager';
-export { default as useThemeCommand } from './useThemeCommand';
-export { default as useWorkflowEngine } from './useWorkflowEngine';
+// Named exports for all hooks
+export { useAutoAcceptIndicator } from './useAutoAcceptIndicator.js';
+export { useAtCommandProcessor } from './useAtCommandProcessor.js';
+export { useClipboard } from './useClipboard.js';
+export { useConsoleMessages } from './useConsoleMessages.js';
+export { useConsolePatcher } from './useConsolePatcher.js';
+export { useKeyboardShortcuts } from './useKeyboardShortcuts.js';
+export { useLoadingIndicator } from './useLoadingIndicator.js';
+export { usePerformanceMonitoring } from './usePerformanceMonitoring.js';
+export { useProgressBar } from './useProgressBar.js';
+export { useProgressiveDisclosure } from './useProgressiveDisclosure.js';
+export { useSettings } from './useSettings.js';
+export { useTemplateManager } from './useTemplateManager.js';
+export { useThemeCommand } from './useThemeCommand.js';
+export { useWorkflowEngine } from './useWorkflowEngine.js';
+
+// Re-export Claude hooks
+export * from './claude/index.js';
 
 // Export new tool-related hooks
 export { default as useToolConfirmation } from './useToolConfirmation';

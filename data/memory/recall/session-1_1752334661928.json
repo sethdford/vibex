@@ -1,0 +1,17 @@
+{
+  "id": "summary_1752334661923",
+  "content": "Session 1 memory.",
+  "timestamp": "2025-07-12T15:37:41.923Z",
+  "type": "conversation",
+  "importance": 0.6,
+  "metadata": {
+    "source": "system",
+    "session_id": "session-1",
+    "tags": [
+      "compressed"
+    ],
+    "references": [
+      "mem_1752334661923_sjcuzgolo"
+    ]
+  }
+}

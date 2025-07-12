@@ -5,11 +5,10 @@
  */
 
 /**
- * Tool Migration Bridge Service
+ * Tool Migration Bridge - New Architecture Only
  * 
- * This service provides a bridge between the legacy tool registry system
- * and the new clean architecture tool system, allowing gradual migration
- * while maintaining compatibility.
+ * Simplified bridge service that provides unified access to the new architecture tool system.
+ * Legacy systems and enhanced registry complexity have been eliminated.
  */
 
 import { logger } from '../utils/logger.js';
@@ -23,39 +22,38 @@ import { ScreenshotTool } from '../core/adapters/tools/screenshot-adapter.js';
 import { MCPToolFactory } from '../core/adapters/tools/mcp-client-adapter.js';
 import { mcpClient } from '../tools/mcp-client.js';
 
-// Legacy imports
-import type { 
-  ToolDefinition as LegacyToolDefinition, 
-  ToolHandler as LegacyToolHandler,
-  ToolUseBlock,
-  ToolResult,
-  InternalToolResult
-} from '../tools/index.js';
+// Types
+export interface ToolUseBlock {
+  type: 'tool_use';
+  id: string;
+  name: string;
+  input: Record<string, unknown>;
+}
+
+export interface ToolResult {
+  tool_use_id: string;
+  content: string;
+  is_error?: boolean;
+}
+
+export interface LegacyToolDefinition {
+  name: string;
+  description: string;
+  input_schema: {
+    type: 'object';
+    properties: Record<string, any>;
+    required?: string[];
+  };
+}
+
+export interface LegacyToolHandler {
+  (input: Record<string, unknown>): Promise<{ success: boolean; data?: any; error?: string }>;
+}
 
 /**
- * Migration Bridge Configuration
+ * Simplified migration bridge configuration
  */
 export interface MigrationBridgeConfig {
-  /**
-   * Whether to use new architecture for tool execution
-   */
-  useNewArchitecture?: boolean;
-  
-  /**
-   * Whether to register legacy tools as fallback
-   */
-  enableLegacyFallback?: boolean;
-  
-  /**
-   * Whether to integrate enhanced registry features
-   */
-  enableEnhancedFeatures?: boolean;
-  
-  /**
-   * Migration mode
-   */
-  migrationMode?: 'gradual' | 'legacy-only' | 'new-only';
-  
   /**
    * Web search configuration
    */
@@ -74,22 +72,20 @@ export interface MigrationBridgeConfig {
 }
 
 /**
- * Tool Migration Bridge Service
+ * New Architecture Only Tool Bridge Service
  */
 export class ToolMigrationBridge {
   private initialized = false;
-  private legacyRegistry: any = null;
-  private enhancedRegistry: any = null;
   private webToolsFactory: any = null;
   private mcpToolFactory: MCPToolFactory | null = null;
+  private executionStats = {
+    newArchitectureUsage: 0,
+    totalExecutions: 0
+  };
   
   constructor(private config: MigrationBridgeConfig = {}) {
     // Set defaults
     this.config = {
-      useNewArchitecture: true,
-      enableLegacyFallback: true,
-      enableEnhancedFeatures: true,
-      migrationMode: 'gradual',
       webSearchConfig: {},
       mcpServerConfigs: [],
       ...config
@@ -97,39 +93,28 @@ export class ToolMigrationBridge {
   }
   
   /**
-   * Initialize the migration bridge
+   * Initialize the new architecture tool system
    */
   async initialize(): Promise<void> {
     if (this.initialized) {
       return;
     }
     
-    logger.info('🔄 Initializing Tool Migration Bridge...');
+    logger.info('🔄 Initializing New Architecture Tool System...');
     
     try {
-      if (this.config.useNewArchitecture) {
-        await this.initializeNewArchitecture();
-      }
-      
-      if (this.config.enableLegacyFallback) {
-        await this.initializeLegacyFallback();
-      }
-      
-      if (this.config.enableEnhancedFeatures) {
-        await this.initializeEnhancedRegistry();
-      }
+      await this.initializeNewArchitecture();
       
       this.initialized = true;
-      logger.info('✅ Tool Migration Bridge initialized successfully');
+      logger.info('✅ New Architecture Tool System initialized successfully');
       
-      // Log tool counts with null checks
+      // Log tool counts
       const newTools = toolAPI.getAllTools() || [];
       const newToolCount = newTools.length;
-      const legacyToolCount = this.legacyRegistry ? (this.legacyRegistry.getAll()?.length || 0) : 0;
-      logger.info(`📊 Tools available: ${newToolCount} new architecture, ${legacyToolCount} legacy fallback`);
+      logger.info(`📊 Tools available: ${newToolCount} new architecture tools`);
       
     } catch (error) {
-      logger.error('❌ Failed to initialize Tool Migration Bridge:', error);
+      logger.error('❌ Failed to initialize New Architecture Tool System:', error);
       throw error;
     }
   }
@@ -169,12 +154,12 @@ export class ToolMigrationBridge {
     if (this.config.mcpServerConfigs && this.config.mcpServerConfigs.length > 0) {
       this.mcpToolFactory = new MCPToolFactory(mcpClient);
       
-              for (const serverConfig of this.config.mcpServerConfigs) {
-          try {
-            const mcpTools = await this.mcpToolFactory.connectServerAndCreateTools({
-              ...serverConfig,
-              url: serverConfig.url || `command://${serverConfig.command}`
-            });
+      for (const serverConfig of this.config.mcpServerConfigs) {
+        try {
+          const mcpTools = await this.mcpToolFactory.connectServerAndCreateTools({
+            ...serverConfig,
+            url: serverConfig.url || `command://${serverConfig.command}`
+          });
           for (const tool of mcpTools) {
             toolAPI.registerTool(tool);
           }
@@ -187,99 +172,43 @@ export class ToolMigrationBridge {
   }
   
   /**
-   * Initialize legacy fallback system
-   */
-  private async initializeLegacyFallback(): Promise<void> {
-    logger.info('🔄 Initializing legacy tool fallback...');
-    
-    try {
-      // Import legacy tools directly, NOT the registry that uses this bridge
-      // This prevents circular dependency
-      const { createSimpleLegacyRegistry } = await import('../tools/legacy-tools.js');
-      this.legacyRegistry = createSimpleLegacyRegistry();
-      
-      logger.info('✅ Legacy tool fallback initialized');
-    } catch (error) {
-      logger.warn('⚠️ Failed to initialize legacy fallback:', error);
-    }
-  }
-  
-  /**
-   * Initialize enhanced registry features
-   */
-  private async initializeEnhancedRegistry(): Promise<void> {
-    logger.info('🚀 Initializing enhanced registry features...');
-    
-    try {
-      // Import enhanced registry
-      const { enhancedToolRegistry } = await import('../tools/enhanced-registry.js');
-      this.enhancedRegistry = enhancedToolRegistry;
-      
-      logger.info('✅ Enhanced registry features initialized');
-    } catch (error) {
-      logger.warn('⚠️ Failed to initialize enhanced registry:', error);
-    }
-  }
-  
-  /**
-   * Execute a tool using the migration bridge
+   * Execute a tool using new architecture only
    */
   async executeTool(toolUse: ToolUseBlock): Promise<ToolResult> {
     if (!this.initialized) {
       await this.initialize();
     }
     
-    // Try new architecture first
-    if (this.config.useNewArchitecture) {
-      const tool = toolAPI.getTool(toolUse.name);
-      if (tool) {
-        logger.debug(`🔧 Executing tool "${toolUse.name}" using new architecture`);
+    this.executionStats.totalExecutions++;
+    
+    // Execute using new architecture only
+    const tool = toolAPI.getTool(toolUse.name);
+    if (tool) {
+      logger.debug(`🔧 Executing tool "${toolUse.name}" using new architecture`);
+      
+      try {
+        const result = await tool.execute(toolUse.input);
+        this.executionStats.newArchitectureUsage++;
         
-        try {
-          const result = await tool.execute(toolUse.input);
-          
-          return {
-            tool_use_id: toolUse.id,
-            content: result.success 
-              ? (typeof result.data === 'string' ? result.data : JSON.stringify(result.data, null, 2))
-              : (typeof result.error === 'string' ? result.error : result.error?.message || 'Tool execution failed'),
-            is_error: !result.success
-          };
-        } catch (error) {
-          logger.error(`❌ New architecture tool execution failed for "${toolUse.name}":`, error);
-          
-          // Fall back to legacy if enabled
-          if (this.config.enableLegacyFallback && this.legacyRegistry) {
-            logger.debug(`🔄 Falling back to legacy tool execution for "${toolUse.name}"`);
-            return this.legacyRegistry.execute(toolUse);
-          }
-          
-          return {
-            tool_use_id: toolUse.id,
-            content: `Tool execution failed: ${error instanceof Error ? error.message : String(error)}`,
-            is_error: true
-          };
-        }
+        return {
+          tool_use_id: toolUse.id,
+          content: result.success 
+            ? (typeof result.data === 'string' ? result.data : JSON.stringify(result.data, null, 2))
+            : (typeof result.error === 'string' ? result.error : result.error?.message || 'Tool execution failed'),
+          is_error: !result.success
+        };
+      } catch (error) {
+        logger.error(`❌ New architecture tool execution failed for "${toolUse.name}":`, error);
+        return {
+          tool_use_id: toolUse.id,
+          content: `Tool execution failed: ${error instanceof Error ? error.message : String(error)}`,
+          is_error: true
+        };
       }
-    }
-    
-    // Try enhanced registry if available
-    if (this.config.enableEnhancedFeatures && this.enhancedRegistry) {
-      const enhancedTool = this.enhancedRegistry.get(toolUse.name);
-      if (enhancedTool) {
-        logger.debug(`🚀 Executing tool "${toolUse.name}" using enhanced registry`);
-        return this.enhancedRegistry.execute(toolUse.name, toolUse.input, toolUse.id);
-      }
-    }
-    
-    // Fall back to legacy registry
-    if (this.config.enableLegacyFallback && this.legacyRegistry) {
-      logger.debug(`🔄 Executing tool "${toolUse.name}" using legacy registry`);
-      return this.legacyRegistry.execute(toolUse);
     }
     
     // Tool not found
-    const error = `Tool "${toolUse.name}" not found in new architecture or legacy registry`;
+    const error = `Tool "${toolUse.name}" not found in new architecture`;
     logger.error(error);
     return {
       tool_use_id: toolUse.id,
@@ -289,85 +218,50 @@ export class ToolMigrationBridge {
   }
   
   /**
-   * Get all available tools from both systems
+   * Get all available tools from new architecture
    */
   getAllTools(): LegacyToolDefinition[] {
-    const tools: LegacyToolDefinition[] = [];
-    
-    try {
-      // Get tools from new architecture
-      if (this.config.useNewArchitecture) {
-        const newTools = toolAPI.getAllTools() || [];
-        for (const tool of newTools) {
-          tools.push({
-            name: tool.name,
-            description: tool.description,
-            input_schema: tool.parameters as { type: "object"; properties: Record<string, any>; required?: string[] }
-          });
-        }
-      }
-      
-      // Get tools from enhanced registry (avoiding duplicates)
-      if (this.config.enableEnhancedFeatures && this.enhancedRegistry) {
-        const enhancedTools = this.enhancedRegistry.getAll() || [];
-        const existingNames = new Set(tools.map(t => t.name));
-        
-        for (const enhancedTool of enhancedTools) {
-          if (!existingNames.has(enhancedTool.name)) {
-            tools.push(enhancedTool);
-          }
-        }
-      }
-      
-      // Get tools from legacy registry (avoiding duplicates)
-      if (this.config.enableLegacyFallback && this.legacyRegistry) {
-        const legacyTools = this.legacyRegistry.getAll() || [];
-        const existingNames = new Set(tools.map(t => t.name));
-        
-        for (const legacyTool of legacyTools) {
-          if (!existingNames.has(legacyTool.name)) {
-            tools.push(legacyTool);
-          }
-        }
-      }
-    } catch (error) {
-      logger.error('Error getting tools:', error);
-      // Return empty array on error instead of throwing
+    if (!this.initialized) {
+      logger.warn('Tool system not initialized, returning empty array');
+      return [];
     }
     
-    return tools;
+    // Get tools from new architecture only
+    const newTools = toolAPI.getAllTools() || [];
+    
+    return newTools.map((tool: any) => ({
+      name: tool.name,
+      description: tool.description,
+      input_schema: tool.parameters as { type: "object"; properties: Record<string, any>; required?: string[] }
+    }));
   }
   
   /**
-   * Get tool by name from either system
+   * Get a specific tool by name
    */
   getTool(name: string): { definition: LegacyToolDefinition; handler: LegacyToolHandler } | undefined {
-    // Try new architecture first
-    if (this.config.useNewArchitecture) {
-      const tool = toolAPI.getTool(name);
-      if (tool) {
-                  return {
-            definition: {
-              name: tool.name,
-              description: tool.description,
-              input_schema: tool.parameters as { type: "object"; properties: Record<string, any>; required?: string[] }
-            },
-            handler: async (input) => {
-              const result = await tool.execute(input);
-              return {
-                success: result.success,
-                result: result.data,
-                error: result.error ? (typeof result.error === 'string' ? result.error : result.error.message) : undefined,
-                metadata: result.metadata as any
-              };
-            }
-          };
-      }
+    if (!this.initialized) {
+      logger.warn('Tool system not initialized');
+      return undefined;
     }
     
-    // Fall back to legacy
-    if (this.config.enableLegacyFallback && this.legacyRegistry) {
-      return this.legacyRegistry.get(name);
+    const tool = toolAPI.getTool(name);
+    if (tool) {
+      return {
+        definition: {
+          name: tool.name,
+          description: tool.description,
+          input_schema: tool.parameters as { type: "object"; properties: Record<string, any>; required?: string[] }
+        },
+        handler: async (input: Record<string, unknown>) => {
+          const result = await tool.execute(input);
+          return {
+            success: result.success,
+            data: result.data,
+            error: result.error ? (typeof result.error === 'string' ? result.error : result.error.message) : undefined
+          };
+        }
+      };
     }
     
     return undefined;
@@ -377,64 +271,61 @@ export class ToolMigrationBridge {
    * Get execution statistics
    */
   getStats(): Record<string, { count: number; successRate: number; avgTime: number }> {
-    // For now, just return legacy stats if available
-    if (this.legacyRegistry) {
-      return this.legacyRegistry.getStats();
+    // Simplified stats for new architecture only
+    const tools = toolAPI.getAllTools() || [];
+    const stats: Record<string, { count: number; successRate: number; avgTime: number }> = {};
+    
+    for (const tool of tools) {
+      stats[tool.name] = {
+        count: 0, // Tool API doesn't track individual stats yet
+        successRate: 100, // Assume 100% for now
+        avgTime: 0 // Not tracked yet
+      };
     }
     
-    return {};
+    return stats;
   }
   
   /**
    * Clear execution statistics
    */
   clearStats(): void {
-    if (this.legacyRegistry && this.legacyRegistry.clearStats) {
-      this.legacyRegistry.clearStats();
-    }
+    this.executionStats = {
+      newArchitectureUsage: 0,
+      totalExecutions: 0
+    };
+    logger.info('📊 Execution statistics cleared');
   }
   
   /**
-   * Get migration metrics
+   * Get migration metrics (simplified for new architecture only)
    */
   getMigrationMetrics(): {
     newArchitectureUsage: number;
-    legacyFallbackUsage: number;
-    enhancedRegistryUsage: number;
     totalExecutions: number;
   } {
-    // This would track actual usage metrics in a real implementation
-    // For now, return mock data
     return {
-      newArchitectureUsage: 0,
-      legacyFallbackUsage: 0,
-      enhancedRegistryUsage: 0,
-      totalExecutions: 0
+      newArchitectureUsage: this.executionStats.newArchitectureUsage,
+      totalExecutions: this.executionStats.totalExecutions
     };
   }
   
   /**
-   * Update configuration at runtime
+   * Update configuration
    */
   updateConfig(newConfig: Partial<MigrationBridgeConfig>): void {
-    // Validate the configuration
-    if (newConfig.migrationMode && !['gradual', 'legacy-only', 'new-only'].includes(newConfig.migrationMode)) {
-      throw new Error(`Invalid migration mode: ${newConfig.migrationMode}`);
-    }
-
     this.config = { ...this.config, ...newConfig };
-    logger.info('Configuration updated', newConfig);
+    logger.info('🔧 Migration bridge configuration updated');
   }
   
   /**
-   * Execute tool (alias for executeTool for compatibility)
+   * Legacy compatibility method
    */
   async execute(toolUse: ToolUseBlock): Promise<{ success: boolean; result?: any; error?: string }> {
     const result = await this.executeTool(toolUse);
-    
     return {
       success: !result.is_error,
-      result: result.is_error ? undefined : result.content,
+      result: result.content,
       error: result.is_error ? result.content : undefined
     };
   }
@@ -444,7 +335,8 @@ export class ToolMigrationBridge {
    */
   async cleanup(): Promise<void> {
     if (this.mcpToolFactory) {
-      await this.mcpToolFactory.disconnectAllServers();
+      // MCPToolFactory doesn't have cleanup method, so we'll just set it to null
+      this.mcpToolFactory = null;
     }
     
     this.initialized = false;
@@ -452,37 +344,25 @@ export class ToolMigrationBridge {
   }
 }
 
-/**
- * Global migration bridge instance
- */
+// Global tool migration bridge instance
 export const toolMigrationBridge = new ToolMigrationBridge();
 
 /**
- * Initialize the global migration bridge with configuration
+ * Initialize the tool migration bridge with configuration
  */
 export async function initializeToolMigrationBridge(config?: MigrationBridgeConfig): Promise<void> {
   if (config) {
-    // Create new instance with custom config
-    const customBridge = new ToolMigrationBridge(config);
-    await customBridge.initialize();
-    
-    // Replace global instance methods
-    Object.assign(toolMigrationBridge, customBridge);
-  } else {
-    await toolMigrationBridge.initialize();
+    toolMigrationBridge.updateConfig(config);
   }
+  await toolMigrationBridge.initialize();
 }
 
-/**
- * Legacy compatibility exports
- */
+// Legacy compatibility exports
 export const getToolRegistry = () => toolMigrationBridge;
 export const getAllTools = () => toolMigrationBridge.getAllTools();
 export const executeTool = (toolUse: ToolUseBlock) => toolMigrationBridge.executeTool(toolUse);
 export const getToolStats = () => toolMigrationBridge.getStats();
-export const clearToolStats = () => {}; // Not implemented in new architecture yet
+export const clearToolStats = () => toolMigrationBridge.clearStats();
 
-/**
- * New architecture compatibility
- */
+// Alias for registerBuiltInTools compatibility
 export const registerBuiltInTools = () => toolMigrationBridge.initialize(); 

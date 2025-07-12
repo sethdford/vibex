@@ -6,6 +6,6 @@
  */
 
 // Export the full-featured startUI from index.tsx that supports initialContext
-export { startUI, type StartUIOptions } from './index.tsx';
+export { startUI } from './index.tsx';
 // Keep the basic CLIApp for backward compatibility
 export { CLIApp } from './cli-app.tsx';

@@ -40,3 +40,13 @@ export interface HistoryItem {
     toolUseId: string;
   };
 }
+
+export interface SessionStats {
+  startTime: number;
+  messageCount: number;
+  currentResponse: {
+    promptTokenCount: number;
+    candidatesTokenCount: number;
+    totalTokenCount: number;
+  };
+}

@@ -197,3 +197,143 @@ src/
 These rules are MANDATORY and will be enforced in all code reviews and development. 
 Follow Gemini CLI patterns exactly - they represent best practices for CLI architecture.
 NO EXCEPTIONS to these standards. 
+
+# VibeX Cursor Rules - Architectural Enforcement
+
+## CRITICAL: Testing Framework Rules
+- **NEVER use vitest imports** - We use Jest exclusively
+- **ALWAYS import from Jest**: `import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globals'`
+- **NEVER import from 'vitest'** - This causes build failures
+- **Test file imports MUST use .ts/.tsx extensions** - Never import from .js files that don't exist
+- **Jest mocks MUST be properly typed** - Use `jest.Mock<ReturnType, Args[]>` format
+
+## 🚨 MANDATORY TYPESCRIPT COMPILATION RULE
+
+### ZERO TOLERANCE FOR TYPESCRIPT ERRORS
+- **BEFORE ANY COMMIT**: MUST run `npx tsc --noEmit` and achieve ZERO errors
+- **BEFORE ANY TASK COMPLETION**: MUST run `npx tsc --noEmit` and achieve ZERO errors  
+- **BEFORE ANY PULL REQUEST**: MUST run `npx tsc --noEmit` and achieve ZERO errors
+- **NO EXCEPTIONS**: Code with TypeScript errors is not acceptable and cannot be merged
+- **NO PARTIAL IMPLEMENTATIONS**: All code must be complete and compile error-free
+- **NO MOCK IMPLEMENTATIONS**: All interfaces must be fully implemented, no stubs or placeholders
+
+### TYPESCRIPT ERROR RESOLUTION WORKFLOW
+1. **Check Current Status**: Run `npx tsc --noEmit` to see all errors
+2. **Fix Systematically**: Address errors one file at a time, starting with the most critical
+3. **Verify After Each Fix**: Run `npx tsc --noEmit` after each fix to ensure progress
+4. **No Moving Forward**: Do not proceed to new tasks while TypeScript errors exist
+5. **Document Progress**: Track error count reduction (e.g., "567 → 400 → 250 → 0")
+
+### QUALITY GATES ENFORCEMENT
+- **Pre-Commit Hook**: Must pass TypeScript compilation
+- **CI/CD Pipeline**: Must fail builds with TypeScript errors
+- **Code Review**: Cannot approve PRs with TypeScript errors
+- **Task Definition**: "Done" means zero TypeScript errors + working functionality
+
+### TYPESCRIPT COMPILATION TARGETS
+- **Source Files**: All files in `src/` must compile without errors
+- **Test Files**: All files in `tests/` must compile without errors  
+- **Configuration**: tsconfig.json must be strict and enforced
+- **Dependencies**: All external dependencies must have proper type definitions
+
+### EMERGENCY PROTOCOLS
+- **If Blocked by Dependencies**: Add proper type definitions or create declaration files
+- **If Blocked by Complex Types**: Simplify interfaces rather than using `any`
+- **If Blocked by Test Framework**: Fix Jest configuration, never switch to vitest
+- **If Blocked by Legacy Code**: Refactor legacy code to meet TypeScript standards
+
+### SUCCESS METRICS
+- **Current Target**: 567 TypeScript errors → 0 errors
+- **Progress Tracking**: Document error reduction in commit messages
+- **Quality Maintenance**: Maintain zero errors after achieving the target
+- **Performance**: TypeScript compilation must complete under 10 seconds
+
+## Import Path Rules
+- **Source files**: Import from `.ts/.tsx` files in development
+- **Built files**: Only reference `.js` files when importing from dist/
+- **Test files**: Always import from TypeScript source files (.ts/.tsx)
+- **NEVER mix .js and .ts imports** in the same file
+
+## TypeScript Configuration
+- **Source code**: Must compile with zero TypeScript errors
+- **Tests**: Excluded from main TypeScript compilation to prevent blocking builds
+- **Build process**: Must complete under 50ms for startup performance
+
+## Architecture Enforcement
+- **Performance First**: <50ms startup, <40MB runtime, <5MB bundle
+- **Type Safety**: Zero `any` types, no `@ts-ignore` suppressions
+- **Modular Design**: Files <300 lines, functions <30 lines
+- **Error Handling**: Custom UserError with category/resolution/details
+- **No Console Pollution**: Use structured logger, never console.log
+
+## Testing Standards
+- **Framework**: Jest only (configured in jest.config.js)
+- **Environment**: jsdom for React components
+- **Coverage**: Minimum 10% global, aiming for 90%+
+- **Mock Strategy**: Proper Jest mocks with explicit typing
+- **Test Structure**: Describe/test blocks with clear naming
+
+## File Organization
+- **Source**: `src/**/*.ts` and `src/**/*.tsx`
+- **Tests**: `tests/**/*.test.ts` and `tests/**/*.test.tsx`
+- **Built**: `dist/**/*.js` (generated, never edit)
+- **Demos**: Use tsx to run TypeScript directly
+
+## Quality Gates
+- **Pre-commit**: `npm run typecheck && npm run lint && npm run build`
+- **TypeScript**: Zero errors in src/ directory
+- **Linting**: Address critical errors, defer style issues
+- **Build**: Must succeed and produce working CLI
+
+## Import Patterns to AVOID
+```typescript
+// ❌ WRONG - vitest imports
+import { describe, test, expect } from 'vitest';
+
+// ❌ WRONG - .js imports for non-existent files
+import { Component } from './Component.js';
+
+// ❌ WRONG - mixed extensions
+import { utils } from './utils.ts';
+import { helper } from './helper.js';
+```
+
+## Import Patterns to USE
+```typescript
+// ✅ CORRECT - Jest imports
+import { describe, test, expect, jest } from '@jest/globals';
+
+// ✅ CORRECT - TypeScript source imports
+import { Component } from './Component.tsx';
+import { utils } from './utils.ts';
+
+// ✅ CORRECT - Built file imports (only from dist/)
+import { cli } from '../dist/cli.js';
+```
+
+## Emergency Recovery Process
+1. **TypeScript errors**: Exclude problematic directories from tsconfig.json
+2. **Test failures**: Verify Jest configuration and import paths
+3. **Build failures**: Check for mixed .js/.ts import issues
+4. **Performance issues**: Profile startup time and memory usage
+
+## Memory Creation Rules
+- **Document architectural decisions** immediately when made
+- **Record import patterns** and file organization rules
+- **Track performance benchmarks** and quality gates
+- **Note testing framework choices** and configuration
+- **Remember critical debugging steps** for future issues
+
+## Never Repeat These Mistakes
+1. **Mixing testing frameworks** (vitest vs Jest)
+2. **Incorrect import extensions** (.js vs .ts)
+3. **Untyped Jest mocks** causing compilation errors
+4. **Including broken tests** in TypeScript compilation
+5. **Ignoring quality gates** that prevent issues
+
+## Success Metrics
+- **Zero TypeScript errors** in src/ directory
+- **Sub-50ms build times** maintained
+- **Working CLI commands** at all times
+- **Functional demo scripts** with proper imports
+- **Clean test separation** from main compilation 

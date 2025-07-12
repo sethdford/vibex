@@ -139,27 +139,34 @@ export const ToolGroupDisplay: React.FC<ToolGroupDisplayProps> = ({
     }
   }, [onToolExecute]);
 
-  // Placeholder for loading available tools
-  // In a real implementation, this would fetch tools from the registry
+  // REAL tool loading from new architecture - NO MORE MOCKS!
   useEffect(() => {
-    // Simulate loading tools
-    setIsLoading(true);
-    
-    // This should be replaced with actual tool registry access
     const loadTools = async () => {
       try {
-        // Here we would fetch tools from the registry
-        // const registry = await getToolRegistry();
-        // const tools = registry.getAllTools();
+        setIsLoading(true);
+        
+        // Get real tools from new architecture via tool registry
+        const { getAllTools } = await import('../../../tools/index.js');
+        const toolDefinitions = await getAllTools();
+        
+        // Convert tool definitions to Tool objects
+        const tools: Tool[] = toolDefinitions.map((toolDef: any) => ({
+          name: toolDef.name,
+          getMetadata: () => ({
+            name: toolDef.name,
+            description: toolDef.description,
+            namespace: extractNamespace(toolDef.name),
+            tags: extractTags(toolDef.name, toolDef.description)
+          })
+        }));
         
         // Apply filter function if provided
-        // const filtered = filterFunction ? tools.filter(filterFunction) : tools;
+        const filtered = filterFunction ? tools.filter(filterFunction) : tools;
         
-        // For now, just use an empty array
-        const mockTools: Tool[] = [];
-        setAvailableTools(mockTools);
+        setAvailableTools(filtered);
       } catch (error) {
-        console.error('Error loading tools:', error);
+        console.error('❌ Error loading tools from new architecture:', error);
+        setAvailableTools([]);
       } finally {
         setIsLoading(false);
       }
@@ -167,6 +174,41 @@ export const ToolGroupDisplay: React.FC<ToolGroupDisplayProps> = ({
     
     loadTools();
   }, [filterFunction]);
+
+  // Helper functions for tool metadata extraction
+  const extractNamespace = (toolName: string): string => {
+    if (toolName.includes('file') || toolName.includes('read') || toolName.includes('write') || toolName.includes('glob') || toolName.includes('edit')) {
+      return 'filesystem';
+    }
+    if (toolName.includes('web') || toolName.includes('fetch') || toolName.includes('http')) {
+      return 'web';
+    }
+    if (toolName.includes('command') || toolName.includes('exec') || toolName.includes('shell')) {
+      return 'system';
+    }
+    if (toolName.includes('git')) {
+      return 'git';
+    }
+    if (toolName.includes('mcp')) {
+      return 'mcp';
+    }
+    return 'core';
+  };
+
+  const extractTags = (toolName: string, description: string): string[] => {
+    const tags: string[] = [];
+    const text = `${toolName} ${description}`.toLowerCase();
+    
+    if (text.includes('file') || text.includes('read') || text.includes('write')) tags.push('file');
+    if (text.includes('web') || text.includes('http') || text.includes('fetch')) tags.push('web');
+    if (text.includes('command') || text.includes('exec') || text.includes('shell')) tags.push('command');
+    if (text.includes('search') || text.includes('find') || text.includes('glob')) tags.push('search');
+    if (text.includes('git')) tags.push('git');
+    if (text.includes('analyze') || text.includes('analysis')) tags.push('analysis');
+    if (text.includes('screenshot') || text.includes('image')) tags.push('image');
+    
+    return tags.length > 0 ? tags : ['utility'];
+  };
 
   // Show loading state
   if (isLoading) {

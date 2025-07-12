@@ -10,7 +10,7 @@
 [![Node.js Version](https://img.shields.io/node/v/vibex.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-[Installation](#installation) • [Features](#features) • [Usage](#usage) • [Commands](#commands) • [Configuration](#configuration)
+[Installation](#installation) • [Features](#features) • [Usage](#usage) • [Commands](#commands) • [Configuration](#configuration) • [Documentation](./docs/README.md)
 
 </div>
 
@@ -316,6 +316,38 @@ src/
 ├── utils/           # Shared utilities
 └── cli.ts          # Main CLI entry point
 ```
+
+## 📚 Documentation
+
+VibeX includes comprehensive documentation organized by topic and audience:
+
+### 🏗️ Architecture & Design
+- **[System Architecture](./docs/architecture/ARCHITECTURE.md)** - Overall system design and patterns
+- **[Clean Architecture Implementation](./docs/architecture/CLEAN_ARCHITECTURE_REFACTORING.md)** - Clean architecture refactoring details
+- **[Tool System Design](./docs/architecture/tools.md)** - Tool system architecture and patterns
+
+### 🚀 Implementation Guides
+- **[Implementation Summary](./docs/implementation/REFACTORING_SUMMARY.md)** - Complete refactoring summary
+- **[Tool System Implementation](./docs/implementation/TOOL_SYSTEM_IMPLEMENTATION_PLAN.md)** - Tool system implementation plan
+- **[MCP Integration](./docs/implementation/mcp-integration.md)** - Model Context Protocol integration
+
+### 🎨 User Interface
+- **[UI Components](./docs/ui/COMPONENTS.md)** - Component documentation and guidelines
+- **[UI Features](./docs/ui/FEATURES.md)** - Complete feature overview
+- **[Accessibility](./docs/ui/ACCESSIBILITY.md)** - Accessibility guidelines and implementation
+
+### 🧪 Testing
+- **[Testing Strategy](./docs/testing/overall-strategy.md)** - Comprehensive testing approach
+- **[Test Implementation](./docs/testing/implementation-summary.md)** - Test implementation details
+- **[AI Testing](./docs/testing/ai-strategy.md)** - AI-specific testing strategies
+
+### ♻️ Refactoring & Migration
+- **[Refactoring Plans](./docs/refactoring/UI-REFACTORING-PLAN.md)** - UI refactoring roadmap
+- **[Component Consolidation](./docs/refactoring/COMPONENT-CONSOLIDATION-GUIDE.md)** - Component consolidation guide
+- **[Code Analysis](./docs/refactoring/CODE-DUPLICATION-ANALYSIS.md)** - Code duplication analysis
+
+### 📖 Complete Documentation Index
+For a complete overview of all documentation, see **[docs/README.md](./docs/README.md)**
 
 ## 🤝 Contributing
 
